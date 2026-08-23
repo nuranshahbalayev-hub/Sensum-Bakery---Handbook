@@ -76,7 +76,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(160deg,#3a231
   padding:3px 8px;border-radius:10px;color:#fff;text-transform:uppercase}
 .tbadge.hot{background:rgba(197,106,45,.92)} .tbadge.cold{background:rgba(61,132,168,.92)}
 .newr{position:absolute;left:8px;top:8px;background:var(--new);color:#fff;font-size:10px;font-weight:700;
-  letter-spacing:.3px;padding:3px 8px;border-radius:10px;text-transform:uppercase;z-index:2}
+  letter-spacing:.3px;padding:3px 8px;border-radius:10px;z-index:2}
 .kbadge{position:absolute;left:8px;top:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;
   color:#fff;background:rgba(58,35,23,.55);text-transform:uppercase;letter-spacing:.3px}
 .fav{position:absolute;right:6px;top:6px;border:0;background:rgba(255,255,255,.85);border-radius:50%;
@@ -314,7 +314,7 @@ function drinkCard(d){
   const im=img(d.img);
   const ph=im?`<div class="ph"><img loading="lazy" src="${im}" alt=""></div>`
              :`<div class="ph noimg" style="background:linear-gradient(135deg,#b5723a,#8f571f)"><span>${initial(d.name)}</span></div>`;
-  const badge = (changedSet.has(d.id))?`<span class="newr">Обновлено</span>`:`<span class="tbadge ${d.temp}">${d.temp==='hot'?'HOT':'COLD'}</span>`;
+  const badge = (changedSet.has(d.id))?`<span class="newr">${upperLocale(T('lbl_fix'))}</span>`:`<span class="tbadge ${d.temp}">${d.temp==='hot'?'HOT':'COLD'}</span>`;
   return `<div class="card" data-open="${d.id}" role="button" tabindex="0" aria-label="${d.name}">${ph}${badge}
     <button class="fav ${favs.has(d.id)?'on':''}" data-fav="${d.id}" aria-pressed="${favs.has(d.id)}" aria-label="${favLabel(favs.has(d.id))}">${favs.has(d.id)?'★':'☆'}</button>
     <div class="body"><h3 class="serif">${d.name}</h3><div class="meta">${CATS[d.cat]} · ${d.vessel}</div></div></div>`;
@@ -334,7 +334,7 @@ function renderDrinks(){
 }
 /* ---- prep cards ---- */
 function prepCard(p){
-  const badge=(changedSet.has(p.id))?`<span class="newr">Обновлено</span>`:`<span class="kbadge">${KINDS[p.kind]}</span>`;
+  const badge=(changedSet.has(p.id))?`<span class="newr">${upperLocale(T('lbl_fix'))}</span>`:`<span class="kbadge">${KINDS[p.kind]}</span>`;
   return `<div class="card" data-open="${p.id}" role="button" tabindex="0" aria-label="${p.name}">
     <div class="ph noimg" style="background:${KIND_GRAD[p.kind]}"><span style="font-size:42px">${PREP_ICON[p.id]||'✦'}</span></div>
     ${badge}
