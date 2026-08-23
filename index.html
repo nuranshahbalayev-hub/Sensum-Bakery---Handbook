@@ -412,17 +412,27 @@ function openPrep(id){
     </div>`;
   showOverlay();
 }
-let lastActiveEl=null;
+let lastActiveEl=null, scrollLockY=0;
+function lockBodyScroll(){
+  scrollLockY=window.scrollY||document.documentElement.scrollTop||0;
+  const b=document.body.style;
+  b.position='fixed';b.top='-'+scrollLockY+'px';b.left='0';b.right='0';b.width='100%';
+}
+function unlockBodyScroll(){
+  const b=document.body.style;
+  b.position='';b.top='';b.left='';b.right='';b.width='';
+  window.scrollTo(0, scrollLockY);
+}
 function showOverlay(){
   lastActiveEl=document.activeElement;
   const o=document.getElementById('overlay');const sh=document.getElementById('sheet');
   sh.style.transition='';sh.style.transform='';sh.dataset.closing='';
-  o.classList.add('show');sh.scrollTop=0;document.body.style.overflow='hidden';
+  o.classList.add('show');sh.scrollTop=0;lockBodyScroll();
   sh.focus({preventScroll:true});
 }
 function hideOverlay(){
   document.getElementById('overlay').classList.remove('show');
-  document.body.style.overflow='';
+  unlockBodyScroll();
   if(lastActiveEl&&typeof lastActiveEl.focus==='function')lastActiveEl.focus({preventScroll:true});
   lastActiveEl=null;
 }
@@ -511,7 +521,7 @@ document.addEventListener('keydown',e=>{
     if(!tracking||e.pointerId!==pid)return;
     const rawDy=e.clientY-startY;
     if(!dragging){
-      if(rawDy<=4||sheet.scrollTop>0)return;
+      if(rawDy<=4||sheet.scrollTop>1)return;
       dragging=true;
       sheet.classList.add('dragging');
       document.body.style.userSelect='none';
