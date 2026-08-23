@@ -210,7 +210,7 @@ footer.tag{text-align:center;font-size:11px;color:var(--muted);padding:10px 0 4p
 
 <footer class="tag">Sensum &amp; Bakery · <span id="ftxt">внутренний справочник</span></footer>
 
-<div class="overlay" id="overlay"><div class="sheet" id="sheet"><div class="grabzone" id="grabZone"><span class="grabber"></span></div><div id="sheetInner"></div></div></div>
+<div class="overlay" id="overlay"><div class="sheet" id="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="grabzone" id="grabZone"><span class="grabber"></span></div><div id="sheetInner"></div></div></div>
 
 <nav class="tabs">
   <button class="on" data-tab="drinks"><span class="ic">☕</span>Напитки</button>
@@ -231,6 +231,8 @@ let THEME='light'; try{const _t=localStorage.getItem('sensum_theme'); if(_t==='d
 function applyTheme(){ document.documentElement.setAttribute('data-theme', THEME); const b=document.getElementById('themebtn'); if(b)b.textContent = THEME==='dark'?'☀️':'🌙'; }
 function setTheme(t){ THEME=t; try{localStorage.setItem('sensum_theme',t);}catch(e){} applyTheme(); }
 const UISTR=DATA.ui; function T(k){return (UISTR[k]&&(UISTR[k][LANG]||UISTR[k].ru))||k;}
+function favLabel(on){return LANG==='az'?(on?'Seçilmişlərdən çıxar':'Seçilmişlərə əlavə et'):(on?'Убрать из избранного':'Добавить в избранное');}
+function closeLabel(){return LANG==='az'?'Bağla':'Закрыть';}
 let drinks=DATA['drinks_'+LANG], preps=DATA['preps_'+LANG];
 let CATS=DATA['CATS_'+LANG], KINDS=DATA['KINDS_'+LANG];
 const drinkById={}, prepById={};
@@ -313,8 +315,8 @@ function drinkCard(d){
   const ph=im?`<div class="ph"><img loading="lazy" src="${im}" alt=""></div>`
              :`<div class="ph noimg" style="background:linear-gradient(135deg,#b5723a,#8f571f)"><span>${initial(d.name)}</span></div>`;
   const badge = (changedSet.has(d.id))?`<span class="newr">Обновлено</span>`:`<span class="tbadge ${d.temp}">${d.temp==='hot'?'HOT':'COLD'}</span>`;
-  return `<div class="card" data-open="${d.id}">${ph}${badge}
-    <button class="fav ${favs.has(d.id)?'on':''}" data-fav="${d.id}">${favs.has(d.id)?'★':'☆'}</button>
+  return `<div class="card" data-open="${d.id}" role="button" tabindex="0" aria-label="${d.name}">${ph}${badge}
+    <button class="fav ${favs.has(d.id)?'on':''}" data-fav="${d.id}" aria-pressed="${favs.has(d.id)}" aria-label="${favLabel(favs.has(d.id))}">${favs.has(d.id)?'★':'☆'}</button>
     <div class="body"><h3 class="serif">${d.name}</h3><div class="meta">${CATS[d.cat]} · ${d.vessel}</div></div></div>`;
 }
 function drinkMatch(d){
@@ -333,10 +335,10 @@ function renderDrinks(){
 /* ---- prep cards ---- */
 function prepCard(p){
   const badge=(changedSet.has(p.id))?`<span class="newr">Обновлено</span>`:`<span class="kbadge">${KINDS[p.kind]}</span>`;
-  return `<div class="card" data-open="${p.id}">
+  return `<div class="card" data-open="${p.id}" role="button" tabindex="0" aria-label="${p.name}">
     <div class="ph noimg" style="background:${KIND_GRAD[p.kind]}"><span style="font-size:42px">${PREP_ICON[p.id]||'✦'}</span></div>
     ${badge}
-    <button class="fav ${favPreps.has(p.id)?'on':''}" data-favp="${p.id}">${favPreps.has(p.id)?'★':'☆'}</button>
+    <button class="fav ${favPreps.has(p.id)?'on':''}" data-favp="${p.id}" aria-pressed="${favPreps.has(p.id)}" aria-label="${favLabel(favPreps.has(p.id))}">${favPreps.has(p.id)?'★':'☆'}</button>
     <div class="body"><h3 class="serif">${p.name}</h3><div class="meta">${T('lbl_yield').toLowerCase()} ${p.yield} · ${p.shelf}</div></div></div>`;
 }
 function prepMatch(p){
@@ -378,7 +380,7 @@ function openDrink(id){
   const hasPrep=d.ing.some(([n])=>prepFor(n));
   document.getElementById('sheetInner').innerHTML=`${hero}
     <div class="ttl"><h2 class="serif">${d.name}</h2><div class="c">${CATS[d.cat]}</div></div>
-    <button class="close" data-close>×</button></div>
+    <button class="close" data-close aria-label="${closeLabel()}">×</button></div>
     <div class="content">
       <div class="spec">${spec}</div>
       <h4 class="sec">${T('sec_sostav')}</h4>
@@ -399,7 +401,7 @@ function openPrep(id){
   document.getElementById('sheetInner').innerHTML=`
     <div class="hero noimg" style="background:${KIND_GRAD[p.kind]}"><span style="font-size:62px">${PREP_ICON[p.id]||'✦'}</span>
       <div class="ttl"><h2 class="serif">${p.name}</h2><div class="c">${T('prep_word')} · ${KINDS[p.kind]}</div></div>
-      <button class="close" data-close>×</button></div>
+      <button class="close" data-close aria-label="${closeLabel()}">×</button></div>
     <div class="content">
       <div class="spec">${spec}</div>
       ${store}
@@ -410,8 +412,31 @@ function openPrep(id){
     </div>`;
   showOverlay();
 }
-function showOverlay(){const o=document.getElementById('overlay');const sh=document.getElementById('sheet');sh.style.transition='';sh.style.transform='';o.classList.add('show');sh.scrollTop=0;document.body.style.overflow='hidden';}
-function hideOverlay(){document.getElementById('overlay').classList.remove('show');document.body.style.overflow='';}
+let lastActiveEl=null;
+function showOverlay(){
+  lastActiveEl=document.activeElement;
+  const o=document.getElementById('overlay');const sh=document.getElementById('sheet');
+  sh.style.transition='';sh.style.transform='';sh.dataset.closing='';
+  o.classList.add('show');sh.scrollTop=0;document.body.style.overflow='hidden';
+  sh.focus({preventScroll:true});
+}
+function hideOverlay(){
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow='';
+  if(lastActiveEl&&typeof lastActiveEl.focus==='function')lastActiveEl.focus({preventScroll:true});
+  lastActiveEl=null;
+}
+function slideDownAndClose(){
+  const sh=document.getElementById('sheet');
+  if(sh.dataset.closing==='1')return;
+  sh.dataset.closing='1';
+  sh.style.transition='transform .2s ease';
+  sh.style.transform='translateY(100%)';
+  setTimeout(()=>{ hideOverlay(); sh.style.transition=''; sh.style.transform=''; sh.dataset.closing=''; }, 200);
+}
+function closeSheet(){
+  if(document.getElementById('overlay').classList.contains('show'))slideDownAndClose();
+}
 
 /* events */
 document.body.addEventListener('click',e=>{
@@ -423,7 +448,13 @@ document.body.addEventListener('click',e=>{
   if(oi){openItem(oi.dataset.openitem);return;}
   const op=e.target.closest('[data-open]');
   if(op){openItem(op.dataset.open);return;}
-  if(e.target.closest('[data-close]')||e.target.id==='overlay'){hideOverlay();return;}
+  if(e.target.closest('[data-close]')||e.target.id==='overlay'){closeSheet();return;}
+});
+document.body.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const op=e.target.closest('[data-open][role="button"]');
+  if(!op)return;
+  e.preventDefault();openItem(op.dataset.open);
 });
 document.getElementById('tempchips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
   state.temp=b.dataset.temp;document.querySelectorAll('#tempchips .chip').forEach(c=>c.classList.toggle('on',c===b));renderDrinks();});
@@ -452,35 +483,54 @@ document.querySelector('nav.tabs').addEventListener('click',e=>{const b=e.target
   if(state.tab==='changes'){renderChanges();markChangesSeen();}
   setStick(); window.scrollTo(0,0);
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')hideOverlay();});
+document.addEventListener('keydown',e=>{
+  const o=document.getElementById('overlay');
+  if(!o.classList.contains('show'))return;
+  if(e.key==='Escape'){closeSheet();return;}
+  if(e.key==='Tab'){
+    const sh=document.getElementById('sheet');
+    const list=Array.prototype.slice.call(sh.querySelectorAll('button, a[href], input, [tabindex]:not([tabindex="-1"])'));
+    if(!list.length)return;
+    const first=list[0], last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+});
 
-/* drag-to-dismiss (свайп рукой вниз по шапке/грабберу) */
+/* drag-to-dismiss (свайп вниз из любой точки карточки, когда она докручена до верха) */
 (function(){
   const sheet=document.getElementById('sheet');
-  let dragging=false, startY=0, dy=0;
+  let tracking=false, dragging=false, startY=0, dy=0, pid=null;
+  function isInteractive(el){ return !!el.closest('button, a, input, textarea, select, [data-openitem]'); }
   function dragStart(e){
-    const onHandle=e.target.closest('#grabZone');
-    const onHero=e.target.closest('.hero')&&!e.target.closest('.close');
-    if(!onHandle&&!onHero)return;
-    dragging=true; startY=e.clientY; dy=0;
-    sheet.classList.add('dragging');
-    try{ (e.target.closest('#grabZone')||sheet).setPointerCapture(e.pointerId); }catch(err){}
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    if(isInteractive(e.target))return;
+    tracking=true; dragging=false; startY=e.clientY; dy=0; pid=e.pointerId;
   }
   function dragMove(e){
-    if(!dragging)return;
-    dy=e.clientY-startY;
-    if(dy<0)dy=0;
+    if(!tracking||e.pointerId!==pid)return;
+    const rawDy=e.clientY-startY;
+    if(!dragging){
+      if(rawDy<=4||sheet.scrollTop>0)return;
+      dragging=true;
+      sheet.classList.add('dragging');
+      document.body.style.userSelect='none';
+      try{ window.getSelection().removeAllRanges(); }catch(err){}
+      try{ sheet.setPointerCapture(pid); }catch(err){}
+    }
+    dy=Math.max(0, rawDy);
+    e.preventDefault();
     sheet.style.transform='translateY('+dy+'px)';
   }
   function dragEnd(){
+    tracking=false;
+    document.body.style.userSelect='';
     if(!dragging)return;
     dragging=false;
     sheet.classList.remove('dragging');
     const threshold=Math.min(140, sheet.clientHeight*0.28);
     if(dy>threshold){
-      sheet.style.transition='transform .2s ease';
-      sheet.style.transform='translateY(100%)';
-      setTimeout(()=>{ hideOverlay(); sheet.style.transition=''; sheet.style.transform=''; }, 180);
+      slideDownAndClose();
     } else {
       sheet.style.transition='transform .22s cubic-bezier(.2,.8,.2,1)';
       sheet.style.transform='translateY(0)';
@@ -489,7 +539,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')hideOverlay();});
     dy=0;
   }
   sheet.addEventListener('pointerdown', dragStart);
-  sheet.addEventListener('pointermove', dragMove);
+  sheet.addEventListener('pointermove', dragMove, {passive:false});
   sheet.addEventListener('pointerup', dragEnd);
   sheet.addEventListener('pointercancel', dragEnd);
 })();
