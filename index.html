@@ -548,7 +548,13 @@ document.addEventListener('keydown',e=>{
 renderDrinks(); renderPreps(); renderFav();
 </script>
 <script>
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}
+if('serviceWorker' in navigator){
+  let swReloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(swReloaded)return; swReloaded=true; location.reload();
+  });
+  window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});
+}
 
 ;(function(){var b=document.getElementById('langbtn');if(b)b.addEventListener('click',function(){setLang(LANG==='ru'?'az':'ru');});
   var tb=document.getElementById('themebtn');if(tb)tb.addEventListener('click',function(){setTheme(THEME==='dark'?'light':'dark');});
