@@ -1,6 +1,6 @@
 /* Sensum & Bakery — service worker (офлайн-режим)
    При обновлении приложения поднимите номер версии в CACHE, чтобы старый кэш очистился. */
-const CACHE = 'sensum-v1.36';
+const CACHE = 'sensum-v1.37';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable.png', './apple-touch-icon.png'
