@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and a changelog. No framework, no build step — the entire app is one static `index.html` file (~5.2MB, mostly embedded base64 photos) plus a service worker, manifest, and icons. As of v1.76: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 embedded photos.
+Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and a changelog. No framework, no build step — the entire app is one static `index.html` file (~170KB: markup, CSS, JS and all recipe data) plus photos in `images/`, a service worker, manifest, and icons. As of v1.77: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 photos.
 
 ## Commands
 
@@ -14,7 +14,7 @@ There is no build or test tooling — it's plain HTML/CSS/JS. The only check is 
 python3 tools/audit.py
 ```
 
-It reads `DATA` / `IMAGES` / `CHANGELOG` out of `index.html` and checks: RU/AZ parity (same ids, same `ing`/`steps`/`usedin` lengths, same `cat`/`img`), every `cat`/`kind`/allergen key exists in its dictionary, every `img` exists in `IMAGES`, every prep `trig` actually occurs in the ingredients of the items in its `usedin` (both languages), promo and changelog ids resolve, and `APP_VERSION` matches `sw.js` `CACHE`. Exit code 1 means a real problem (**run it before every push that touches `index.html`**); `WARN` lines are advisory (e.g. vitrina items without a photo fall back to an icon, and promo gift-drink choices are plain names, not ids). To preview locally:
+It reads `DATA` / `IMAGES` / `CHANGELOG` out of `index.html` and checks (photo files exist and their filename hash matches the content, leftover files in `images/` are reported): RU/AZ parity (same ids, same `ing`/`steps`/`usedin` lengths, same `cat`/`img`), every `cat`/`kind`/allergen key exists in its dictionary, every `img` exists in `IMAGES`, every prep `trig` actually occurs in the ingredients of the items in its `usedin` (both languages), promo and changelog ids resolve, and `APP_VERSION` matches `sw.js` `CACHE`. Exit code 1 means a real problem (**run it before every push that touches `index.html`**); `WARN` lines are advisory (e.g. vitrina items without a photo fall back to an icon, and promo gift-drink choices are plain names, not ids). To preview locally:
 
 ```bash
 python3 -m http.server 8000
@@ -31,20 +31,22 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 - `index.html` — everything: markup, one `<style>` block, and three `<script>` blocks (an inline theme-flash guard in `<head>`, the main app script with `IMAGES`/`DATA`/`CHANGELOG` and all logic, and the service-worker registration at the end). Line numbers drift constantly — search by function name instead.
 - `sw.js` — service worker (offline cache + update handling).
 - `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` — PWA metadata.
+- `images/` — all photos, `<key>.<hash>.webp`, longest side ≤1000px.
 - `tools/audit.py` — the data audit described above.
+- `tools/photo.py` — add/replace a photo (needs Pillow): `python3 tools/photo.py <key> <source-image>`. Converts to WebP, writes `images/<key>.<hash>.webp`, deletes the key's old file and updates `IMAGES` in `index.html`. **Always use it instead of dropping files into `images/` by hand.** A new drink/vitrina item uses the same key as its `img` field.
 
 ## Architecture
 
 ### Data is embedded, not fetched
 
-`index.html`'s main `<script>` opens with two large single-line literals:
+`index.html`'s main `<script>` opens with two single-line literals:
 
-- `IMAGES` — `{key: "data:image/jpeg;base64,..."}` map, 82 photos.
+- `IMAGES` — `{key: "images/<key>.<hash>.webp"}` map; `img(key)` returns the path and every render site uses it as `<img src>`. Photos are separate WebP files in `images/`, **not** embedded. The 8-hex-char hash in the filename is the SHA-1 of the file content: because the service worker serves photos cache-first, a swapped photo must get a new URL or installed apps would keep showing the old one.
 - `DATA` — every list/dictionary exists as an `_ru` / `_az` pair: `drinks`, `preps`, `vitrina`, `promos` (lists) and `CATS`, `KINDS`, `VCATS` (vitrina categories), `ALG` (allergen names) (dictionaries). `ui` is the single RU/AZ string table read through `T(key)`.
   - Vitrina items: `{id, name, cat, img?, desc, alg:{has:[…], may:[…]}, anote, tags}`. Allergens are derived from the composition; `anote` is the free-text caution (e.g. sauce usually contains X). `img` is optional — cards fall back to `VIT_ICON[id]` / `VIT_CAT_ICON[cat]`.
   - Promos: `{id, icon, name, sub, price, days[0–6], from, to, parts:[{title, ids, extra}], …}`; `promoStatus()` decides whether a promo is active now.
 
-Both are compact JSON on a single very long line. Don't `grep`/`Read` that line directly — it's several hundred KB. Extract it with a small Python script (find the `DATA={` / `IMAGES={` offset, bracket-match to the closing `}`, `json.loads`) when you need to inspect entries, and do targeted string replacement in `index.html` for edits rather than round-tripping the whole blob.
+`DATA` is compact JSON on a single very long line (~150KB). Don't `grep`/`Read` that line directly. Extract it with a small Python script (find the `DATA={` offset, bracket-match to the closing `}`, `json.loads` — `tools/audit.py` has an `extract()` helper) when you need to inspect entries, and do targeted string replacement in `index.html` for edits rather than round-tripping the whole blob.
 
 `APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The Changes tab renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
 
@@ -72,11 +74,11 @@ Swipe-to-dismiss (`dragStart`/`dragMove`/`dragEnd` near the bottom of the script
 
 ### Service worker
 
-`sw.js` is network-first for document/navigation requests (so `index.html` is always fetched fresh when online, falling back to cache offline) and cache-first for everything else. Because this app is added-to-homescreen on real devices, the registration script also reloads the page once on `controllerchange` — otherwise an already-open/installed instance can sit on stale JS indefinitely even after a successful deploy, since `clients.claim()` alone doesn't refresh content already on screen.
+`sw.js` is network-first for document/navigation requests (so `index.html` is always fetched fresh when online, falling back to cache offline) and cache-first for everything else. Photos live in their own cache, `sensum-img`, which is **not** wiped when `CACHE` is bumped: on install the worker reads `index.html`, extracts every `images/*.webp` path, downloads the missing ones (so the whole handbook works offline) and deletes cached photos no longer referenced. Bumping `CACHE` therefore re-downloads only the small app shell, not the photos. Because this app is added-to-homescreen on real devices, the registration script also reloads the page once on `controllerchange` — otherwise an already-open/installed instance can sit on stale JS indefinitely even after a successful deploy, since `clients.claim()` alone doesn't refresh content already on screen.
 
 ## Conventions worth knowing before editing recipe data
 
 - **Espresso shots:** double shot = 18 g dose → 36 g yield (`["Эспрессо (двойной)","36 г"]`); single shot = 18 g output as half of a double pull (`["Эспрессо (одинарный)","18 г"]`, note "половина дабл-пролива" / AZ "dabl çəkimin yarısı").
 - **Powder naming:** RU "Паудер <Name>" / AZ "<Name> paudəri" (e.g. "Паудер Elizabeta" / "Elizabeta paudəri").
-- **Images:** `.card .ph{aspect-ratio:1/1}` and `.hero{aspect-ratio:16/10}`, both `object-fit:cover` — CSS crops at display time, so a new source photo doesn't need to be pre-cropped to a fixed ratio before embedding; a portrait photo can be center-cropped ~3:4 and a landscape one just resized, both read fine through `cover`.
+- **Images:** `.card .ph{aspect-ratio:1/1}` and `.hero{aspect-ratio:16/10}`, both `object-fit:cover` — CSS crops at display time, so a new source photo doesn't need to be pre-cropped to a fixed ratio before adding it with `tools/photo.py`; a portrait photo can be center-cropped ~3:4 and a landscape one just resized, both read fine through `cover`.
 - **Data source of truth:** never invent or guess a recipe change — it always comes from the project owner's explicit instruction (text, voice note, or photo of a handwritten recipe).
