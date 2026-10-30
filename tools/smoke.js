@@ -71,6 +71,20 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { SPOTLIGHT[0].end = '2000-01-02'; renderDrinks(); });
   check(await page.locator('#spot-drinks .spot').count() === 0, 'spotlight banner disappears after its end date');
 
+  /* promo row: active ones first, inactive ones last, at three times of a weekday and on a Sunday */
+  const order = await page.evaluate(() => {
+    const RealDate = Date, out = [], R = { now: 0, later: 1, ended: 2, day: 2 };
+    for (const t of ['2026-11-02T09:00', '2026-11-02T13:00', '2026-11-02T18:30', '2026-11-08T10:00']) {
+      window.Date = class extends RealDate { constructor(...a) { super(...(a.length ? a : [t])); } };
+      renderPromos();
+      const ks = [...document.querySelectorAll('#promos-drinks .promo')].map(e => R[promoStatus(promos.find(p => p.id === e.dataset.promo)).k]);
+      out.push(ks.length === promos.length && ks.every((k, i) => !i || ks[i - 1] <= k));
+    }
+    window.Date = RealDate; renderPromos();
+    return out;
+  });
+  check(order.every(Boolean), 'promos: active first, inactive last');
+
   /* a vitrina item with facts from the menu sheet: weight, storage, shelf life, nutrition */
   const vitSheet = async () => {
     await page.click('nav.tabs button[data-tab="vitrina"]');
