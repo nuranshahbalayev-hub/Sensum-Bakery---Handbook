@@ -4,11 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, favorites, and a changelog. No framework, no build step — the entire app is one static `index.html` file (~3.3MB, mostly embedded base64 photos) plus a service worker, manifest, and icons.
+Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and a changelog. No framework, no build step — the entire app is one static `index.html` file (~5.2MB, mostly embedded base64 photos) plus a service worker, manifest, and icons. As of v1.76: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 embedded photos.
 
 ## Commands
 
-There is no build, lint, or test tooling — it's plain HTML/CSS/JS. To preview locally:
+There is no build or test tooling — it's plain HTML/CSS/JS. The only check is the data audit script (stdlib Python, no install):
+
+```bash
+python3 tools/audit.py
+```
+
+It reads `DATA` / `IMAGES` / `CHANGELOG` out of `index.html` and checks: RU/AZ parity (same ids, same `ing`/`steps`/`usedin` lengths, same `cat`/`img`), every `cat`/`kind`/allergen key exists in its dictionary, every `img` exists in `IMAGES`, every prep `trig` actually occurs in the ingredients of the items in its `usedin` (both languages), promo and changelog ids resolve, and `APP_VERSION` matches `sw.js` `CACHE`. Exit code 1 means a real problem (**run it before every push that touches `index.html`**); `WARN` lines are advisory (e.g. vitrina items without a photo fall back to an icon, and promo gift-drink choices are plain names, not ids). To preview locally:
 
 ```bash
 python3 -m http.server 8000
@@ -18,13 +24,14 @@ then open `http://localhost:8000/index.html`.
 
 Deploying is `git push` to `main` — GitHub Pages (legacy build, serving the repo root of `main`) rebuilds automatically in about a minute. Live at https://nuranshahbalayev-hub.github.io/Sensum-Bakery---Handbook/.
 
-**Before every push that changes `index.html`, bump `CACHE` in `sw.js`** (e.g. `sensum-v1.26` → `.27`) and `APP_VERSION` inside `index.html`. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
+Pushes go to a feature branch and are merged to `main` by the owner (pull request). **Before every push that changes `index.html`, bump `CACHE` in `sw.js`** (e.g. `sensum-v1.26` → `.27`) and `APP_VERSION` inside `index.html`. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
 
 ## File map
 
-- `index.html` — everything: markup, CSS (`<style>`, lines ~16–148), and all JS (`<script>`, lines ~222–559).
+- `index.html` — everything: markup, one `<style>` block, and three `<script>` blocks (an inline theme-flash guard in `<head>`, the main app script with `IMAGES`/`DATA`/`CHANGELOG` and all logic, and the service-worker registration at the end). Line numbers drift constantly — search by function name instead.
 - `sw.js` — service worker (offline cache + update handling).
 - `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` — PWA metadata.
+- `tools/audit.py` — the data audit described above.
 
 ## Architecture
 
@@ -32,12 +39,14 @@ Deploying is `git push` to `main` — GitHub Pages (legacy build, serving the re
 
 `index.html`'s main `<script>` opens with two large single-line literals:
 
-- `IMAGES` — `{key: "data:image/jpeg;base64,..."}` map, ~50+ photos.
-- `DATA` — `{drinks_ru, drinks_az, preps_ru, preps_az, CATS_ru, CATS_az, KINDS_ru, KINDS_az, ui}`. `ui` is the RU/AZ string table read through `T(key)`.
+- `IMAGES` — `{key: "data:image/jpeg;base64,..."}` map, 82 photos.
+- `DATA` — every list/dictionary exists as an `_ru` / `_az` pair: `drinks`, `preps`, `vitrina`, `promos` (lists) and `CATS`, `KINDS`, `VCATS` (vitrina categories), `ALG` (allergen names) (dictionaries). `ui` is the single RU/AZ string table read through `T(key)`.
+  - Vitrina items: `{id, name, cat, img?, desc, alg:{has:[…], may:[…]}, anote, tags}`. Allergens are derived from the composition; `anote` is the free-text caution (e.g. sauce usually contains X). `img` is optional — cards fall back to `VIT_ICON[id]` / `VIT_CAT_ICON[cat]`.
+  - Promos: `{id, icon, name, sub, price, days[0–6], from, to, parts:[{title, ids, extra}], …}`; `promoStatus()` decides whether a promo is active now.
 
 Both are compact JSON on a single very long line. Don't `grep`/`Read` that line directly — it's several hundred KB. Extract it with a small Python script (find the `DATA={` / `IMAGES={` offset, bracket-match to the closing `}`, `json.loads`) when you need to inspect entries, and do targeted string replacement in `index.html` for edits rather than round-tripping the whole blob.
 
-`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The Changes tab renders `CHANGELOG` directly. Unseen entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
+`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The Changes tab renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
 
 ### Clickable prep links (`trig`)
 
