@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and a changelog. No framework, no build step — the entire app is one static `index.html` file (~170KB: markup, CSS, JS and all recipe data) plus photos in `images/`, a service worker, manifest, and icons. As of v1.77: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 photos.
+Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and an «Ещё» tab holding the changelog and the training section («Обучение»: flashcards and quizzes generated from the recipe data, with quiz results sent to the training manager's Google Sheet and Telegram). No framework, no build step — the entire app is one static `index.html` file (~210KB: markup, CSS, JS and all recipe data) plus photos in `images/`, a service worker, manifest, and icons. As of v1.78: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 photos.
 
 ## Commands
 
@@ -34,6 +34,7 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 - `images/` — all photos, `<key>.<hash>.webp`, longest side ≤1000px.
 - `tools/audit.py` — the data audit described above.
 - `tools/photo.py` — add/replace a photo (needs Pillow): `python3 tools/photo.py <key> <source-image>`. Converts to WebP, writes `images/<key>.<hash>.webp`, deletes the key's old file and updates `IMAGES` in `index.html`. **Always use it instead of dropping files into `images/` by hand.** A new drink/vitrina item uses the same key as its `img` field.
+- `tools/apps-script/Code.gs` — the Google Apps Script bound to the training manager's results sheet (see "Training results" below). It is a copy kept here for history and review; the running version lives in the sheet's Apps Script editor. `node tools/apps-script/test.js` runs it against in-memory mocks of the Apps Script services.
 
 ## Architecture
 
@@ -48,7 +49,7 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 
 `DATA` is compact JSON on a single very long line (~150KB). Don't `grep`/`Read` that line directly. Extract it with a small Python script (find the `DATA={` offset, bracket-match to the closing `}`, `json.loads` — `tools/audit.py` has an `extract()` helper) when you need to inspect entries, and do targeted string replacement in `index.html` for edits rather than round-tripping the whole blob.
 
-`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The Changes tab renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
+`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The «Изменения» screen (under the «Ещё» tab) renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section), `sensum_learn` (training: see below). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
 
 ### Clickable prep links (`trig`)
 
@@ -71,6 +72,28 @@ Azerbaijani has dotted İ/i vs dotless I/ı, which native `.toUpperCase()` / CSS
 `openDrink(id)`/`openPrep(id)` (dispatched via `openItem(id)`) build the detail markup into `#sheetInner` and call `showOverlay()`. Closing always funnels through `hideOverlay()` / `closeSheet()` / `slideDownAndClose()` — there are four independent close triggers (✕ button, backdrop tap, Escape, swipe-down) kept on one shared path so animation, focus restoration, and body-scroll-unlock stay in sync. Route any new way of closing the sheet through `closeSheet()`.
 
 Swipe-to-dismiss (`dragStart`/`dragMove`/`dragEnd` near the bottom of the script) only arms once `sheet.scrollTop<=1` — deliberately gated so it doesn't fight the sheet's own internal scrolling on long recipes. Body scroll is locked with `position:fixed` + a saved `scrollY` (`lockBodyScroll`/`unlockBodyScroll`), not `overflow:hidden` — the latter doesn't reliably block touch scroll on mobile and lets the grid behind the sheet scroll while the user tries to swipe.
+
+### The «Ещё» tab and its sub-screens
+
+The fifth nav tab is `more`. `switchTab()` knows seven views (`VIEWS`): the five tabs plus `changes` and `learn`, which `NAV_OF` maps to the `more` button so it stays highlighted while a sub-screen is open. The hub (`renderMore()`) shows one tile per sub-screen; each sub-screen has a `.subbar` with a back button (`data-gotab="more"`). The unseen-changes dot (`#changesdot`) sits on the «Ещё» button.
+
+### Training (Обучение)
+
+- **Questions are generated, not stored.** `buildQuiz()` takes items from `learnItems()` (drinks filtered by category, or preps by kind; items without `ing` are skipped) and calls the generators in `GEN`: `dose`, `comp`, `photo`, `vessel` for drinks; `dose`, `comp`, `shelf`, `used`, `storage` for preps. A recipe edit changes the questions automatically; there is no question bank to maintain.
+- **Distractor rules to keep when touching the generators:** dose distractors prefer real doses of the same ingredient elsewhere, then rounded multiples (`niceNum`); `comp` never offers an ingredient whose first word matches one of the item's own; `photo` never offers a drink with the identical photo file (the Raf drinks share one photo); `used` never offers a drink that mentions the prep in its ingredients, even if `usedin` forgot it. Doses parse only `N г|мл|шт|q|ml|əd` (`QRX`); decor lines (`декор`/`dekor`) are skipped.
+- **Flashcards** keep a Leitner box per item in `sensum_learn.box` (keys `d:<id>` / `p:<id>`): «Знаю» +1 (max 5), «Повторить» resets to 0 and re-queues the card once. An item counts as learned at box ≥ 2, and a wrong quiz answer resets its box to 0.
+- A language switch returns the training to its home screen (`learnLangChanged()`), since questions are generated in the current language.
+- Training strings live in `DATA.ui` like every other UI string (keys such as `learn_title`, `q_dose`, `id_title`, `send_sent`); `LT(key, vars)` fills `{placeholders}`.
+
+### Training results: Google Sheet, Apps Script, Telegram
+
+- `RESULTS_URL` (top of the training code) is the `/exec` URL of the Apps Script web app bound to the sheet «Sensum Обучение: результаты тестов» in the owner's Google Drive (folder «Sensum Обучение»). An empty string turns sending off, and tests then run without an employee code.
+- Employees log in once with their 4-digit code from the sheet's «Сотрудники» tab (`GET ?action=whoami&code=…` returns `{ok, name, branch}`); the login is stored in `sensum_learn.me`. With `RESULTS_URL` set a quiz cannot start without a login (flashcards can), and the quiz header shows who is logged in.
+- A finished quiz goes into `sensum_learn.outbox`; `flushOutbox()` POSTs it as `text/plain` JSON (`{id, code, scope, score, total, mistakes:[{q,a,c}], lang, ver, ts}`). `text/plain` keeps it a CORS simple request, which Apps Script answers without a preflight. Offline results stay in the outbox and are retried on app start, on `online` and when the page becomes visible. The script ignores a repeated `id`; `unknown_code` drops the item and logs the employee out.
+- The script appends the row to «Результаты» (per-row formulas for % and pass/fail against the named range `PassThreshold`), sends a Telegram message at once when the score is below the threshold, a 24-hour digest daily at `DigestHour`, and on Mondays at `WeeklyHour` a weekly report including who hasn't taken a test in 7 days. Thresholds and hours live on the sheet's «Настройки» tab. The bot token and chat id live in the script's properties (set from the sheet's «Sensum» menu), never in the sheet or this repo.
+- **Employee names and codes never go into this repo or `index.html`**: the repo and the GitHub Pages site are public. They live only in the private sheet.
+- **Changing the script:** edit `tools/apps-script/Code.gs` and run `node tools/apps-script/test.js`; the owner then pastes it into the sheet's Apps Script editor and publishes it with **Deploy → Manage deployments → edit (pencil) → Version: New version → Deploy**. That keeps the same `/exec` URL; «New deployment» would create a new URL, and `RESULTS_URL` would have to change with it.
+- The sheet's locale is en_GB on purpose: formulas written by the script and through the Sheets API use comma separators, which a ru_RU locale rejects.
 
 ### Service worker
 
