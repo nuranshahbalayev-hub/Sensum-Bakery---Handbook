@@ -63,7 +63,8 @@ const server = http.createServer((req, res) => {
   await page.click('#langbtn');
 
   const gen = await page.evaluate(() => {
-    let bad = 0, total = 0;
+    let bad = 0, total = 0, samePhoto = 0;
+    const photo = k => (IMAGES[k] || '').split('.').slice(-2, -1)[0]; /* content hash from images/<key>.<hash>.webp */
     for (const lang of ['ru', 'az']) {
       setLang(lang);
       for (const scope of ['drinks', 'preps']) {
@@ -71,13 +72,19 @@ const server = http.createServer((req, res) => {
         for (let i = 0; i < 40; i++) for (const q of buildQuiz(learnItems())) {
           total++;
           if (q.opts.length !== 4 || new Set(q.opts).size !== 4 || !q.opts.includes(q.correct) || q.opts.some(o => !o || /undefined|NaN/.test(o))) bad++;
+          /* a photo question must not offer another drink that shows the very same picture */
+          if (q.type === 'photo') {
+            const h = photo(drinkById[q.id].img);
+            if (q.opts.some(o => o !== q.correct && drinks.some(d => d.name === o && photo(d.img) === h))) samePhoto++;
+          }
         }
       }
     }
     setLang('ru'); L.scope = 'drinks';
-    return { bad, total };
+    return { bad, total, samePhoto };
   });
   check(gen.total > 0 && gen.bad === 0, `quiz generator: ${gen.total} questions, ${gen.bad} broken`);
+  check(gen.samePhoto === 0, `photo questions: ${gen.samePhoto} offer a drink with the same photo`);
 
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');
