@@ -115,6 +115,14 @@ The fifth nav tab is `more`. `switchTab()` knows seven views (`VIEWS`): the five
 
 `sw.js` is network-first for document/navigation requests (so `index.html` is always fetched fresh when online, falling back to cache offline) and cache-first for everything else. Photos live in their own cache, `sensum-img`, which is **not** wiped when `CACHE` is bumped: on install the worker reads `index.html`, extracts every `images/*.webp` path, downloads the missing ones (so the whole handbook works offline) and deletes cached photos no longer referenced. Bumping `CACHE` therefore re-downloads only the small app shell, not the photos. Because this app is added-to-homescreen on real devices, the registration script also reloads the page once on `controllerchange` — otherwise an already-open/installed instance can sit on stale JS indefinitely even after a successful deploy, since `clients.claim()` alone doesn't refresh content already on screen.
 
+### Design tokens (UI)
+
+The `:root` block of the `<style>` holds the colours (light; `[data-theme="dark"]` overrides them) and the design tokens; new CSS uses the tokens, not raw numbers:
+- **Type scale** after the iOS text styles: `--fs-c2` 11 · `--fs-c1` 12 · `--fs-fn` 13 · `--fs-sub` 15 · `--fs-callout` 16 · `--fs-body` 17 · `--fs-t3` 20 · `--fs-t2` 22 · `--fs-t1` 28 px. Nothing readable goes below 11 px; raw px stays only for icons, emoji and display numbers. Text inputs are 16 px (smaller ones make iOS zoom in on focus).
+- **Spacing** `--sp-1…--sp-8` (4-pt grid: 4, 8, 12, 16, 20, 24, 32), **radii** `--r-sm` 10 · `--r-md` 12 · `--r-lg` 16 · `--r-xl` 20 (sheets) · `--r-pill`, **tap target** `--tap` 44 px (Apple HIG): small round buttons get an invisible `::after` hit area instead of growing; chips and segmented buttons are at least 36 px.
+- **Contrast**: `--muted` and the badge colours `--b-fix/news/hot/cold/ok/new` (white text on them) are tuned to WCAG AA 4.5:1 in both themes; check a new colour pair before using it for small text.
+- Buttons and inputs inherit the app font (`button,input…{font:inherit}` reset); don't write `font: … inherit` shorthands — `inherit` isn't allowed inside the shorthand and the whole declaration is dropped.
+
 ## Conventions worth knowing before editing recipe data
 
 - **Espresso shots:** double shot = 18 g dose → 36 g yield (`["Эспрессо (двойной)","36 г"]`); single shot = 18 g output as half of a double pull (`["Эспрессо (одинарный)","18 г"]`, note "половина дабл-пролива" / AZ "dabl çəkimin yarısı").
