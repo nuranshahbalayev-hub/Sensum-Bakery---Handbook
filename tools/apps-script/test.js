@@ -164,6 +164,7 @@ noChat.api.testNotify(); assert.ok(noChat.alerts[0].startsWith('Не получ�
 const h = env({ notifyAll: false });
 h.post({ id: 'h1', code: '9001', scope: 'Напитки', score: 9, total: 10, secs: 130, timeouts: 1, away: 0, aborted: false });
 assert.deepStrictEqual(h.results.data[1].slice(13), ['2:10', 1, 0, '']); assert.strictEqual(h.results.formats['2:14'], '@');
+assert.strictEqual(h.results.formats['2:12'], '@', 'app version kept as text');
 assert.strictEqual(h.sent.length, 0, 'clean pass stays quiet when only fails are notified');
 h.post({ id: 'h2', code: '9002', scope: 'Напитки', score: 9, total: 10, secs: 95, timeouts: 0, away: 2, aborted: false });
 assert.strictEqual(h.sent.length, 1, 'leaving the app is always reported');

@@ -83,6 +83,7 @@ function doPost(e) {
     const row = sh.getLastRow() + 1;
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
     sh.getRange(row, 2).setNumberFormat('@');
+    sh.getRange(row, 12).setNumberFormat('@');  // app version «1.80» stays text, not the number 1.8
     sh.getRange(row, 14).setNumberFormat('@');  // «2:10» stays text, not a time of day
     sh.getRange(row, 1, 1, RESULT_COLS).setValues([[
       takenAt_(d.ts), staff.code, staff.name, staff.branch, cell_(scope), score, total,
