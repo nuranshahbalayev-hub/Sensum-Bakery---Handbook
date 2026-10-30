@@ -14,8 +14,8 @@ function makeSheet(rows, maxRows) {
     appendRow(row) { data.push(row.slice()); },
     setFrozenRows() {},
     getRange(r, c, nr = 1, nc = 1) {
-      if (typeof r === 'string') return { insertCheckboxes() { sh.checkboxes = r; } };
       return {
+        insertCheckboxes() { (sh.checkboxes = sh.checkboxes || []).push(r + ':' + c); return this; },
         getValues() { const out = []; for (let i = 0; i < nr; i++) { const row = []; for (let j = 0; j < nc; j++) row.push(((data[r - 1 + i] || [])[c - 1 + j]) ?? ''); out.push(row); } return out; },
         setValues(v) { v.forEach((row, i) => { while (data.length < r + i) data.push([]); row.forEach((x, j) => { data[r - 1 + i][c - 1 + j] = x; }); }); },
         setNumberFormat(f) { sh.formats[r + ':' + c] = f; return this; },
@@ -159,9 +159,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.1'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.1');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -223,8 +223,22 @@ assert.strictEqual(gr.xp, 0, 'only the first 5 tests of a day give XP');
 assert.deepStrictEqual(gr.owls, [{ why: 'Тест на 90%+', n: 1 }], 'but the first clean 90%+ test of the day still earns its owl');
 const ledger = g.sheets['Совы'];
 assert.deepStrictEqual(ledger.data[0], ['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']);
-assert.strictEqual(ledger.checkboxes, 'G2:G2000');
 assert.strictEqual(ledger.data.length, 1 + 4, 'four owl rows so far');
+assert.deepStrictEqual(ledger.checkboxes, ['2:7', '3:7', '4:7', '5:7'], 'a checkbox in each owl row');
+assert.strictEqual(ledger.formats['2:2'], '@', 'code kept as text');
+// the real «Совы» sheet had unticked checkboxes down to row 1000: owls must still go right under the header
+const pre = env({ notifyAll: false, now: NOW });
+const preRows = [['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']];
+for (let i = 0; i < 999; i++) preRows.push(['', '', '', '', '', '', false, '']);
+pre.sheets['Совы'] = makeSheet(preRows);
+pre.post({ id: 'p1', code: '9002', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, ts: at(0, 9) });
+const preSh = pre.sheets['Совы'];
+assert.strictEqual(preSh.data[1][1], '9002', 'first owl goes to row 2, not under the checkboxes');
+assert.strictEqual(preSh.data.length, 1000, 'nothing appended below row 1000');
+assert.deepStrictEqual(preSh.checkboxes, ['2:7']);
+pre.post({ id: 'p2', code: '9001', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, ts: at(0, 10) });
+assert.strictEqual(preSh.data[2][1], '9001', 'the next one right under it');
+assert.strictEqual(JSON.parse(pre.api.doGet({ parameter: { action: 'me', code: '9002' } }).text).owlsMonth, 1, 'owls read back from the ledger');
 // monthly cap
 const cap = env({ notifyAll: false, now: NOW });
 cap.post({ id: 'c1', code: '9003', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(2) });  // +1, creates «Совы»

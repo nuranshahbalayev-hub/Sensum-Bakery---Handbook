@@ -28,7 +28,7 @@ const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Вых
 const KINDS = ['drinks', 'preps', 'exam', 'mix'];  // R: what the test was about; exam = «Экзамен месяца»
 const OWLS_MONTH_CAP = 50;
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5';
+const SCRIPT_VERSION = 'v5.1';
 
 /* ---------- меню в таблице ---------- */
 
@@ -396,10 +396,33 @@ function awardOwls_(staff, self, mine) {
     give('week:' + week, 'Учебная неделя', 2);
   }
   if (out.length) {
-    const sh = owlsSheet_();
-    out.forEach(o => sh.appendRow([self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key]));
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      const sh = owlsSheet_();
+      let row = nextRow_(sh);
+      out.forEach(o => {
+        if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+        sh.getRange(row, 2).setNumberFormat('@');
+        sh.getRange(row, 1, 1, 8).setValues([[self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key]]);
+        sh.getRange(row, 7).insertCheckboxes();
+        row++;
+      });
+    } finally {
+      lock.releaseLock();
+    }
   }
   return out.map(o => ({ why: o.why, n: o.n }));
+}
+
+/* the row under the last filled date: unticked checkboxes further down count as content for getLastRow() */
+function nextRow_(sh) {
+  const last = sh.getLastRow();
+  if (last < 2) return 2;
+  const a = sh.getRange(1, 1, last, 1).getValues();
+  let n = last;
+  while (n > 1 && String(a[n - 1][0]).trim() === '') n--;
+  return n + 1;
 }
 
 function owlsSheet_() {
@@ -408,7 +431,6 @@ function owlsSheet_() {
   if (!sh) {
     sh = ss.insertSheet(SHEET_OWLS);
     sh.getRange(1, 1, 1, 8).setValues([['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']]);
-    sh.getRange('G2:G2000').insertCheckboxes();
     sh.setFrozenRows(1);
   }
   return sh;
