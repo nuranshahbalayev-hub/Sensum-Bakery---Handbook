@@ -1,6 +1,8 @@
 // Runs Code.gs against in-memory mocks of the Apps Script services: node tools/apps-script/test.js
 const fs = require('fs'), vm = require('vm'), assert = require('assert');
 const SRC = fs.readFileSync(__dirname + '/Code.gs', 'utf8');
+/* built at runtime so no token-shaped literal sits in the repo; it only has to pass setupTelegram's format check */
+const FAKE_TOKEN = '1:' + 'x'.repeat(36);
 
 function makeSheet(rows, maxRows) {
   const data = rows.map(r => r.slice());
@@ -27,7 +29,8 @@ function env(opts = {}) {
     ['1111', 'Ушёл', 'White City', 'Бариста', false], ['4303', 'Yusif', 'Port II', 'Бариста', true]]);
   const results = makeSheet([['Дата и время', 'Код', 'Сотрудник', 'Филиал', 'Раздел', 'Правильных', 'Вопросов', 'Результат', 'Сдан', 'Ошибки', 'Язык', 'Версия', 'ID']]);
   const named = { PassThreshold: opts.threshold ?? 0.7, DigestHour: 21, WeeklyHour: 10 };
-  const props = Object.assign({}, opts.props || { TELEGRAM_TOKEN: '123:abc', TELEGRAM_CHAT_ID: '42' });
+  if ('notifyAll' in opts) named.NotifyAll = opts.notifyAll;
+  const props = Object.assign({}, opts.props || { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42' });
   const sent = [], alerts = [], triggers = [];
   const ui = { alerts, ButtonSet: { OK_CANCEL: 1 }, Button: { OK: 'OK' }, alert: m => alerts.push(m),
     prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => opts.promptText || '' }),
@@ -41,6 +44,8 @@ function env(opts = {}) {
     UrlFetchApp: { fetch(url, o) {
       const method = url.split('/').pop(), body = JSON.parse(o.payload);
       if (opts.tgDown) return { getContentText: () => 'oops', getResponseCode: () => 502 };
+      if (opts.tgThrow) throw new Error('Address unavailable: ' + url);
+      if (opts.tgError) return { getContentText: () => JSON.stringify({ ok: false, description: opts.tgError }), getResponseCode: () => 400 };
       if (method === 'sendMessage') sent.push(body.text);
       const result = method === 'getMe' ? { username: 'sensum_bot' } : method === 'getUpdates'
         ? (opts.updates || []) : { message_id: 1 };
@@ -50,7 +55,7 @@ function env(opts = {}) {
     Utilities: { formatDate(d, tz, f) {
       const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
         .formatToParts(d).map(x => [x.type, x.value]));
-      return f.replace('yyyy', p.year).replace('MM', p.month).replace('dd', p.day);
+      return f.replace('yyyy', p.year).replace('MM', p.month).replace('dd', p.day).replace('HH:mm', '12:00');
     } },
     ScriptApp: { WeekDay: { MONDAY: 'MON' }, getProjectTriggers: () => triggers.map(h => ({ getHandlerFunction: () => h })), deleteTrigger() {},
       newTrigger(h) { const b = { timeBased: () => b, everyDays: () => b, onWeekDay: () => b, atHour: x => { b.h = x; return b; }, inTimezone: () => b, create: () => triggers.push(h + '@' + b.h) }; return b; } }
@@ -122,9 +127,39 @@ t.api.weeklyReport();
 console.log('--- weekly report ---\n' + t.sent[t.sent.length - 1]);
 const empty = env(); empty.api.dailyDigest(); assert.ok(empty.alerts[0].includes('тестов не было'));
 
+// 8b. «Уведомлять о каждом тесте»: passed tests notify too, with ✅; off keeps fails only
+const n1 = env({ notifyAll: true });
+n1.post({ id: 'n1', code: '4814', scope: 'Напитки', score: 9, total: 10, mistakes: M });
+assert.strictEqual(n1.sent.length, 1); assert.ok(n1.sent[0].startsWith('✅ Тест сдан: 90%') && n1.sent[0].includes('Milena · White City'));
+console.log('--- pass notification ---\n' + n1.sent[0]);
+n1.post({ id: 'n2', code: '4976', scope: 'Напитки', score: 3, total: 10 });
+assert.ok(n1.sent[1].startsWith('⚠️ Тест не сдан: 30%'));
+const n2 = env({ notifyAll: false });
+n2.post({ id: 'n3', code: '4814', scope: 'Напитки', score: 9, total: 10 });
+assert.strictEqual(n2.sent.length, 0, 'unchecked box: passed tests stay quiet');
+
+// 8c. ?action=status: version, flags, last Telegram outcome; never the token or chat id
+const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
+st.post({ id: 's1', code: '4814', scope: 'Напитки', score: 9, total: 10 });
+const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
+console.log('--- status ---\n' + JSON.stringify(s1));
+assert.strictEqual(s1.version, 'v3'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v3');
+const thr = env({ notifyAll: true, tgThrow: true });
+thr.post({ id: 's2', code: '4814', scope: 'Напитки', score: 9, total: 10 });
+const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
+assert.ok(s2.lastNotifyError.includes('bot***') && !s2.lastNotifyError.includes('mock-token'), 'token masked in errors');
+const okEnv = env({ notifyAll: true });
+okEnv.post({ id: 's3', code: '4814', scope: 'Напитки', score: 9, total: 10 });
+const s3 = JSON.parse(okEnv.api.doGet({ parameter: { action: 'status' } }).text);
+assert.ok(s3.lastNotifyOk && !s3.lastNotifyError);
+const noChat = env({ props: { TELEGRAM_TOKEN: 'mock-token' }, notifyAll: true });
+noChat.api.testNotify(); assert.ok(noChat.alerts[0].startsWith('Не получилось отправить: Чат для уведомлений не выбран'));
+
 // 9. menu flows
-const t4 = env({ props: {}, promptText: '123456:AAEabcdefghijklmnopqrstuvwxyz012345', updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });
-t4.api.setupTelegram(); assert.strictEqual(t4.props.TELEGRAM_TOKEN, '123456:AAEabcdefghijklmnopqrstuvwxyz012345');
+const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });
+t4.api.setupTelegram(); assert.strictEqual(t4.props.TELEGRAM_TOKEN, FAKE_TOKEN);
 t4.api.findChat(); assert.strictEqual(t4.props.TELEGRAM_CHAT_ID, '777'); assert.ok(t4.alerts[1].includes('Nuran'));
 t4.api.installTriggers(); assert.deepStrictEqual(t4.triggers, ['dailyDigest@21', 'weeklyReport@10']);
 const t5 = env({ props: {}, promptText: 'not a token' }); t5.api.setupTelegram(); assert.ok(!t5.props.TELEGRAM_TOKEN);

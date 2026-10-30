@@ -2,8 +2,9 @@
  * Sensum & Bakery · приём результатов тестов из справочника бариста.
  *
  * Справочник отправляет результат теста (POST). Скрипт проверяет код сотрудника
- * по листу «Сотрудники», дописывает строку в «Результаты» и, если результат ниже
- * порога, сразу пишет в Telegram. По расписанию отправляет сводку за день и
+ * по листу «Сотрудники», дописывает строку в «Результаты» и пишет в Telegram:
+ * о каждом тесте, если на листе «Настройки» отмечено «Уведомлять о каждом тесте»,
+ * иначе только о тестах ниже порога. По расписанию отправляет сводку за день и
  * недельный отчёт. Токен Telegram-бота хранится в свойствах скрипта, не в таблице.
  */
 
@@ -12,6 +13,7 @@ const SHEET_STAFF = 'Сотрудники';
 const TZ = 'Asia/Baku';
 const MAX_QUESTIONS = 50;
 const RESULT_COLS = 13;
+const SCRIPT_VERSION = 'v3';
 
 /* ---------- меню в таблице ---------- */
 
@@ -34,7 +36,19 @@ function doGet(e) {
     const s = findStaff_(p.code);
     return json_(s ? { ok: true, name: s.name, branch: s.branch } : { ok: false, error: 'unknown_code' });
   }
-  return json_({ ok: true, service: 'sensum-learn' });
+  if (p.action === 'status') return json_(status_());
+  return json_({ ok: true, service: 'sensum-learn', version: SCRIPT_VERSION });
+}
+
+/* what can be checked from outside: never returns the bot token or the chat id */
+function status_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    ok: true, version: SCRIPT_VERSION,
+    telegramToken: !!props.getProperty('TELEGRAM_TOKEN'), telegramChat: !!props.getProperty('TELEGRAM_CHAT_ID'),
+    notifyAll: flag_('NotifyAll'), threshold: setting_('PassThreshold', 0.7),
+    lastNotifyOk: props.getProperty('LAST_NOTIFY_OK') || '', lastNotifyError: props.getProperty('LAST_NOTIFY_ERROR') || ''
+  };
 }
 
 function doPost(e) {
@@ -68,10 +82,10 @@ function doPost(e) {
     lock.releaseLock();
   }
 
-  const threshold = setting_('PassThreshold', 0.7);
-  if (score / total < threshold) {
+  const passed = score / total >= setting_('PassThreshold', 0.7);
+  if (!passed || flag_('NotifyAll')) {
     const lines = [
-      `⚠️ Тест не сдан: ${pct_(score / total)}`,
+      passed ? `✅ Тест сдан: ${pct_(score / total)}` : `⚠️ Тест не сдан: ${pct_(score / total)}`,
       `${staff.name} · ${staff.branch}`,
       `${scope}: ${score} из ${total}`
     ];
@@ -177,9 +191,13 @@ function findChat() {
   }
   const chat = chats[chats.length - 1];
   PropertiesService.getScriptProperties().setProperty('TELEGRAM_CHAT_ID', String(chat.id));
-  send_('✅ Уведомления Sensum Обучение подключены. Сюда будут приходить несданные тесты и сводки.');
   const name = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || chat.id;
-  ui.alert(`Чат «${name}» подключён. В Telegram пришло проверочное сообщение.`);
+  try {
+    send_('✅ Уведомления Sensum Обучение подключены. Сюда будут приходить результаты тестов и сводки.');
+    ui.alert(`Чат «${name}» подключён. В Telegram пришло проверочное сообщение.`);
+  } catch (err) {
+    ui.alert(`Чат «${name}» сохранён, но сообщение не отправилось: ${safeError_(err)}`);
+  }
 }
 
 function installTriggers() {
@@ -194,8 +212,13 @@ function installTriggers() {
 }
 
 function testNotify() {
-  send_('🔔 Проверка: уведомления Sensum Обучение работают.');
-  SpreadsheetApp.getUi().alert('Проверочное сообщение отправлено в Telegram.');
+  const ui = SpreadsheetApp.getUi();
+  try {
+    send_('🔔 Проверка: уведомления Sensum Обучение работают.');
+    ui.alert('Проверочное сообщение отправлено в Telegram.');
+  } catch (err) {
+    ui.alert('Не получилось отправить: ' + safeError_(err));
+  }
 }
 
 /* ---------- данные ---------- */
@@ -262,9 +285,27 @@ function send_(text) {
   }
 }
 
-/* an unsent notification must never lose the test result, which is already saved */
+/* an unsent notification must never lose the test result, which is already saved;
+   the outcome is kept so it can be read through ?action=status */
 function notify_(text) {
-  try { send_(text); } catch (err) { console.warn('notify failed: ' + err.message); }
+  const props = PropertiesService.getScriptProperties();
+  const at = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
+  try {
+    send_(text);
+    props.setProperty('LAST_NOTIFY_OK', at);
+    props.deleteProperty('LAST_NOTIFY_ERROR');
+  } catch (err) {
+    props.setProperty('LAST_NOTIFY_ERROR', `${at}: ${safeError_(err)}`);
+    console.warn('notify failed: ' + safeError_(err));
+  }
+}
+
+/* error text without the bot token (network errors can quote the request URL) */
+function safeError_(err) {
+  const token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  let msg = String(err && err.message || err);
+  if (token) msg = msg.split(token).join('***');
+  return msg.replace(/bot\d+:[\w-]+/g, 'bot***').slice(0, 300);
 }
 
 /* ---------- мелочи ---------- */
@@ -281,6 +322,12 @@ function setting_(name, def) {
   const v = raw === '' || raw === null ? NaN : Number(raw);
   if (!isFinite(v)) return def;
   return name === 'PassThreshold' && v > 1 ? v / 100 : v; /* 70 typed instead of 70% */
+}
+
+/* a checkbox setting; a missing named range means "off" */
+function flag_(name) {
+  const r = SpreadsheetApp.getActive().getRangeByName(name);
+  return !!r && r.getValue() === true;
 }
 
 function hour_(name, def) {

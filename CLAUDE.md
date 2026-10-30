@@ -4,15 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and an «Ещё» tab holding the changelog and the training section («Обучение»: flashcards and quizzes generated from the recipe data, with quiz results sent to the training manager's Google Sheet and Telegram). No framework, no build step — the entire app is one static `index.html` file (~210KB: markup, CSS, JS and all recipe data) plus photos in `images/`, a service worker, manifest, and icons. As of v1.78: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 photos.
+Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink recipes, prep ("заготовки") recipes, the "Витрина" (salads, sandwiches, desserts with allergen notes), promos ("Акции"), favorites, and an «Ещё» tab holding the changelog and the training section («Обучение»: flashcards and quizzes generated from the recipe data, with quiz results sent to the training manager's Google Sheet and Telegram). No framework, no build step — the entire app is one static `index.html` file (~210KB: markup, CSS, JS and all recipe data) plus photos in `images/`, a service worker, manifest, and icons. As of v1.79: 56 drinks, 23 preps, 35 vitrina items, 3 promos, 82 photos.
 
 ## Commands
 
-There is no build or test tooling — it's plain HTML/CSS/JS. The only check is the data audit script (stdlib Python, no install):
+There is no build step — it's plain HTML/CSS/JS. Two checks, no install needed (stdlib Python, Node):
 
 ```bash
-python3 tools/audit.py
+python3 tools/audit.py          # recipe data, photos, versions
+node tools/apps-script/test.js  # the Google Apps Script, against mocks
 ```
+
+The data audit:
 
 It reads `DATA` / `IMAGES` / `CHANGELOG` out of `index.html` and checks (photo files exist and their filename hash matches the content, leftover files in `images/` are reported): RU/AZ parity (same ids, same `ing`/`steps`/`usedin` lengths, same `cat`/`img`), every `cat`/`kind`/allergen key exists in its dictionary, every `img` exists in `IMAGES`, every prep `trig` actually occurs in the ingredients of the items in its `usedin` (both languages), promo and changelog ids resolve, and `APP_VERSION` matches `sw.js` `CACHE`. Exit code 1 means a real problem (**run it before every push that touches `index.html`**); `WARN` lines are advisory (e.g. vitrina items without a photo fall back to an icon, and promo gift-drink choices are plain names, not ids). To preview locally:
 
@@ -24,7 +27,7 @@ then open `http://localhost:8000/index.html`.
 
 Deploying is `git push` to `main` — GitHub Pages (legacy build, serving the repo root of `main`) rebuilds automatically in about a minute. Live at https://nuranshahbalayev-hub.github.io/Sensum-Bakery---Handbook/.
 
-Pushes go to a feature branch and are merged to `main` by the owner (pull request). **Before every push that changes `index.html`, bump `CACHE` in `sw.js`** (e.g. `sensum-v1.26` → `.27`) and `APP_VERSION` inside `index.html`. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
+Pushes go to a feature branch and are merged to `main` by the owner (pull request). **Open every PR against `main`**: the repo does not delete merged branches, so a PR stacked on another feature branch merges into that branch and never reaches the site. **Before every push that changes `index.html`, run `python3 tools/release.py`**: it bumps `APP_VERSION` in `index.html` and `CACHE` in `sw.js` together (1.79 → 1.80; pass an explicit version to set one) and then runs the audit. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
 
 ## File map
 
@@ -33,6 +36,7 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 - `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` — PWA metadata.
 - `images/` — all photos, `<key>.<hash>.webp`, longest side ≤1000px.
 - `tools/audit.py` — the data audit described above.
+- `tools/release.py` — version bump for `index.html` + `sw.js`, then the audit.
 - `tools/photo.py` — add/replace a photo (needs Pillow): `python3 tools/photo.py <key> <source-image>`. Converts to WebP, writes `images/<key>.<hash>.webp`, deletes the key's old file and updates `IMAGES` in `index.html`. **Always use it instead of dropping files into `images/` by hand.** A new drink/vitrina item uses the same key as its `img` field.
 - `tools/apps-script/Code.gs` — the Google Apps Script bound to the training manager's results sheet (see "Training results" below). It is a copy kept here for history and review; the running version lives in the sheet's Apps Script editor. `node tools/apps-script/test.js` runs it against in-memory mocks of the Apps Script services.
 
@@ -49,13 +53,13 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 
 `DATA` is compact JSON on a single very long line (~150KB). Don't `grep`/`Read` that line directly. Extract it with a small Python script (find the `DATA={` offset, bracket-match to the closing `}`, `json.loads` — `tools/audit.py` has an `extract()` helper) when you need to inspect entries, and do targeted string replacement in `index.html` for edits rather than round-tripping the whole blob.
 
-`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The «Изменения» screen (under the «Ещё» tab) renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section), `sensum_learn` (training: see below). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → "Обновлено"/"Düzəliş" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
+`APP_VERSION` and `CHANGELOG` (array of `{id, date, type: 'news'|'fix', title:{ru,az}, items:{ru,az}, changed:[ids]}`) live right after `DATA`. The «Изменения» screen (under the «Ещё» tab) renders `CHANGELOG` directly. Other persisted client state (`localStorage`): `sensum_lang`, `sensum_theme`, `sensum_favs` / `sensum_favpreps` / `sensum_favvit` (favorites per section), `sensum_learn` (training: see below). Unseen changelog entries (tracked via `localStorage.sensum_seen_change`) populate two separate sets that drive card badges: `type:'fix'` → `changedSet` → `T('lbl_updated')` "Обновлено"/"Yeniləndi" badge; `type:'news'` → `newSet` → "Новинка"/"Yeni" badge (checked first, so a brand-new item shows "Новинка" rather than "Обновлено" even though both types can carry a `changed` list).
 
 ### Clickable prep links (`trig`)
 
 Every drink/prep ingredient name is plain text in its `ing` array, e.g. `["Сироп корицы","20 мл"]`. `ingRows(list)` makes an ingredient clickable by calling `prepFor(name)`, which does a case-insensitive substring match: for each prep `p`, if `name.toLowerCase().includes(p.trig)`, the ingredient links to `p.id`.
 
-**Convention:** a prep's `trig` must (a) be its own `name` lowercased, and (b) actually occur as a substring inside the ingredient text used by every drink/prep listed in that prep's own `usedin` array — in both RU and AZ. If an ingredient gets renamed (e.g. "Коричный сироп" → "Сироп корицы") without updating every reference, or `trig` carries extra text the real ingredient string doesn't have (e.g. AZ `"mix rum (premiks)"` when the ingredient says just `"Mix Rum"`), the link silently stops working — no error, the ingredient just renders as inert text. When renaming an ingredient or a prep, grep every `ing`/`usedin` occurrence of the old string across both languages, not just the prep's own `name`/`trig`. A full-app audit script (cross-referencing every prep's `usedin` list against the actual `ing` text of the drinks/preps it names) is the fast way to check for drift after a rename.
+**Convention:** a prep's `trig` is a lowercase part of its own `name` (usually the whole name; shorter where the name carries a suffix the ingredient text doesn't, e.g. "Сироп Blue Tea" → `blue tea`), and it must actually occur as a substring inside the ingredient text used by every drink/prep listed in that prep's own `usedin` array — in both RU and AZ. `trig: "§нет§"` means the prep is never auto-linked. If an ingredient gets renamed (e.g. "Коричный сироп" → "Сироп корицы") without updating every reference, or `trig` carries extra text the real ingredient string doesn't have (e.g. AZ `"mix rum (premiks)"` when the ingredient says just `"Mix Rum"`), the link silently stops working — no error, the ingredient just renders as inert text. When renaming an ingredient or a prep, grep every `ing`/`usedin` occurrence of the old string across both languages, not just the prep's own `name`/`trig`. A full-app audit script (cross-referencing every prep's `usedin` list against the actual `ing` text of the drinks/preps it names) is the fast way to check for drift after a rename.
 
 ### Changelog entries vs. silent edits
 
@@ -69,9 +73,9 @@ Azerbaijani has dotted İ/i vs dotless I/ı, which native `.toUpperCase()` / CSS
 
 ### The card detail view is a bottom sheet, not a route
 
-`openDrink(id)`/`openPrep(id)` (dispatched via `openItem(id)`) build the detail markup into `#sheetInner` and call `showOverlay()`. Closing always funnels through `hideOverlay()` / `closeSheet()` / `slideDownAndClose()` — there are four independent close triggers (✕ button, backdrop tap, Escape, swipe-down) kept on one shared path so animation, focus restoration, and body-scroll-unlock stay in sync. Route any new way of closing the sheet through `closeSheet()`.
+`openDrink(id)` / `openPrep(id)` / `openVit(id)` / `openPromo(id)` (the first three dispatched via `openItem(id)`) build the detail markup into `#sheetInner` and call `showOverlay()`. Every way of closing ends in `hideOverlay()`: the ✕ button and a backdrop tap (`data-close` / `#overlay` in the body click handler), Escape, and swipe-down. Route any new way of closing the sheet through `hideOverlay()` so the scroll unlock stays in sync.
 
-Swipe-to-dismiss (`dragStart`/`dragMove`/`dragEnd` near the bottom of the script) only arms once `sheet.scrollTop<=1` — deliberately gated so it doesn't fight the sheet's own internal scrolling on long recipes. Body scroll is locked with `position:fixed` + a saved `scrollY` (`lockBodyScroll`/`unlockBodyScroll`), not `overflow:hidden` — the latter doesn't reliably block touch scroll on mobile and lets the grid behind the sheet scroll while the user tries to swipe.
+Swipe-to-dismiss is the pointer-event IIFE after `switchTab()` (`onDown` / `onMove` / `onUp`): any downward drag starting anywhere on the sheet is claimed at once (`preventDefault`, so iOS rubber-banding never takes over), arms after 8px, and closes past `min(140px, 28% of the sheet)`; shorter drags spring back. Page scroll lives only in `#scrollArea` (`html`/`body` are `overflow:hidden`), so `lockBodyScroll()` / `unlockBodyScroll()` just toggle `overflow` and `touch-action` on `#scrollArea`; its `scrollTop` is preserved while locked.
 
 ### The «Ещё» tab and its sub-screens
 
@@ -90,6 +94,7 @@ The fifth nav tab is `more`. `switchTab()` knows seven views (`VIEWS`): the five
 - `RESULTS_URL` (top of the training code) is the `/exec` URL of the Apps Script web app bound to the sheet «Sensum Обучение: результаты тестов» in the owner's Google Drive (folder «Sensum Обучение»). An empty string turns sending off, and tests then run without an employee code.
 - Employees log in once with their 4-digit code from the sheet's «Сотрудники» tab (`GET ?action=whoami&code=…` returns `{ok, name, branch}`); the login is stored in `sensum_learn.me`. With `RESULTS_URL` set a quiz cannot start without a login (flashcards can), and the quiz header shows who is logged in.
 - A finished quiz goes into `sensum_learn.outbox`; `flushOutbox()` POSTs it as `text/plain` JSON (`{id, code, scope, score, total, mistakes:[{q,a,c}], lang, ver, ts}`). `text/plain` keeps it a CORS simple request, which Apps Script answers without a preflight. Offline results stay in the outbox and are retried on app start, on `online` and when the page becomes visible. The script ignores a repeated `id`; `unknown_code` drops the item and logs the employee out.
+- **Checking the live script from outside:** `GET <RESULTS_URL>` returns `{ok, service, version}` and `GET <RESULTS_URL>?action=status` returns the running `version`, whether the bot token and chat are set, `notifyAll`, `threshold` and the time of the last successful Telegram send or the last Telegram error (token masked). Bump `SCRIPT_VERSION` in `Code.gs` with every change so a stale deployment is obvious.
 - The script appends the row to «Результаты» (per-row formulas for % and pass/fail against the named range `PassThreshold`), sends a Telegram message at once when the score is below the threshold, a 24-hour digest daily at `DigestHour`, and on Mondays at `WeeklyHour` a weekly report including who hasn't taken a test in 7 days. Thresholds and hours live on the sheet's «Настройки» tab. The bot token and chat id live in the script's properties (set from the sheet's «Sensum» menu), never in the sheet or this repo.
 - **Employee names and codes never go into this repo or `index.html`**: the repo and the GitHub Pages site are public. They live only in the private sheet.
 - **Changing the script:** edit `tools/apps-script/Code.gs` and run `node tools/apps-script/test.js`; the owner then pastes it into the sheet's Apps Script editor and publishes it with **Deploy → Manage deployments → edit (pencil) → Version: New version → Deploy**. That keeps the same `/exec` URL; «New deployment» would create a new URL, and `RESULTS_URL` would have to change with it.
