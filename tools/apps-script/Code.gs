@@ -6,14 +6,20 @@
  * о каждом тесте, если на листе «Настройки» отмечено «Уведомлять о каждом тесте»,
  * иначе только о тестах ниже порога. По расписанию отправляет сводку за день и
  * недельный отчёт. Токен Telegram-бота хранится в свойствах скрипта, не в таблице.
+ *
+ * С v4 справочник присылает и признаки честности теста: время прохождения,
+ * сколько раз вышло время на ответ, сколько раз сотрудник выходил из приложения
+ * и прерван ли тест. Прерванный тест не считается сданным.
  */
 
 const SHEET_RESULTS = 'Результаты';
 const SHEET_STAFF = 'Сотрудники';
 const TZ = 'Asia/Baku';
 const MAX_QUESTIONS = 50;
-const RESULT_COLS = 13;
-const SCRIPT_VERSION = 'v3';
+const RESULT_COLS = 17;  // A–Q
+const ID_COL = 13;        // M: attempt id, used to drop repeats
+const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван'];  // N–Q
+const SCRIPT_VERSION = 'v4';
 
 /* ---------- меню в таблице ---------- */
 
@@ -64,31 +70,44 @@ function doPost(e) {
   const scope = text_(d.scope, 80);
   const mistakes = (Array.isArray(d.mistakes) ? d.mistakes : []).slice(0, MAX_QUESTIONS)
     .map(m => `${text_(m && m.q, 200)} → ${text_(m && m.a, 100)} (верно: ${text_(m && m.c, 100)})`);
+  /* honesty checks; blank when an older app version sends the result */
+  const secs = count_(d.secs, 24 * 3600), timeouts = count_(d.timeouts, MAX_QUESTIONS), away = count_(d.away, 1000);
+  const aborted = d.aborted === true;
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const sh = sheet_(SHEET_RESULTS);
     if (id && isDuplicate_(sh, id)) return json_({ ok: true, duplicate: true });
+    ensureHeaders_(sh);
     const row = sh.getLastRow() + 1;
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
     sh.getRange(row, 2).setNumberFormat('@');
+    sh.getRange(row, 12).setNumberFormat('@');  // app version «1.80» stays text, not the number 1.8
+    sh.getRange(row, 14).setNumberFormat('@');  // «2:10» stays text, not a time of day
     sh.getRange(row, 1, 1, RESULT_COLS).setValues([[
       takenAt_(d.ts), staff.code, staff.name, staff.branch, cell_(scope), score, total,
-      `=IF(G${row}=0,0,F${row}/G${row})`, `=IF(H${row}>=PassThreshold,"да","нет")`,
-      cell_(mistakes.join('\n')), text_(d.lang, 5), text_(d.ver, 12), cell_(id)
+      `=IF(G${row}=0,0,F${row}/G${row})`, `=IF(Q${row}="да","нет",IF(H${row}>=PassThreshold,"да","нет"))`,
+      cell_(mistakes.join('\n')), text_(d.lang, 5), text_(d.ver, 12), cell_(id),
+      secs === '' ? '' : mmss_(secs), timeouts, away, aborted ? 'да' : ''
     ]]);
   } finally {
     lock.releaseLock();
   }
 
-  const passed = score / total >= setting_('PassThreshold', 0.7);
-  if (!passed || flag_('NotifyAll')) {
+  const passed = !aborted && score / total >= setting_('PassThreshold', 0.7);
+  if (!passed || away || flag_('NotifyAll')) {
     const lines = [
-      passed ? `✅ Тест сдан: ${pct_(score / total)}` : `⚠️ Тест не сдан: ${pct_(score / total)}`,
+      aborted ? `⛔ Тест прерван: ${pct_(score / total)}`
+        : passed ? `✅ Тест сдан: ${pct_(score / total)}` : `⚠️ Тест не сдан: ${pct_(score / total)}`,
       `${staff.name} · ${staff.branch}`,
       `${scope}: ${score} из ${total}`
     ];
+    const checks = [];
+    if (secs !== '') checks.push(`⏱ ${mmss_(secs)}`);
+    if (timeouts) checks.push(`время вышло: ${timeouts}`);
+    if (away) checks.push(`📵 выходы из приложения: ${away}`);
+    if (checks.length) lines.push(checks.join(' · '));
     if (mistakes.length) lines.push('', 'Ошибки:', ...mistakes.slice(0, 10).map(m => `• ${m}`));
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
@@ -115,10 +134,15 @@ function dailyDigest(e) {
   ];
   groupBy_(rows, r => r.branch).forEach((list, branch) =>
     lines.push(`• ${branch}: ${list.length} ${plural_(list.length, 'тест', 'теста', 'тестов')}, ${pct_(avg_(list))}`));
-  const failed = rows.filter(r => r.ratio < thr);
+  const failed = rows.filter(r => r.ratio < thr || r.aborted);
   if (failed.length) {
-    lines.push('', `Не сдали (ниже ${pct_(thr)}):`);
-    failed.forEach(r => lines.push(`• ${r.name} (${r.branch}): ${r.scope}, ${r.score} из ${r.total}`));
+    lines.push('', `Не сдали (ниже ${pct_(thr)} или прервали):`);
+    failed.forEach(r => lines.push(`• ${r.name} (${r.branch}): ${r.scope}, ${r.score} из ${r.total}${r.aborted ? ', прерван' : ''}`));
+  }
+  const away = rows.filter(r => r.away > 0);
+  if (away.length) {
+    lines.push('', 'Выходили из приложения во время теста:');
+    away.forEach(r => lines.push(`• ${r.name} (${r.branch}): ${r.away} ${plural_(r.away, 'раз', 'раза', 'раз')}`));
   }
   const top = topMistakes_(rows, 3);
   if (top.length) {
@@ -240,17 +264,25 @@ function activeStaff_() {
 function results_() {
   const sh = sheet_(SHEET_RESULTS), last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, 10).getValues()
+  return sh.getRange(2, 1, last - 1, RESULT_COLS).getValues()
     .filter(r => r[0] instanceof Date && Number(r[6]) > 0)
     .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), scope: String(r[4]),
-      score: Number(r[5]), total: Number(r[6]), ratio: Number(r[5]) / Number(r[6]), mistakes: String(r[9] || '') }));
+      score: Number(r[5]), total: Number(r[6]), ratio: Number(r[5]) / Number(r[6]), mistakes: String(r[9] || ''),
+      away: Number(r[15]) || 0, aborted: r[16] === 'да' }));
 }
 
 function isDuplicate_(sh, id) {
   const last = sh.getLastRow();
   if (last < 2) return false;
   const n = Math.min(500, last - 1);
-  return sh.getRange(last - n + 1, RESULT_COLS, n, 1).getValues().some(r => String(r[0]) === id);
+  return sh.getRange(last - n + 1, ID_COL, n, 1).getValues().some(r => String(r[0]) === id);
+}
+
+/* the check columns arrived with v4: a sheet made earlier gets their headers on the first result */
+function ensureHeaders_(sh) {
+  if (String(sh.getRange(1, ID_COL + 1).getValue()).trim()) return;
+  sh.getRange(1, ID_COL + 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]);
+  sh.getRange(1, ID_COL).copyFormatToRange(sh, ID_COL + 1, ID_COL + CHECK_HEADERS.length, 1, 1);
 }
 
 function topMistakes_(rows, n) {
@@ -351,6 +383,9 @@ function cell_(s) {
 }
 
 function pct_(x) { return Math.round(x * 100) + '%'; }
+function mmss_(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+/* a whole number 0..max, or '' for anything else (missing, negative, text) */
+function count_(v, max) { const n = Number(v); return v !== '' && v != null && Number.isInteger(n) && n >= 0 && n <= max ? n : ''; }
 function avg_(rows) { return rows.reduce((s, r) => s + r.ratio, 0) / rows.length; }
 
 function groupBy_(list, key) {
