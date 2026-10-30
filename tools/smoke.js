@@ -148,6 +148,40 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot .score').count() === 1, 'quiz reaches the result screen');
   const p = posted[0] || {};
   check(posted.length === 1 && p.code === '1234' && p.total > 0 && Array.isArray(p.mistakes) && p.ver, 'result is sent once with code, score, mistakes, version');
+  check(Number.isInteger(p.secs) && p.timeouts === 0 && p.away === 0 && p.aborted === false, 'result carries time, timeouts, exits, aborted');
+
+  /* honesty of a test: the countdown, leaving the app, aborting, a test closed half-way */
+  const hideApp = () => page.evaluate(() => {
+    for (const v of [true, false]) {
+      Object.defineProperty(document, 'hidden', { value: v, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }
+  });
+  await page.click('#learnroot [data-l="quiz"]');
+  check(await page.locator('#learnroot #qtrow').count() === 1, 'test question shows a countdown');
+  await page.evaluate(() => { L.qz.deadline = Date.now() - 1; });
+  await page.waitForTimeout(500);
+  check((await page.locator('#learnroot .fb').innerText()).includes(await page.evaluate(() => T('q_timeout'))), 'time running out counts the question as wrong');
+  await page.click('#learnroot [data-l="next"]');
+  await hideApp();
+  check((await page.locator('#learnroot .fb').innerText()).includes('📵'), 'leaving the app counts the open question as wrong');
+  await page.click('#learnroot [data-l="next"]');
+  page.once('dialog', d => d.dismiss());
+  await page.click('nav.tabs button[data-tab="drinks"]');
+  check(await page.locator('#learnroot #qtrow').count() === 1 && posted.length === 1, 'a tab during a test asks first; «Cancel» stays in the test');
+  page.once('dialog', d => d.accept());
+  await page.click('nav.tabs button[data-tab="drinks"]');
+  await page.waitForTimeout(500);
+  const ab = posted[1] || {};
+  check(posted.length === 2 && ab.aborted === true && ab.timeouts === 1 && ab.away === 1 && ab.score === 0 && ab.total > 2, 'an aborted test is sent as aborted with its checks');
+  await page.click('nav.tabs button[data-tab="more"]');
+  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('#learnroot [data-l="quiz"]');
+  await page.locator('#learnroot [data-l="ans"]').first().click();
+  await page.reload();
+  await page.waitForTimeout(800);
+  const cl = posted[2] || {};
+  check(posted.length === 3 && cl.aborted === true && cl.mistakes.length + cl.score === 1, 'a test closed half-way reaches the sheet as aborted');
 
   check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'no horizontal scroll at 390px');
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
