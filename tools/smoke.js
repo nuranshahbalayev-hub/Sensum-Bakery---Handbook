@@ -56,10 +56,23 @@ const server = http.createServer((req, res) => {
   await page.keyboard.press('Escape');
   check(await page.locator('#overlay.show').count() === 0, 'card closes with Escape');
 
+  /* a vitrina item with facts from the menu sheet: weight, storage, shelf life, nutrition */
+  const vitSheet = async () => {
+    await page.click('nav.tabs button[data-tab="vitrina"]');
+    await page.locator('#vitgrid .card[data-open="honeycake"]').click();
+    const t = await page.locator('#sheetInner').innerText();
+    await page.keyboard.press('Escape');
+    return t;
+  };
+  const vr = await vitSheet();
+  check(['220 г', 'от +2 до +5 °C', '48 часов', '290 ккал', '~3,5 г'].every(s => vr.includes(s)), 'vitrina card: weight, storage, shelf life, nutrition (RU)');
+
   await page.click('#langbtn');
   check((await page.locator('#count').innerText()).includes('içki'), 'AZ: drink counter is Azerbaijani');
   await page.click('nav.tabs button[data-tab="preps"]');
   check(!/[А-Яа-яЁё]/.test(await page.getAttribute('#q', 'placeholder')), 'AZ: search placeholder has no Russian');
+  const va = await vitSheet();
+  check(['ÇƏKİ', '220 q', '2°C ilə 5°C arasında', '48 saat', '290 kkal'].every(s => va.includes(s)) && !/[А-Яа-яЁё]/.test(va), 'AZ: vitrina card facts are Azerbaijani');
   await page.click('#langbtn');
 
   const gen = await page.evaluate(() => {
