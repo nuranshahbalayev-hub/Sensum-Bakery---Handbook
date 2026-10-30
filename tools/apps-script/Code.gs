@@ -10,16 +10,25 @@
  * С v4 справочник присылает и признаки честности теста: время прохождения,
  * сколько раз вышло время на ответ, сколько раз сотрудник выходил из приложения
  * и прерван ли тест. Прерванный тест не считается сданным.
+ *
+ * С v5 обучение — игра: опыт (XP) за тесты, совы 🦉 за хорошие результаты
+ * (до 50 в месяц, журнал на листе «Совы», начисляет тренинг-менеджер в Sensum OS
+ * по списку из недельного отчёта), «Экзамен месяца» (одна попытка в месяц,
+ * итоги 1-го числа) и рейтинг недели в справочнике (?action=me).
  */
 
 const SHEET_RESULTS = 'Результаты';
 const SHEET_STAFF = 'Сотрудники';
 const TZ = 'Asia/Baku';
 const MAX_QUESTIONS = 50;
-const RESULT_COLS = 17;  // A–Q
+const SHEET_OWLS = 'Совы';
+const RESULT_COLS = 18;  // A–R
 const ID_COL = 13;        // M: attempt id, used to drop repeats
-const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван'];  // N–Q
-const SCRIPT_VERSION = 'v4';
+const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван', 'Тип'];  // N–R
+const KINDS = ['drinks', 'preps', 'exam', 'mix'];  // R: what the test was about; exam = «Экзамен месяца»
+const OWLS_MONTH_CAP = 50;
+const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
+const SCRIPT_VERSION = 'v5';
 
 /* ---------- меню в таблице ---------- */
 
@@ -43,6 +52,7 @@ function doGet(e) {
     return json_(s ? { ok: true, name: s.name, branch: s.branch } : { ok: false, error: 'unknown_code' });
   }
   if (p.action === 'status') return json_(status_());
+  if (p.action === 'me') return json_(me_(p.code));
   return json_({ ok: true, service: 'sensum-learn', version: SCRIPT_VERSION });
 }
 
@@ -73,12 +83,16 @@ function doPost(e) {
   /* honesty checks; blank when an older app version sends the result */
   const secs = count_(d.secs, 24 * 3600), timeouts = count_(d.timeouts, MAX_QUESTIONS), away = count_(d.away, 1000);
   const aborted = d.aborted === true;
+  const kind = KINDS.indexOf(d.kind) >= 0 ? d.kind : '';
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const sh = sheet_(SHEET_RESULTS);
     if (id && isDuplicate_(sh, id)) return json_({ ok: true, duplicate: true });
+    if (kind === 'exam' && results_().some(r => r.code === staff.code && r.kind === 'exam' && monthKey_(r.date) === monthKey_(takenAt_(d.ts)))) {
+      return json_({ ok: false, error: 'exam_done' });
+    }
     ensureHeaders_(sh);
     const row = sh.getLastRow() + 1;
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
@@ -89,10 +103,21 @@ function doPost(e) {
       takenAt_(d.ts), staff.code, staff.name, staff.branch, cell_(scope), score, total,
       `=IF(G${row}=0,0,F${row}/G${row})`, `=IF(Q${row}="да","нет",IF(H${row}>=PassThreshold,"да","нет"))`,
       cell_(mistakes.join('\n')), text_(d.lang, 5), text_(d.ver, 12), cell_(id),
-      secs === '' ? '' : mmss_(secs), timeouts, away, aborted ? 'да' : ''
+      secs === '' ? '' : mmss_(secs), timeouts, away, aborted ? 'да' : '', kind
     ]]);
   } finally {
     lock.releaseLock();
+  }
+
+  /* the game: XP of this test and owls it earned; a failure here never loses the saved result */
+  let xp = 0, owls = [];
+  try {
+    const all = withXp_(results_()), mine = all.filter(r => r.code === staff.code);
+    const self = mine.filter(r => id ? r.id === id : true).pop();  // a result sent late (offline) is not the newest row
+    xp = self ? self.xp : 0;
+    owls = awardOwls_(staff, self, mine);
+  } catch (err) {
+    console.warn('game: ' + err.message);
   }
 
   const passed = !aborted && score / total >= setting_('PassThreshold', 0.7);
@@ -108,11 +133,12 @@ function doPost(e) {
     if (timeouts) checks.push(`время вышло: ${timeouts}`);
     if (away) checks.push(`📵 выходы из приложения: ${away}`);
     if (checks.length) lines.push(checks.join(' · '));
+    if (owls.length) lines.push(`🦉 +${owls.reduce((s, o) => s + o.n, 0)}: ${owls.map(o => o.why).join(', ')}`);
     if (mistakes.length) lines.push('', 'Ошибки:', ...mistakes.slice(0, 10).map(m => `• ${m}`));
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
   }
-  return json_({ ok: true });
+  return json_({ ok: true, xp, owls });
 }
 
 /* ---------- сводки по расписанию ---------- */
@@ -120,6 +146,7 @@ function doPost(e) {
 function dailyDigest(e) {
   /* the last 24 hours, so tests taken after the evening digest show up in the next one */
   const now = new Date(), from = new Date(now.getTime() - 864e5);
+  if (e && Utilities.formatDate(now, TZ, 'dd') === '01') monthlyReport_(now);
   const rows = results_().filter(r => r.date > from);
   if (!rows.length) {
     if (!e) SpreadsheetApp.getUi().alert('За последние сутки тестов не было, сводку отправлять не о чем.');
@@ -177,6 +204,42 @@ function weeklyReport() {
     groupBy_(idle, s => s.branch).forEach((people, branch) => lines.push(`• ${branch}: ${people.map(p => p.name).join(', ')}`));
   } else {
     lines.push('', 'Все сотрудники проходили тест на этой неделе.');
+  }
+  const xpRows = withXp_(results_()).filter(r => r.date >= from && r.branch !== TEST_BRANCH);
+  const top = [...groupBy_(xpRows, r => r.code).values()]
+    .map(list => ({ name: list[0].name, branch: list[0].branch, xp: list.reduce((s, r) => s + r.xp, 0) }))
+    .filter(p => p.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 5);
+  if (top.length) {
+    lines.push('', '🏆 Рейтинг недели:');
+    top.forEach((p, i) => lines.push(`${i + 1}. ${p.name} (${p.branch}): ${p.xp} XP`));
+  }
+  const owed = owls_().filter(o => o.date >= from && o.branch !== TEST_BRANCH && !o.done);
+  if (owed.length) {
+    lines.push('', '🦉 Начислить в Sensum OS:');
+    groupBy_(owed, o => o.code).forEach(list => lines.push(
+      `• ${list[0].name} (${list[0].branch}): +${list.reduce((s, o) => s + o.n, 0)} — ${list.map(o => o.why).join(', ')}`));
+    lines.push('После начисления отметьте строки галочкой на листе «Совы».');
+  }
+  send_(lines.join('\n'));
+}
+
+/* the 1st of the month: «Экзамен месяца» results for the KPI and the owls of the month that just ended */
+function monthlyReport_(now) {
+  const prev = monthKey_(new Date(now.getTime() - 2 * 864e5));
+  const staff = activeStaff_().filter(s => s.branch !== TEST_BRANCH);
+  const exams = results_().filter(r => r.kind === 'exam' && monthKey_(r.date) === prev);
+  const lines = [`📝 Экзамен месяца, ${prev.slice(5)}.${prev.slice(0, 4)}: итоги для KPI`];
+  groupBy_(staff, s => s.branch).forEach((people, branch) => {
+    lines.push('', `${branch}:`);
+    people.forEach(p => {
+      const x = exams.filter(r => r.code === p.code)[0];
+      lines.push(`• ${p.name}: ` + (!x ? 'не сдавал' : `${x.score} из ${x.total}, ${pct_(x.ratio)}${x.aborted ? ', прерван' : ''}`));
+    });
+  });
+  const owls = owls_().filter(o => monthKey_(o.date) === prev && o.branch !== TEST_BRANCH);
+  if (owls.length) {
+    lines.push('', `🦉 Совы за месяц (максимум ${OWLS_MONTH_CAP}):`);
+    groupBy_(owls, o => o.code).forEach(list => lines.push(`• ${list[0].name}: ${list.reduce((s, o) => s + o.n, 0)}`));
   }
   send_(lines.join('\n'));
 }
@@ -268,7 +331,7 @@ function results_() {
     .filter(r => r[0] instanceof Date && Number(r[6]) > 0)
     .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), scope: String(r[4]),
       score: Number(r[5]), total: Number(r[6]), ratio: Number(r[5]) / Number(r[6]), mistakes: String(r[9] || ''),
-      away: Number(r[15]) || 0, aborted: r[16] === 'да' }));
+      id: String(r[12] || ''), away: Number(r[15]) || 0, aborted: r[16] === 'да', kind: String(r[17] || '') }));
 }
 
 function isDuplicate_(sh, id) {
@@ -278,9 +341,9 @@ function isDuplicate_(sh, id) {
   return sh.getRange(last - n + 1, ID_COL, n, 1).getValues().some(r => String(r[0]) === id);
 }
 
-/* the check columns arrived with v4: a sheet made earlier gets their headers on the first result */
+/* the check columns arrived with v4, the type with v5: a sheet made earlier gets their headers on the first result */
 function ensureHeaders_(sh) {
-  if (String(sh.getRange(1, ID_COL + 1).getValue()).trim()) return;
+  if (String(sh.getRange(1, ID_COL + CHECK_HEADERS.length).getValue()).trim()) return;
   sh.getRange(1, ID_COL + 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]);
   sh.getRange(1, ID_COL).copyFormatToRange(sh, ID_COL + 1, ID_COL + CHECK_HEADERS.length, 1, 1);
 }
@@ -293,6 +356,143 @@ function topMistakes_(rows, n) {
   }));
   return Object.keys(count).map(q => [q, count[q]]).filter(x => x[1] > 1)
     .sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+
+/* ---------- игра: опыт, совы, рейтинг ---------- */
+
+/* XP per test: 10 per right answer (15 in the exam), +50 for a flawless test of 10+ questions,
+   nothing for an aborted one; only the first 5 tests of a day count, so grinding doesn't win the board */
+function withXp_(rows) {
+  const perDay = {};
+  return rows.slice().sort((a, b) => a.date - b.date).map(r => {
+    const k = r.code + ' ' + dayKey_(r.date);
+    perDay[k] = (perDay[k] || 0) + 1;
+    const xp = r.aborted || perDay[k] > 5 ? 0
+      : r.score * (r.kind === 'exam' ? 15 : 10) + (r.total >= 10 && r.score === r.total ? 50 : 0);
+    return Object.assign({}, r, { xp });
+  });
+}
+
+/* a test that counts for the study week: finished, 10+ questions, 70% or more */
+function counts_(r) { return !r.aborted && r.total >= 10 && r.ratio >= 0.7; }
+
+/* owls for the test just saved (`self`, one of `mine`), at most OWLS_MONTH_CAP a month; each rule once per its period */
+function awardOwls_(staff, self, mine) {
+  if (!self || self.aborted || self.total < 10) return [];
+  const month = monthKey_(self.date), ledger = owls_().filter(o => o.code === staff.code);
+  let left = OWLS_MONTH_CAP - ledger.filter(o => monthKey_(o.date) === month).reduce((s, o) => s + o.n, 0);
+  const out = [];
+  const give = (key, why, n) => {
+    if (left <= 0 || n <= 0 || ledger.some(o => o.key === key)) return;
+    n = Math.min(n, left); left -= n; out.push({ key, why, n });
+  };
+  if (self.kind === 'exam') {
+    give('exam:' + month, `Экзамен месяца ${pct_(self.ratio)}`, self.ratio === 1 ? 15 : self.ratio >= 0.9 ? 10 : self.ratio >= 0.8 ? 5 : 0);
+  } else if (!self.away && self.ratio >= 0.9) {
+    give('day:' + dayKey_(self.date), 'Тест на 90%+', 1);
+  }
+  const week = weekKey_(self.date);
+  if (counts_(self) && mine.filter(r => weekKey_(r.date) === week && counts_(r)).length >= 3) {
+    give('week:' + week, 'Учебная неделя', 2);
+  }
+  if (out.length) {
+    const sh = owlsSheet_();
+    out.forEach(o => sh.appendRow([self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key]));
+  }
+  return out.map(o => ({ why: o.why, n: o.n }));
+}
+
+function owlsSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_OWLS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_OWLS);
+    sh.getRange(1, 1, 1, 8).setValues([['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']]);
+    sh.getRange('G2:G2000').insertCheckboxes();
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function owls_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_OWLS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues()
+    .filter(r => r[0] instanceof Date && Number(r[5]) > 0)
+    .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), why: String(r[4]),
+      n: Number(r[5]), done: r[6] === true, key: String(r[7]) }));
+}
+
+/* study weeks in a row up to now; the current week counts once it has 3 tests, until then the streak runs to last week */
+function streaks_(mine, now) {
+  const weeks = new Set(mine.filter(counts_).map(r => weekKey_(r.date)));
+  const back = k => new Date(Date.parse(k + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
+  let k = weekKey_(now);
+  if (!weeks.has(k)) k = back(k);
+  let cur = 0;
+  while (weeks.has(k)) { cur++; k = back(k); }
+  let best = 0;
+  weeks.forEach(w => {
+    if (weeks.has(back(w))) return;  // start of a run
+    let n = 0, x = w;
+    while (weeks.has(x)) { n++; x = new Date(Date.parse(x + 'T00:00:00Z') + 7 * 864e5).toISOString().slice(0, 10); }
+    best = Math.max(best, n);
+  });
+  return { cur, best };
+}
+
+function badges_(mine, best) {
+  const done = mine.filter(r => !r.aborted);
+  const good = kind => done.filter(r => r.kind === kind && r.ratio >= 0.9).length >= 10;
+  return [
+    done.length > 0 && 'first',
+    done.some(r => r.total >= 10 && r.score === r.total) && 'perfect',
+    good('drinks') && 'drinks',
+    good('preps') && 'preps',
+    best >= 4 && 'streak4',
+    done.some(r => r.kind === 'exam' && r.score === r.total) && 'exam100'
+  ].filter(Boolean);
+}
+
+/* everything the app shows in the game card: own progress plus this week's board */
+function me_(code) {
+  const s = findStaff_(code);
+  if (!s) return { ok: false, error: 'unknown_code' };
+  const now = new Date(), week = weekKey_(now), month = monthKey_(now);
+  const all = withXp_(results_()), mine = all.filter(r => r.code === s.code);
+  const ledger = owls_().filter(o => o.code === s.code);
+  const st = streaks_(mine, now);
+  const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === month)[0];
+  const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
+  const thisWeek = all.filter(r => weekKey_(r.date) === week && r.branch !== TEST_BRANCH);
+  const people = [...groupBy_(thisWeek, r => r.code).values()]
+    .map(list => ({ code: list[0].code, name: list[0].name, branch: list[0].branch, xp: sum(list, r => r.xp) }))
+    .filter(p => p.xp > 0).sort((a, b) => b.xp - a.xp);
+  const branches = [...groupBy_(activeStaff_().filter(x => x.branch !== TEST_BRANCH), x => x.branch)]
+    .map(([branch, list]) => {
+      const xp = sum(thisWeek.filter(r => r.branch === branch), r => r.xp);
+      return { branch, xp: Math.round(xp / list.length), staff: list.length };
+    }).sort((a, b) => b.xp - a.xp);
+  return {
+    ok: true, name: s.name, branch: s.branch,
+    xp: sum(mine, r => r.xp), weekXp: sum(mine.filter(r => weekKey_(r.date) === week), r => r.xp),
+    weekTests: mine.filter(r => weekKey_(r.date) === week && counts_(r)).length,
+    streak: st.cur, owlsMonth: sum(ledger.filter(o => monthKey_(o.date) === month), o => o.n),
+    owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(mine, st.best),
+    exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
+    board: {
+      people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
+      rank: people.findIndex(p => p.code === s.code) + 1, branches
+    }
+  };
+}
+
+function dayKey_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }
+function monthKey_(d) { return dayKey_(d).slice(0, 7); }
+/* Monday of the week, Baku time */
+function weekKey_(d) {
+  const t = Date.parse(dayKey_(d) + 'T00:00:00Z'), dow = (new Date(t).getUTCDay() + 6) % 7;
+  return new Date(t - dow * 864e5).toISOString().slice(0, 10);
 }
 
 /* ---------- Telegram ---------- */
