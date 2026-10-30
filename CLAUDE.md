@@ -8,12 +8,15 @@ Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink 
 
 ## Commands
 
-There is no build step — it's plain HTML/CSS/JS. Two checks, no install needed (stdlib Python, Node):
+There is no build step — it's plain HTML/CSS/JS. Three checks, no install needed (stdlib Python, Node; the smoke test also needs Playwright, preinstalled in Claude Code cloud sessions):
 
 ```bash
 python3 tools/audit.py          # recipe data, photos, versions
 node tools/apps-script/test.js  # the Google Apps Script, against mocks
+node tools/smoke.js             # the whole app in headless Chromium at phone width
 ```
+
+The smoke test serves the repo root locally and clicks through the tabs, a card, the AZ switch, the quiz generator (every question of every item, both languages), the employee login and a full quiz. Requests to `script.google.com` are answered by an in-page mock (code `1234` is the known employee), so it never writes to the real results sheet or sends a Telegram message.
 
 The data audit:
 
@@ -27,7 +30,7 @@ then open `http://localhost:8000/index.html`.
 
 Deploying is `git push` to `main` — GitHub Pages (legacy build, serving the repo root of `main`) rebuilds automatically in about a minute. Live at https://nuranshahbalayev-hub.github.io/Sensum-Bakery---Handbook/.
 
-Pushes go to a feature branch and are merged to `main` by the owner (pull request). **Open every PR against `main`**: the repo does not delete merged branches, so a PR stacked on another feature branch merges into that branch and never reaches the site. **Before every push that changes `index.html`, run `python3 tools/release.py`**: it bumps `APP_VERSION` in `index.html` and `CACHE` in `sw.js` together (1.79 → 1.80; pass an explicit version to set one) and then runs the audit. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
+Pushes go to a feature branch and are merged to `main` by the owner (pull request). **Open every PR against `main`**: a PR stacked on another feature branch merges into that branch and never reaches the site (merged branches are deleted automatically). **Before every push that changes `index.html`, run `python3 tools/release.py`**: it bumps `APP_VERSION` in `index.html` and `CACHE` in `sw.js` together (1.79 → 1.80; pass an explicit version to set one) and then runs the audit. This is an installed PWA; without the version bump, already-open/installed clients can keep serving stale content — see Service worker below.
 
 ## File map
 
@@ -37,8 +40,12 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 - `images/` — all photos, `<key>.<hash>.webp`, longest side ≤1000px.
 - `tools/audit.py` — the data audit described above.
 - `tools/release.py` — version bump for `index.html` + `sw.js`, then the audit.
+- `tools/smoke.js` — the browser smoke test described above.
 - `tools/photo.py` — add/replace a photo (needs Pillow): `python3 tools/photo.py <key> <source-image>`. Converts to WebP, writes `images/<key>.<hash>.webp`, deletes the key's old file and updates `IMAGES` in `index.html`. **Always use it instead of dropping files into `images/` by hand.** A new drink/vitrina item uses the same key as its `img` field.
 - `tools/apps-script/Code.gs` — the Google Apps Script bound to the training manager's results sheet (see "Training results" below). It is a copy kept here for history and review; the running version lives in the sheet's Apps Script editor. `node tools/apps-script/test.js` runs it against in-memory mocks of the Apps Script services.
+- `.claude/skills/recipe-update/` — the procedure for any content change (drink, prep, vitrina, promo, photo, UI text) from the owner's instruction through to a PR against `main`.
+- `.claude/agents/qa-checker.md` — runs all three checks plus the read-only `?action=status` of the live script and reports in Russian. `.claude/agents/az-translator.md` — drafts/reviews AZ text against the wording already in `DATA`.
+- `.claude/settings.json` — allows the checks above and `git push` to `claude/*` branches without a prompt; merging into `main` stays with the owner.
 
 ## Architecture
 

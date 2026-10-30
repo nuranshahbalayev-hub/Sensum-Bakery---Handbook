@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 tools/audit.py)",
+      "Bash(python3 -B tools/audit.py)",
+      "Bash(python3 tools/release.py:*)",
+      "Bash(node tools/apps-script/test.js)",
+      "Bash(node tools/smoke.js)",
+      "Bash(git push -u origin claude/*)"
+    ]
+  }
+}
