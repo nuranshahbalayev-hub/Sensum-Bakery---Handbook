@@ -61,6 +61,7 @@ def load():
     changelog = extract(src, 'CHANGELOG=', '[', ']')
     version = re.search(r'APP_VERSION="([^"]+)"', src).group(1)
     data['ALG_ORDER'] = extract(src, 'ALG_ORDER=', '[', ']')  # the order allergens are listed in on a card
+    data['SPOTLIGHT'] = extract(src, 'SPOTLIGHT=', '[', ']')  # new-drink banner above «Напитки»
     with open(os.path.join(ROOT, 'sw.js'), encoding='utf-8') as f:
         cache = re.search(r"CACHE\s*=\s*'([^']+)'", f.read()).group(1)
     return data, images, changelog, version, cache
@@ -213,6 +214,13 @@ def check_triggers(D):
 def check_meta(D, changelog, version, cache):
     if cache != 'sensum-v' + version:
         err(f'version mismatch: APP_VERSION={version} but sw.js CACHE={cache}')
+    drink_ids = {x['id'] for x in D['drinks_ru']}
+    for s in D['SPOTLIGHT']:
+        if s.get('id') not in drink_ids:
+            err(f'SPOTLIGHT: "{s.get("id")}" is not a drink id')
+        dates = [s.get('start', ''), s.get('end', '')]
+        if not all(re.fullmatch(r'\d{4}-\d{2}-\d{2}', x) for x in dates) or dates[0] > dates[1]:
+            err(f'SPOTLIGHT {s.get("id")}: start/end must be YYYY-MM-DD with start <= end, got {dates}')
     ids = {x['id'] for k in ('drinks', 'preps', 'vitrina') for x in D[k + '_ru']}
     for c in changelog:
         for i in c.get('changed', []):

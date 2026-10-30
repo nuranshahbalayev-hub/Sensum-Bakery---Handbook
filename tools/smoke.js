@@ -56,6 +56,21 @@ const server = http.createServer((req, res) => {
   await page.keyboard.press('Escape');
   check(await page.locator('#overlay.show').count() === 0, 'card closes with Escape');
 
+  /* the new-drink banner, on a stand-in entry so the test does not depend on today's date */
+  const spotId = await page.evaluate(() => {
+    SPOTLIGHT.splice(0, SPOTLIGHT.length, { id: drinks[0].id, start: '2000-01-01', end: '2999-12-31' });
+    renderDrinks(); return drinks[0].id;
+  });
+  check(await page.locator(`#spot-drinks .spot[data-open="${spotId}"] .pst.on`).count() === 1, 'spotlight banner shows a new drink on sale');
+  await page.click('#spot-drinks .spot');
+  check(await page.locator('#overlay.show').count() === 1 && (await page.locator('#sheetInner h2').innerText()) === await page.evaluate(id => drinkById[id].name, spotId), 'spotlight banner opens its drink');
+  await page.keyboard.press('Escape');
+  await page.fill('#q', 'zzzz');
+  check(await page.locator('#spot-drinks .spot').count() === 0, 'spotlight banner hides while searching');
+  await page.fill('#q', '');
+  await page.evaluate(() => { SPOTLIGHT[0].end = '2000-01-02'; renderDrinks(); });
+  check(await page.locator('#spot-drinks .spot').count() === 0, 'spotlight banner disappears after its end date');
+
   /* a vitrina item with facts from the menu sheet: weight, storage, shelf life, nutrition */
   const vitSheet = async () => {
     await page.click('nav.tabs button[data-tab="vitrina"]');
