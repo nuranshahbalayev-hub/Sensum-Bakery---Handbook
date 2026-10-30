@@ -8,6 +8,7 @@ checks them for drift. Run before every push that touches index.html:
 
 Exit code 1 if any ERROR is found; WARN lines are informational.
 """
+import hashlib
 import json
 import os
 import re
@@ -115,6 +116,24 @@ def check_refs(D, images):
             for a in alg.get('has', []) + alg.get('may', []):
                 if a not in D[f'ALG_{lang}']:
                     err(f'vitrina_{lang}/{x["id"]}: unknown allergen "{a}"')
+
+    # IMAGES maps key -> images/<key>.<sha1[:8]>.webp (see tools/photo.py)
+    img_dir = os.path.join(ROOT, 'images')
+    for key, path in images.items():
+        m = re.fullmatch(r'images/([a-z0-9]+)\.([0-9a-f]{8})\.webp', path)
+        if not m or m.group(1) != key:
+            err(f'IMAGES["{key}"]: unexpected path "{path}"')
+            continue
+        full = os.path.join(ROOT, path)
+        if not os.path.isfile(full):
+            err(f'IMAGES["{key}"]: file {path} does not exist')
+        else:
+            with open(full, 'rb') as f:
+                if hashlib.sha1(f.read()).hexdigest()[:8] != m.group(2):
+                    err(f'IMAGES["{key}"]: hash in {path} does not match file content')
+    on_disk = set(os.listdir(img_dir)) if os.path.isdir(img_dir) else set()
+    for fn in sorted(on_disk - {os.path.basename(p) for p in images.values()}):
+        warn(f'images/{fn} is not referenced by IMAGES (leftover file)')
 
     used_imgs = set()
     for key in ('drinks', 'vitrina'):
