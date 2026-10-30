@@ -60,6 +60,7 @@ def load():
     images = extract(src, 'IMAGES=', '{', '}')
     changelog = extract(src, 'CHANGELOG=', '[', ']')
     version = re.search(r'APP_VERSION="([^"]+)"', src).group(1)
+    data['ALG_ORDER'] = extract(src, 'ALG_ORDER=', '[', ']')  # the order allergens are listed in on a card
     with open(os.path.join(ROOT, 'sw.js'), encoding='utf-8') as f:
         cache = re.search(r"CACHE\s*=\s*'([^']+)'", f.read()).group(1)
     return data, images, changelog, version, cache
@@ -83,11 +84,12 @@ def check_parity(D):
             err(f'{key}: RU/AZ id lists differ (count {len(ru)} vs {len(az)})')
             continue
         for a, b in zip(ru, az):
-            for field in ('ing', 'steps', 'usedin', 'parts', 'tags'):
+            for field in ('ing', 'steps', 'usedin', 'parts', 'tags', 'anote'):
                 if field in a or field in b:
                     if len(a.get(field, [])) != len(b.get(field, [])):
                         err(f'{key}/{a["id"]}: "{field}" length differs RU {len(a.get(field, []))} vs AZ {len(b.get(field, []))}')
-            for field in ('cat', 'temp', 'kind', 'img'):
+            # 'alg' and the vitrina facts (weight, storage, shelf life, nutrition) are language-neutral
+            for field in ('cat', 'temp', 'kind', 'img', 'alg', 'wt', 'stor', 'life', 'kcal', 'nut'):
                 if a.get(field) != b.get(field):
                     err(f'{key}/{a["id"]}: "{field}" differs RU {a.get(field)!r} vs AZ {b.get(field)!r}')
     for key in ('CATS', 'KINDS', 'VCATS', 'ALG'):
@@ -97,6 +99,21 @@ def check_parity(D):
         for lang in ('ru', 'az'):
             if not str(v.get(lang, '')).strip():
                 err(f'ui.{k}: missing "{lang}" string')
+
+
+def check_facts(x):
+    """Vitrina facts: wt grams, stor [min, max] °C, life [n, 'h'|'d'], kcal and nut [protein, fat, carbs] per 100 g."""
+    n = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+    bad = []
+    if 'wt' in x and not (isinstance(x['wt'], int) and x['wt'] > 0): bad.append('wt')
+    if 'stor' in x and not (isinstance(x['stor'], list) and len(x['stor']) == 2
+                            and all(isinstance(t, int) for t in x['stor']) and x['stor'][0] < x['stor'][1]): bad.append('stor')
+    if 'life' in x and not (isinstance(x['life'], list) and len(x['life']) == 2
+                            and isinstance(x['life'][0], int) and x['life'][0] > 0 and x['life'][1] in ('h', 'd')): bad.append('life')
+    if 'kcal' in x and not n(x['kcal']): bad.append('kcal')
+    if 'nut' in x and not (isinstance(x['nut'], list) and len(x['nut']) == 3 and all(map(n, x['nut']))): bad.append('nut')
+    for f in bad:
+        err(f'vitrina/{x["id"]}: malformed "{f}": {x[f]!r}')
 
 
 def check_refs(D, images):
@@ -116,6 +133,11 @@ def check_refs(D, images):
             for a in alg.get('has', []) + alg.get('may', []):
                 if a not in D[f'ALG_{lang}']:
                     err(f'vitrina_{lang}/{x["id"]}: unknown allergen "{a}"')
+            if lang == 'ru':
+                check_facts(x)
+        for a in D[f'ALG_{lang}']:
+            if a not in D['ALG_ORDER']:
+                err(f'ALG_{lang}: "{a}" is missing from ALG_ORDER in the app code')
 
     # IMAGES maps key -> images/<key>.<sha1[:8]>.webp (see tools/photo.py)
     img_dir = os.path.join(ROOT, 'images')
