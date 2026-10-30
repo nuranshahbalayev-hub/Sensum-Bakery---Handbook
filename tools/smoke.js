@@ -31,11 +31,19 @@ const server = http.createServer((req, res) => {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
-  /* mock of the Apps Script web app: code 1234 is a known employee */
+  /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
+  const ME = { ok: true, name: 'Smoke Test', branch: 'Test', xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
+    badges: ['first', 'perfect', 'exam100'], exam: null,
+    board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
+      branches: [{ branch: 'Central Park', xp: 70, staff: 5 }] } };
   await page.route('https://script.google.com/**', route => {
     const req = route.request(), url = new URL(req.url());
     let body;
-    if (req.method() === 'POST') { posted.push(JSON.parse(req.postData())); body = { ok: true }; }
+    if (req.method() === 'POST') {
+      const d = JSON.parse(req.postData()); posted.push(d);
+      body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : { ok: true, xp: 90, owls: [] };
+    }
+    else if (url.searchParams.get('action') === 'me') body = ME;
     else if (url.searchParams.get('action') === 'whoami') {
       body = url.searchParams.get('code') === '1234' ? { ok: true, name: 'Smoke Test', branch: 'Test' } : { ok: false, error: 'unknown_code' };
     } else body = { ok: true, service: 'sensum-learn', version: 'mock' };
@@ -148,6 +156,7 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot .score').count() === 1, 'quiz reaches the result screen');
   const p = posted[0] || {};
   check(posted.length === 1 && p.code === '1234' && p.total > 0 && Array.isArray(p.mistakes) && p.ver, 'result is sent once with code, score, mistakes, version');
+  check(p.kind === 'drinks' && (await page.locator('#learnroot #sendstat').innerText()).includes('+90 XP'), 'result says what kind of test it was and shows the XP it earned');
   check(Number.isInteger(p.secs) && p.timeouts === 0 && p.away === 0 && p.aborted === false, 'result carries time, timeouts, exits, aborted');
 
   /* honesty of a test: the countdown, leaving the app, aborting, a test closed half-way */
@@ -182,6 +191,36 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(800);
   const cl = posted[2] || {};
   check(posted.length === 3 && cl.aborted === true && cl.mistakes.length + cl.score === 1, 'a test closed half-way reaches the sheet as aborted');
+
+  /* the game: level, owls, board and badges come from the sheet; the monthly exam */
+  await page.click('nav.tabs button[data-tab="more"]');
+  await page.click('#morehub [data-gotab="learn"]');
+  await page.waitForTimeout(400);
+  const home = await page.locator('#learnroot').innerText();
+  check(home.includes('1140 XP') && home.includes('🦉 18 / 50') && await page.locator('#learnroot .board li').count() === 2
+    && await page.locator('#learnroot .bdg.on').count() === 3, 'game card, weekly board and badges come from the sheet');
+  await page.click('#learnroot [data-l="board"][data-v="branches"]');
+  check((await page.locator('#learnroot .board').innerText()).includes('Central Park'), 'board switches to branches');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exam"]');
+  const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));
+  check(ex.n === 20 && ex.kind === 'exam' && ex.preps === 8, 'the monthly exam: 20 questions, drinks and preps together');
+  for (let i = 0; i < 25 && await page.locator('#learnroot [data-l="ans"]').count(); i++) {
+    await page.locator('#learnroot [data-l="ans"]').first().click();
+    await page.click('#learnroot [data-l="next"]');
+  }
+  await page.waitForTimeout(500);
+  const pe = posted[posted.length - 1] || {};
+  check(pe.kind === 'exam' && pe.total === 20 && (await page.locator('#learnroot #sendstat').innerText()).includes('🦉 +15'), 'the exam is sent as the exam and shows the owls it earned');
+  await page.click('#learnroot [data-l="home"]');
+  check(await page.locator('#learnroot [data-l="exam"][disabled]').count() === 1, 'one exam a month: the tile locks after it');
+  await page.unroute('https://script.google.com/**');
+  await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
+    headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));
+  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });  // the old script answers ?action=me with no game data
+  await page.waitForTimeout(400);
+  check(!(await page.locator('#learnroot').innerText()).includes('undefined') && await page.locator('#learnroot .game').count() === 0,
+    'a sheet script older than v5: no game card, nothing broken');
 
   check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'no horizontal scroll at 390px');
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
