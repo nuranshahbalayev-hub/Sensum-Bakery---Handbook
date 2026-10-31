@@ -8,13 +8,16 @@ Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink 
 
 ## Commands
 
-There is no build step — it's plain HTML/CSS/JS. Three checks, no install needed (stdlib Python, Node; the smoke test also needs Playwright, preinstalled in Claude Code cloud sessions):
+There is no build step — it's plain HTML/CSS/JS. Four checks, no install needed (stdlib Python, Node; the two browser runners also need Playwright, preinstalled in Claude Code cloud sessions):
 
 ```bash
 python3 tools/audit.py          # recipe data, photos, versions
 node tools/apps-script/test.js  # the Google Apps Script, against mocks
 node tools/smoke.js             # the whole app in headless Chromium at phone width
+node tools/cases.js             # the rest of the test cases in docs/TEST_CASES.md (filters, favorites, sheet, offline…)
 ```
+
+`docs/TEST_CASES.md` is the test-case catalog (Russian): every case has an id, a priority and the runner that covers it, plus the manual cases and the known open issues (`KNOWN-*`). `tools/cases.js` prints each line with its case id; `KNOWN` lines are open issues that don't fail the run, `FIXED` means one no longer reproduces. A new feature gets its case in the catalog and, where a browser can check it, a check in `smoke.js` or `cases.js`.
 
 The smoke test serves the repo root locally and clicks through the tabs, a card, the AZ switch, the quiz generator (every question of every item, both languages), the employee login and a full quiz. Requests to `script.google.com` are answered by an in-page mock (code `1234` is the known employee), so it never writes to the real results sheet or sends a Telegram message.
 
@@ -42,10 +45,12 @@ Pushes go to a feature branch and are merged to `main` by the owner (pull reques
 - `tools/audit.py` — the data audit described above.
 - `tools/release.py` — version bump for `index.html` + `sw.js`, then the audit.
 - `tools/smoke.js` — the browser smoke test described above.
+- `tools/cases.js` — browser checks for the catalog cases `smoke.js` doesn't cover, same mocked backend; its last part runs a real service worker and goes offline.
+- `docs/TEST_CASES.md` — the test-case catalog (see Commands).
 - `tools/photo.py` — add/replace a photo (needs Pillow): `python3 tools/photo.py <key> <source-image>`. Converts to WebP, writes `images/<key>.<hash>.webp`, deletes the key's old file and updates `IMAGES` in `index.html`. **Always use it instead of dropping files into `images/` by hand.** A new drink/vitrina item uses the same key as its `img` field.
 - `tools/apps-script/Code.gs` — the Google Apps Script bound to the training manager's results sheet (see "Training results" below). It is a copy kept here for history and review; the running version lives in the sheet's Apps Script editor. `node tools/apps-script/test.js` runs it against in-memory mocks of the Apps Script services, with made-up staff (codes 9001–9003): real names and codes never go into the repo.
 - `.claude/skills/recipe-update/` — the procedure for any content change (drink, prep, vitrina, promo, photo, UI text) from the owner's instruction through to a PR against `main`.
-- `.claude/agents/qa-checker.md` — runs all three checks plus the read-only `?action=status` of the live script and reports in Russian. `.claude/agents/az-translator.md` — drafts/reviews AZ text against the wording already in `DATA`.
+- `.claude/agents/qa-checker.md` — runs all four checks plus the read-only `?action=status` of the live script and reports in Russian by test-case id. `.claude/agents/az-translator.md` — drafts/reviews AZ text against the wording already in `DATA`.
 - `.claude/settings.json` — allows the checks above and `git push` to `claude/*` branches without a prompt; merging into `main` stays with the owner.
 
 ## Architecture

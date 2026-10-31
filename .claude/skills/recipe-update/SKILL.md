@@ -27,9 +27,10 @@ The owner (Nuran, training manager) sends a change; you apply it to `index.html`
 ```bash
 python3 tools/release.py          # bumps APP_VERSION + sw.js CACHE, runs the data audit
 node tools/smoke.js               # whole app in a browser, mocked results backend
+node tools/cases.js               # the remaining test cases of docs/TEST_CASES.md
 ```
 
-Both must pass (audit: 0 errors; review new WARN lines). If the change touched training texts or generators, the smoke test's quiz-generator line covers them.
+All three must pass (audit: 0 errors; review new WARN lines; `KNOWN` lines in cases.js are open issues, not failures). If the change touched training texts or generators, the smoke test's quiz-generator line covers them.
 
 ## 4. Ship
 

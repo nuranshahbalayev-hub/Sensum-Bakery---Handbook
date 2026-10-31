@@ -6,6 +6,7 @@
       "Bash(python3 tools/release.py:*)",
       "Bash(node tools/apps-script/test.js)",
       "Bash(node tools/smoke.js)",
+      "Bash(node tools/cases.js)",
       "Bash(git push -u origin claude/*)"
     ]
   }
