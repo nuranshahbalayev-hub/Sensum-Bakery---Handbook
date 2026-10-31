@@ -239,6 +239,13 @@ const server = http.createServer((req, res) => {
   check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'no horizontal scroll at 390px');
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
 
+  /* the style guide renders the real components from index.html's stylesheet */
+  const sg = await ctx.newPage(); const sgErr = [];
+  sg.on('pageerror', e => sgErr.push(e.message)); sg.on('console', m => { if (m.type() === 'error') sgErr.push(m.text()); });
+  await sg.goto(base.replace('index.html', 'styleguide.html'));
+  await sg.waitForSelector('[data-sg-ready]', { timeout: 5000 }).catch(() => {});
+  check(await sg.locator('.sg section').count() === 9 && await sg.locator('.sg .lbtn.pri').count() >= 1 && await sg.locator('.sg .card').count() === 2
+    && !(await sg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)) && sgErr.length === 0, 'style guide page renders every component without errors');
   await browser.close();
   server.close();
   console.log(fails.length ? `\n${fails.length} check(s) failed` : '\nall smoke checks passed');

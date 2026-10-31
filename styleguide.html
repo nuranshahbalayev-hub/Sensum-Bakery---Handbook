@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Sensum — дизайн-система</title>
+<script>(function(){try{var t=localStorage.getItem("sensum_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var z=parseFloat(localStorage.getItem("sensum_textsize"));if(z>=0.8&&z<=1.5)document.documentElement.style.setProperty("--ts",z);}catch(e){}})();</script>
+<style id="sg-page">
+/* the app's own stylesheet is injected after this block (see the script): the page shows the real components */
+body{display:block!important;height:auto!important;overflow:auto!important;background:var(--cream);color:var(--ink)}
+html{height:auto!important;overflow:auto!important}
+.sg{max-width:430px;margin:0 auto;padding:var(--sp-4) var(--gutter) var(--sp-8)}
+.sg h1{font-size:var(--fs-t1);margin:var(--sp-2) 0 var(--sp-1)}
+.sg .lead{color:var(--muted);font-size:var(--fs-sub);margin:0 0 var(--sp-4)}
+.sg section{margin-top:var(--sp-8)}
+.sg h2{font-size:var(--fs-t2);margin:0 0 var(--sp-1);padding-bottom:var(--sp-2);border-bottom:2px solid var(--crema)}
+.sg .why{color:var(--muted);font-size:var(--fs-fn);margin:var(--sp-2) 0 var(--sp-3)}
+.sg .label{font-size:var(--fs-c1);color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);font-weight:600}
+.sg .label code,.sg .why code{background:var(--bg2);border-radius:6px;padding:1px 6px;font-size:var(--fs-c1)}
+.sg .row{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
+.sg .bar2{position:sticky;top:0;z-index:5;background:var(--cream);padding:var(--sp-2) 0;display:flex;gap:var(--sp-2);flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.sg .bar2 button{min-height:36px}
+.sw{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
+.sw div{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;font-size:var(--fs-c2);background:var(--card)}
+.sw i{display:block;height:36px}
+.sw span{display:block;padding:var(--sp-1) var(--sp-2);color:var(--muted)}
+.ty{display:grid;gap:var(--sp-2)}
+.ty div{display:flex;align-items:baseline;gap:var(--sp-3);border-bottom:1px solid var(--line);padding-bottom:var(--sp-2)}
+.ty code{flex:0 0 112px;font-size:var(--fs-c1);color:var(--muted)}
+.sp div{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2);font-size:var(--fs-fn);color:var(--muted)}
+.sp i{display:block;height:12px;background:var(--caramel);border-radius:3px}
+.rd{display:flex;gap:var(--sp-3);flex-wrap:wrap}
+.rd div{width:72px;height:72px;background:var(--note-bg);border:1px solid var(--note-border);display:flex;align-items:center;justify-content:center;font-size:var(--fs-c1);color:var(--muted)}
+.sg .gridc{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.sg .nested{margin:0 calc(var(--gutter) * -1)}
+</style>
+</head>
+<body>
+<main class="sg" id="sg"><p class="lead" id="sg-load">Загрузка стилей приложения…</p></main>
+<script>
+fetch('./index.html').then(r=>r.text()).then(src=>{
+  const css=src.slice(src.indexOf('<style>')+7,src.indexOf('</style>'));
+  const st=document.createElement('style'); st.id='app-css'; st.textContent=css; document.head.insertBefore(st,document.getElementById('sg-page'));
+  const img=k=>{const m=src.match(new RegExp('"'+k+'":"(images/[^"]+)"'));return m?m[1]:''};
+  const THEME=()=>document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  const tokens=['espresso','espresso2','caramel','caramel-d','crema','cream','card','ink','muted','line','note-bg','bg2','hot','cold','new','ok','b-fix','b-news','b-hot','b-ok','b-new','chip-active'];
+  const fs=[['c2',11,'Подпись, бейдж'],['c1',12,'Мелкая подпись'],['fn',13,'Сноска, фильтр'],['sub',15,'Основной текст, кнопка'],['callout',16,'Поле ввода'],['body',17,'Крупный текст, заголовок кнопки'],['t3',20,'Заголовок раздела'],['t2',22,'Заголовок листа'],['t1',28,'Большой заголовок']];
+  const sp=[1,2,3,4,5,6,8], rd=[['sm',10],['md',12],['lg',16],['xl',20],['pill',999]];
+  const html=`
+  <h1>Дизайн-система Sensum</h1>
+  <p class="lead">Живая шпаргалка: ниже настоящие компоненты приложения, они берут стили прямо из <code>index.html</code>. Правишь стиль в приложении — здесь он меняется сам.</p>
+  <div class="bar2"><button class="chip" id="g-theme">🌙 Тёмная тема</button><button class="chip" id="g-m">A−</button><button class="chip" id="g-p">A+</button><span class="hint" style="margin:0;align-self:center" id="g-ts"></span></div>
+
+  <section id="s-color"><h2>Цвета</h2><p class="why">Только переменные <code>--имя</code>: в тёмной теме они меняются сами. Белый текст — только на <code>--b-*</code> (контраст 4,5:1).</p>
+    <div class="sw" id="sw"></div></section>
+
+  <section id="s-type"><h2>Шрифт и размеры</h2><p class="why">Системный шрифт (SF Pro на iPhone), шкала как в iOS Dynamic Type. Новые размеры не вводим — берём <code>var(--fs-…)</code>.</p>
+    <div class="ty">${fs.map(([k,px,use])=>`<div><code>--fs-${k} · ${px}</code><span style="font-size:var(--fs-${k});font-weight:${px>=20?700:500}">${use}</span></div>`).join('')}</div></section>
+
+  <section id="s-space"><h2>Отступы, скругления, касание</h2><p class="why">Сетка 4 pt: <code>--sp-1…--sp-8</code>. Край экрана — <code>--gutter</code> (16). Минимальная зона касания — <code>--tap</code> (44).</p>
+    <div class="sp">${sp.map(n=>`<div><code>--sp-${n}</code><i style="width:calc(var(--sp-${n}) * 4)"></i><span>${[4,8,12,16,20,24,32][sp.indexOf(n)]}</span></div>`).join('')}</div>
+    <div class="label">Скругления</div><div class="rd">${rd.map(([k,v])=>`<div style="border-radius:var(--r-${k})">${k}</div>`).join('')}</div></section>
+
+  <section id="s-btn"><h2>Кнопки</h2><p class="why">Одна главная кнопка на экране. Нажатие: поверхности чуть «проваливаются», кнопки сильнее, текстовые бледнеют.</p>
+    <div class="label"><code>.lbtn.pri</code> главная · <code>.sec</code> вторичная</div><div class="lbtns" style="margin:0"><button class="lbtn sec">Открыть рецепт</button><button class="lbtn pri">Дальше ›</button></div>
+    <div class="label"><code>.ok</code> положительная · <code>.again</code> «повторить»</div><div class="lbtns" style="margin:0"><button class="lbtn again">↺ Повторить</button><button class="lbtn ok">✓ Знаю</button></div>
+    <div class="label">Недоступная (<code>:disabled</code>)</div><div class="lbtns" style="margin:0"><button class="lbtn pri" disabled>Недоступно</button></div>
+    <div class="label"><code>.lnk</code> и <code>.back</code> — текстовые</div><div class="row"><button class="back">‹ Ещё</button><button class="lnk">Завершить</button></div></section>
+
+  <section id="s-chip"><h2>Фильтры и переключатели</h2>
+    <div class="label"><code>.chip</code> / <code>.chip.on</code></div><div class="row"><button class="chip on">Все</button><button class="chip">☕ Горячие</button><button class="chip">🧊 Холодные</button></div>
+    <div class="label"><code>.seg</code> — сегментный переключатель</div><div class="seg"><button class="on">Сотрудники</button><button>Филиалы</button></div></section>
+
+  <section id="s-badge"><h2>Бейджи</h2><p class="why">Одна форма — «таблетка»: 11 px, жирный. Цвет несёт смысл: красный — новое, зелёный — идёт сейчас, серый — нейтральное.</p>
+    <div class="row"><span class="chtype news" style="position:static">ОБЪЯВЛЕНИЕ</span><span class="chtype fix" style="position:static">ПРАВКА</span><span class="pst on" style="margin:0">Сейчас действует</span><span class="pst" style="margin:0">Сегодня с 17:00</span><span class="cnt">1 новое</span></div>
+    <div class="label">На фото карточки</div><div class="row" style="position:relative;height:36px"><span class="tbadge hot" style="left:0;top:0">HOT</span><span class="tbadge cold" style="left:64px;top:0">COLD</span><span class="newr" style="left:140px;top:0">НОВИНКА</span><span class="kbadge" style="left:240px;top:0">Салаты</span></div></section>
+
+  <section id="s-card"><h2>Карточки</h2><p class="why"><b>Карточка с фото</b> (<code>.card</code>) — без рамки, с тенью. <b>Панель</b> (<code>.lpanel</code>, <code>.promo</code>, <code>.tile</code>) — с рамкой и тенью.</p>
+    <div class="gridc"><div class="card"><div class="ph"><img src="${img('lotuslatte')}" alt=""></div><span class="newr">Новинка</span><button class="fav">☆</button><div class="body"><h3 class="serif">Lotus Latte</h3><div class="meta">Эспрессо-спешелти · 330 мл</div></div></div>
+    <div class="card"><div class="ph"><img src="${img('citrussalad')}" alt=""></div><span class="kbadge">Салаты</span><button class="fav on">★</button><div class="body"><h3 class="serif">Цитрусовый салат</h3><div class="meta vdesc">Салатный микс, киноа, черри</div></div></div></div>
+    <div class="label"><code>.spot</code> — баннер новинки</div>
+    <div class="nested"><div class="spot"><img src="${img('lotuslatte')}" alt=""><div class="sx"><span class="sb">НОВИНКА</span><div class="sn serif">Lotus Latte</div><div class="si">Эспрессо · Молоко · Lotus крем</div><div class="sf"><span class="pst on">В продаже с 1 ноября</span><span class="sgo">Открыть рецепт ›</span></div></div></div></div>
+    <div class="label"><code>.promo</code> — акция</div><div class="prow" style="padding:0;margin:0"><div class="promo now"><div class="pn">🎁 Напиток в подарок</div><div class="ps">К салату или большому сэндвичу</div><div class="pp">Подарок</div><div class="pt">12:00–15:00 · Пн–пт</div><span class="pst on">Сейчас действует</span></div><div class="promo"><div class="pn">🥗 Fresh Combo</div><div class="ps">2 салата + 2 айс-ти</div><div class="pp">18 AZN</div><div class="pt">17:00–00:00 · Каждый день</div><div class="pb">📍 Только Ağ Şəhər</div><span class="pst">Сегодня с 17:00</span></div></div>
+    <div class="label"><code>.tile</code> — строка меню «Ещё»</div><div class="hub"><button class="tile"><span class="ti">🎓</span><span class="tx"><span class="tt">Обучение</span><span class="td">Карточки и тесты по рецептам</span></span><span class="chev">›</span></button></div>
+    <div class="label"><code>.mode</code> — крупные кнопки-плитки</div><div class="modes"><button class="mode"><span class="mi">🃏</span><b>Карточки</b><span>Вспомни рецепт</span><em>20 в наборе</em></button><button class="mode"><span class="mi">📝</span><b>Тест</b><span>Варианты ответа</span><em>10 вопросов · ⏱ 15 с</em></button></div>
+    <div class="label"><code>.lpanel</code> — панель</div><div class="lpanel"><div class="lph">Твой прогресс</div><div class="prow2"><span>Напитки</span><b>12 / 56</b></div><span class="bar"><i style="width:22%"></i></span><div class="hint">Тестов ещё не было</div></div></section>
+
+  <section id="s-content"><h2>Содержимое листа</h2>
+    <div class="label"><code>.spec .p</code> — плашки-факты</div><div class="spec"><div class="p"><b>Посуда</b>330 мл</div><div class="p"><b>Подача</b>Горячий</div></div>
+    <div class="label"><code>h4.sec</code>, <code>table.ing</code>, <code>.note</code>, <code>.hint</code></div><h4 class="sec" style="margin-top:0">Состав</h4>
+    <table class="ing"><tr><td>Эспрессо (одинарный)</td><td class="q">18 г</td></tr><tr><td><span class="prep-link">Lotus крем</span></td><td class="q">30 г</td></tr></table>
+    <div class="note">Заметка: сироп хранится 7 дней при +2…+5 °C.</div><p class="hint">Вспомогательный текст — серый, 12 px.</p>
+    <div class="label"><code>.chchip</code> / <code>.uchip</code> — ссылки на позиции</div><div class="usedin"><span class="chchip">☕ Lotus Latte</span><span class="uchip"><b>6 г</b> Signature Bliss</span></div></section>
+
+  <section id="s-quiz"><h2>Тест</h2><p class="why">Варианты ответа <code>.opt</code> в четырёх состояниях.</p>
+    <div class="qcard" style="margin-bottom:var(--sp-3)"><div class="qtext">Что входит в состав «Iced Cappuccino»?</div></div>
+    <div class="qtrow" style="margin-top:0"><span class="qtimer"><i style="width:60%"></i></span><b>9</b></div>
+    <div class="opts"><button class="opt">Обычный вариант</button><button class="opt right">Верный ответ</button><button class="opt wrong">Неверный ответ</button><button class="opt dim" disabled>Остальные — приглушены</button></div></section>
+  `;
+  const root=document.getElementById('sg'); root.innerHTML=html;
+  const sw=document.getElementById('sw');
+  const paint=()=>{sw.innerHTML=tokens.map(t=>`<div><i style="background:var(--${t})"></i><span>--${t}<br>${getComputedStyle(document.documentElement).getPropertyValue('--'+t).trim()}</span></div>`).join('');
+    document.getElementById('g-theme').textContent=THEME()==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема';
+    document.getElementById('g-ts').textContent='текст '+Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')||1)*100)+'%';};
+  paint();
+  document.getElementById('g-theme').onclick=()=>{const d=THEME()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',d);try{localStorage.setItem('sensum_theme',d)}catch(e){}paint();};
+  const STEPS=[0.88,1,1.12,1.24,1.35]; const cur=()=>{const z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts'))||1;return Math.max(0,STEPS.findIndex(x=>Math.abs(x-z)<.01))};
+  const setz=i=>{i=Math.min(STEPS.length-1,Math.max(0,i));document.documentElement.style.setProperty('--ts',STEPS[i]);try{localStorage.setItem('sensum_textsize',STEPS[i])}catch(e){}paint();};
+  document.getElementById('g-m').onclick=()=>setz(cur()-1); document.getElementById('g-p').onclick=()=>setz(cur()+1);
+  document.documentElement.dataset.sgReady='1';
+}).catch(()=>{document.getElementById('sg-load').textContent='Не удалось загрузить index.html. Откройте страницу через сайт, а не из файла.';});
+</script>
+</body>
+</html>
