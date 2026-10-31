@@ -93,6 +93,20 @@ const server = http.createServer((req, res) => {
   });
   check(order.every(Boolean), 'promos: active first, inactive last');
 
+  /* text size (Dynamic Type) in «Ещё»: tokens scale, the tab bar doesn't, the choice survives a reload */
+  const fsOf = sel => page.evaluate(s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize), sel);
+  await page.click('nav.tabs button[data-tab="more"]');
+  const tab0 = await fsOf('nav.tabs button');
+  await page.click('#morehub [data-ts="1"]'); await page.click('#morehub [data-ts="1"]');
+  await page.reload(); await page.waitForTimeout(300);
+  await page.click('nav.tabs button[data-tab="more"]');
+  const big = { sample: await fsOf('#morehub .tsample'), tab: await fsOf('nav.tabs button') };
+  check(Math.abs(big.sample - 15 * 1.24) < 0.1 && big.tab === tab0, 'text size A+ scales the text, keeps the tab bar, survives a reload');
+  while (await page.locator('#morehub [data-ts="-1"]:not([disabled])').count()) await page.click('#morehub [data-ts="-1"]');
+  check(Math.abs(await fsOf('#morehub .tsample') - 15 * 0.88) < 0.1 && await page.locator('#morehub [data-ts="-1"][disabled]').count() === 1, 'text size stops at the smallest step');
+  await page.evaluate(() => setTextSize(1));
+  await page.click('nav.tabs button[data-tab="drinks"]');
+
   /* a vitrina item with facts from the menu sheet: weight, storage, shelf life, nutrition */
   const vitSheet = async () => {
     await page.click('nav.tabs button[data-tab="vitrina"]');
