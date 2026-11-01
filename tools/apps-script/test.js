@@ -86,7 +86,7 @@ let t;
 
 // 1. whoami
 t = env();
-assert.deepStrictEqual(JSON.parse(t.api.doGet({ parameter: { action: 'whoami', code: '9001' } }).text), { ok: true, name: 'Тест-1', branch: 'Central Park' });
+assert.deepStrictEqual(JSON.parse(t.api.doGet({ parameter: { action: 'whoami', code: '9001' } }).text), { ok: true, name: 'Тест-1', branch: 'Central Park', level: 'barista' });
 assert.strictEqual(JSON.parse(t.api.doGet({ parameter: { action: 'whoami', code: '1111' } }).text).ok, false, 'inactive staff rejected');
 assert.strictEqual(JSON.parse(t.api.doGet({ parameter: { action: 'whoami', code: '12' } }).text).ok, false);
 
@@ -159,9 +159,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.2'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.3'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.2');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.3');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -245,6 +245,13 @@ const thR = th.post({ id: 'th1', code: '9002', scope: 'Теория · Кофе:
 assert.strictEqual(thR.xp, 80, 'theory: 10 XP per right answer');
 assert.strictEqual(th.results.data[th.results.data.length - 1][17], 'theory', 'type column R says «theory»');
 assert.strictEqual(th.results.data[th.results.data.length - 1][4], 'Теория · Кофе: теория', 'the topic stays in the scope');
+// levels (v5.3): column D of «Сотрудники» is read as a level, spelled any way the trainer types it
+const lv = env({ notifyAll: false, now: NOW });
+lv.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажер', true], ['9005', 'Тест-5', 'Port II', ' СТАРШИЙ ', true],
+  ['9006', 'Тест-6', 'Port II', 'Администратор', true], ['9007', 'Тест-7', 'Port II', '', true]);
+const lvl = code => JSON.parse(lv.api.doGet({ parameter: { action: 'whoami', code } }).text).level;
+assert.deepStrictEqual(['9001', '9004', '9005', '9006', '9007'].map(lvl), ['barista', 'trainee', 'senior', '', ''], 'level from the role column; unknown text = no level');
+assert.strictEqual(lv.me('9004').level, 'trainee', '?action=me carries the level too');
 // monthly cap
 const cap = env({ notifyAll: false, now: NOW });
 cap.post({ id: 'c1', code: '9003', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(2) });  // +1, creates «Совы»
