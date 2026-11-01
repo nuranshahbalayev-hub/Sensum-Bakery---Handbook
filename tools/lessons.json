@@ -10,6 +10,28 @@
     "t": "Qəhvə",
     "d": "Dənədən fincana: mənşə, emal, qovurma, espresso, süd, dəmləmə"
    }
+  },
+  "SV": {
+   "icon": "🤝",
+   "ru": {
+    "t": "Сервис и продажи",
+    "d": "Общение с гостем, приём заказа, апселлинг и кросс-селлинг, конфликты"
+   },
+   "az": {
+    "t": "Servis və satış",
+    "d": "Qonaqla ünsiyyət, sifarişin qəbulu, apsell və kross-sell, münaqişələr"
+   }
+  },
+  "SN": {
+   "icon": "🧼",
+   "ru": {
+    "t": "Санитария и работа в баре",
+    "d": "Гигиена, порядок в баре, FIFO, работа с гостями"
+   },
+   "az": {
+    "t": "Sanitariya və barda iş",
+    "d": "Gigiyena, barda nizam, FIFO, qonaqlarla işləmək"
+   }
   }
  },
  "lessons": [
@@ -2409,6 +2431,1609 @@
        "Qaşıqlar — gümüş və ya paslanmayan polad, 4–5 ml.",
        "Su təmiz, şəffaf, dadsız və qoxusuz olmalıdır: TDS 75–250 ppm (1 mq/l = 1 ppm), pH 7,0–7,5, temperatur 93 °C.",
        "Su üstdən birbaşa üyüdülmüş kofenin üzərinə, fincandan fincana bərabər tökülür."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-first",
+   "cat": "SV",
+   "topic": "SV-1",
+   "ru": {
+    "title": "Первое впечатление и приветствие",
+    "blocks": [
+     {
+      "p": "Первое впечатление складывается за первые секунды контакта с гостем. Искренняя улыбка и дружелюбное приветствие создают тёплую атмосферу, а зрительный контакт вызывает доверие и показывает, что вы действительно замечаете гостя, а не просто выполняете работу."
+     },
+     {
+      "p": "Язык тела говорит не меньше слов: открытая поза, руки не скрещены, корпус повёрнут к гостю. Энергия и энтузиазм, которые вы передаёте, меняют настроение гостя к лучшему."
+     },
+     {
+      "h": "Ключевые элементы первого впечатления"
+     },
+     {
+      "ul": [
+       {
+        "b": "Улыбка",
+        "t": " — искренняя, тёплая: это первое, что должен увидеть гость."
+       },
+       {
+        "b": "Зрительный контакт",
+        "t": " — смотрите гостю в глаза: это показывает уважение и внимание."
+       },
+       {
+        "b": "Приветствие",
+        "t": " — «Доброе утро!», «Добрый день!», «Добрый вечер!» в зависимости от времени суток."
+       },
+       {
+        "b": "Открытая поза",
+        "t": " — не скрещивайте руки, не отворачивайтесь от гостя."
+       },
+       {
+        "b": "Энергия",
+        "t": " — будьте бодрыми и позитивными, даже если день был тяжёлым."
+       }
+      ]
+     },
+     {
+      "note": "Бариста — лицо кофейни. От общения на кассе зависит, вернётся ли гость, порекомендует ли кофейню друзьям и сколько потратит за визит."
+     }
+    ]
+   },
+   "az": {
+    "title": "İlk təəssürat və salamlaşma",
+    "blocks": [
+     {
+      "p": "İlk təəssürat qonaqla təmasın ilk saniyələrində formalaşır. Səmimi gülümsəmə və mehriban salamlaşma isti atmosfer yaradır, göz təması isə etibar doğurur və göstərir ki, siz qonağı həqiqətən görürsünüz, sadəcə işinizi görmürsünüz."
+     },
+     {
+      "p": "Bədən dili sözlər qədər çox şey deyir: açıq duruş, çarpazlanmamış əllər, gövdənin qonağa tərəf dönməsi. Ötürdüyünüz enerji və həvəs qonağın əhvalını yaxşılaşdırır."
+     },
+     {
+      "h": "İlk təəssüratın əsas elementləri"
+     },
+     {
+      "ul": [
+       {
+        "b": "Gülümsəmə",
+        "t": " — səmimi, isti: qonağın ilk görməli olduğu budur."
+       },
+       {
+        "b": "Göz təması",
+        "t": " — qonağın gözlərinə baxın: bu hörmət və diqqət göstərir."
+       },
+       {
+        "b": "Salamlaşma",
+        "t": " — gün vaxtından asılı olaraq “Sabahınız xeyir!”, “Gününüz xeyir!”, “Axşamınız xeyir!”."
+       },
+       {
+        "b": "Açıq duruş",
+        "t": " — əllərinizi çarpazlamayın, qonaqdan üz çevirməyin."
+       },
+       {
+        "b": "Enerji",
+        "t": " — gün ağır keçsə belə, diri və müsbət olun."
+       }
+      ]
+     },
+     {
+      "note": "Barista kofe məkanının simasıdır. Qonağın yenidən gəlməsi, dostlarına tövsiyə etməsi və ziyarət zamanı nə qədər xərcləməsi kassadakı ünsiyyətdən asılıdır."
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-listen",
+   "cat": "SV",
+   "topic": "SV-1",
+   "ru": {
+    "title": "Активное слушание и вопросы гостю",
+    "blocks": [
+     {
+      "p": "Активное слушание — это не просто молчать, пока говорит гость. Это внимание не только к словам, но и к языку тела, тону голоса и настроению. Замечайте, что гость говорит и о чём молчит. Если он выглядит уставшим, возможно, ему нужен крепкий кофе. Если он в хорошем настроении и не торопится, можно предложить попробовать что-то новое."
+     },
+     {
+      "h": "Открытые вопросы"
+     },
+     {
+      "p": "Открытый вопрос требует развёрнутого ответа, а не просто «да» или «нет». Вместо «Вам кофе?» спросите «Какой кофе вы предпочитаете сегодня?» или «Что бы вы хотели к кофе?». Так вы лучше поймёте предпочтения гостя и сможете предложить именно то, что ему нужно."
+     },
+     {
+      "h": "Эмпатия"
+     },
+     {
+      "p": "Эмпатия — это умение поставить себя на место другого человека и понять его чувства. Если гость расстроен, проявите сочувствие, если радостен, разделите его настроение. Эмпатия создаёт эмоциональную связь и делает общение человечнее."
+     },
+     {
+      "h": "Техники активного слушания"
+     },
+     {
+      "ul": [
+       {
+        "b": "Внимательность",
+        "t": " — слушайте слова и замечайте язык тела и тон голоса."
+       },
+       {
+        "b": "Открытые вопросы",
+        "t": " — «Какой кофе вы предпочитаете?», «Что бы вы хотели к вашему напитку?»"
+       },
+       {
+        "b": "Уточнение",
+        "t": " — «Правильно ли я понял, что вы хотите латте на миндальном молоке?»"
+       },
+       {
+        "b": "Эмпатия",
+        "t": " — «Вижу, у вас был напряжённый день. Давайте я приготовлю вам что-то особенное.»"
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Aktiv dinləmə və qonağa suallar",
+    "blocks": [
+     {
+      "p": "Aktiv dinləmək qonaq danışarkən sadəcə susmaq deyil. Bu, təkcə sözlərə yox, bədən dilinə, səs tonuna və əhvala da diqqətdir. Qonağın nə dediyinə və nəyi deməməsinə fikir verin. Yorğun görünürsə, ona güclü qəhvə lazım ola bilər. Əhvalı yaxşıdırsa və tələsmirsə, yeni nəsə dadmağı təklif etmək olar."
+     },
+     {
+      "h": "Açıq suallar"
+     },
+     {
+      "p": "Açıq sual “bəli” və ya “xeyr” yox, ətraflı cavab tələb edir. “Qəhvə istəyirsiniz?” əvəzinə “Bu gün hansı qəhvəni üstün tutursunuz?” və ya “Qəhvənizə nə əlavə edək?” soruşun. Beləcə qonağın seçimini daha yaxşı başa düşər və ona məhz lazım olanı təklif edə bilərsiniz."
+     },
+     {
+      "h": "Empatiya"
+     },
+     {
+      "p": "Empatiya özünü başqasının yerinə qoymaq və onun hisslərini anlamaq bacarığıdır. Qonaq kədərlidirsə, başa düşün, sevinclidirsə, əhvalını bölüşün. Empatiya emosional bağ yaradır və ünsiyyəti insani edir."
+     },
+     {
+      "h": "Aktiv dinləmə texnikaları"
+     },
+     {
+      "ul": [
+       {
+        "b": "Diqqətlilik",
+        "t": " — sözləri dinləyin, bədən dilinə və səs tonuna fikir verin."
+       },
+       {
+        "b": "Açıq suallar",
+        "t": " — “Hansı qəhvəni üstün tutursunuz?”, “İçkinizə nə əlavə edək?”"
+       },
+       {
+        "b": "Dəqiqləşdirmə",
+        "t": " — “Düzgün başa düşdümmü ki, badam südlü latte istəyirsiniz?”"
+       },
+       {
+        "b": "Empatiya",
+        "t": " — “Görürəm, gününüz gərgin keçib. Qoy sizin üçün xüsusi nəsə hazırlayım.”"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-types",
+   "cat": "SV",
+   "topic": "SV-1",
+   "ru": {
+    "title": "Типы гостей и индивидуальный подход",
+    "blocks": [
+     {
+      "p": "Каждый гость уникален, и подход к нему должен быть индивидуальным. Всё же можно выделить четыре типичных типа гостей."
+     },
+     {
+      "ul": [
+       {
+        "b": "«Спешащий»",
+        "t": " — торопится и хочет получить заказ как можно быстрее. Подход: скорость и минимум вопросов; предложите готовое, что не нужно ждать (сэндвич, снек). Фраза: «Ваш обычный латте? Готов через минуту!»"
+       },
+       {
+        "b": "«Неопределившийся»",
+        "t": " — не знает, что хочет, или впервые в кофейне. Подход: помощь, наводящие вопросы, конкретные рекомендации. Фраза: «Попробуйте наш Spanish Latte или классический капучино, он очень популярен!»"
+       },
+       {
+        "b": "«Постоянный»",
+        "t": " — регулярно приходит. Подход: запоминайте предпочтения, обращайтесь по имени. Фраза: «Привет, Иван! Как обычно, двойной эспрессо?» Это создаёт ощущение заботы, которое постоянные гости очень ценят."
+       },
+       {
+        "b": "«Любопытный»",
+        "t": " — интересуется кофе, хочет знать о зёрнах, способах приготовления и новинках. Подход: расскажите о происхождении зёрен, обжарке, новых напитках. Это не только повышает продажи, но и укрепляет связь с гостем."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Qonaq tipləri və fərdi yanaşma",
+    "blocks": [
+     {
+      "p": "Hər qonaq unikaldır və ona fərdi yanaşmaq lazımdır. Bununla belə, qonaqların dörd tipik növünü ayırd etmək olar."
+     },
+     {
+      "ul": [
+       {
+        "b": "“Tələsən”",
+        "t": " — tələsir və sifarişi mümkün qədər tez almaq istəyir. Yanaşma: sürət və minimum sual; gözləmə tələb etməyən hazır məhsul (sendviç, qəlyanaltı) təklif edin. İfadə: “Həmişəki lattenizdir? Bir dəqiqəyə hazırdır!”"
+       },
+       {
+        "b": "“Qərarsız”",
+        "t": " — nə istədiyini bilmir və ya kofe məkanına ilk dəfə gəlib. Yanaşma: kömək, istiqamətləndirici suallar, konkret tövsiyələr. İfadə: “Spanish Latte-mizi və ya klassik kapuçinonu dadın, çox populyardır!”"
+       },
+       {
+        "b": "“Daimi”",
+        "t": " — müntəzəm gəlir. Yanaşma: üstünlükləri yadda saxlayın, adı ilə müraciət edin. İfadə: “Salam, İvan! Həmişəki kimi, ikiqat espresso?” Bu, qayğı hissi yaradır və daimi qonaqlar bunu çox qiymətləndirir."
+       },
+       {
+        "b": "“Maraqlanan”",
+        "t": " — qəhvə ilə maraqlanır, dənələr, hazırlama üsulları və yeniliklər haqqında bilmək istəyir. Yanaşma: dənələrin mənşəyi, qovurma, yeni içkilər haqqında danışın. Bu, həm satışı artırır, həm də qonaqla bağı möhkəmləndirir."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-triggers",
+   "cat": "SV",
+   "topic": "SV-2",
+   "ru": {
+    "title": "Психологические триггеры",
+    "blocks": [
+     {
+      "p": "Психологические триггеры — это механизмы, которые влияют на решения людей. Если понимать их и применять, продажи заметно растут."
+     },
+     {
+      "ul": [
+       {
+        "b": "Дефицит",
+        "t": " — люди больше ценят то, что ограничено или скоро закончится. «Это наш сезонный напиток, доступен только до конца месяца!», «У нас осталось всего несколько порций этого десерта»."
+       },
+       {
+        "b": "Социальное доказательство",
+        "t": " — люди склонны делать то, что делают другие. «Многие наши гости сегодня выбирают этот латте», «Это наш самый популярный десерт»."
+       },
+       {
+        "b": "Авторитет",
+        "t": " — доверие к экспертам. «Наш бариста рекомендует…», «Я лично очень люблю этот напиток», «Я как бариста рекомендую попробовать этот бленд»."
+       },
+       {
+        "b": "Взаимность",
+        "t": " — люди склонны отвечать добром на добро. Небольшой комплимент или дополнительная услуга (например, бесплатная дегустация нового напитка) побуждают гостя к покупке. «Угостите себя нашим новым печеньем, оно на пробу бесплатно!»"
+       },
+       {
+        "b": "Контраст",
+        "t": " — люди оценивают всё в сравнении. Если сначала назвать более дорогой вариант, а потом обычный, обычный кажется доступнее. «У нас есть капучино с дополнительным шотом или обычный капучино.» Если гость хочет премиум-вариант, он его и возьмёт."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Psixoloji tetiklər",
+    "blocks": [
+     {
+      "p": "Psixoloji tetiklər insanların qərarlarına təsir edən mexanizmlərdir. Onları anlayıb tətbiq etdikdə satışlar nəzərə çarpacaq dərəcədə artır."
+     },
+     {
+      "ul": [
+       {
+        "b": "Defisit",
+        "t": " — insanlar məhdud və ya tezliklə bitəcək şeyi daha çox qiymətləndirir. “Bu bizim mövsümi içkimizdir, yalnız ayın sonuna qədər mövcuddur!”, “Bu desertdən cəmi bir neçə porsiya qalıb”."
+       },
+       {
+        "b": "Sosial sübut",
+        "t": " — insanlar başqalarının etdiyini etməyə meyllidir. “Bu gün bir çox qonaqlarımız bu latte-ni seçir”, “Bu bizim ən populyar desertimizdir”."
+       },
+       {
+        "b": "Avtoritet",
+        "t": " — ekspertlərə etibar. “Baristamız tövsiyə edir…”, “Mən şəxsən bu içkini çox sevirəm”, “Barista kimi bu blendi dadmağı tövsiyə edirəm”."
+       },
+       {
+        "b": "Qarşılıqlılıq",
+        "t": " — insanlar yaxşılığa yaxşılıqla cavab verməyə meyllidir. Kiçik kompliment və ya əlavə xidmət (məsələn, yeni içkinin pulsuz dequstasiyası) qonağı alışa həvəsləndirir. “Yeni peçenyemizi dadın, sınaq üçün pulsuzdur!”"
+       },
+       {
+        "b": "Kontrast",
+        "t": " — insanlar hər şeyi müqayisədə qiymətləndirir. Əvvəlcə daha bahalı, sonra adi variantı desəniz, adi variant daha əlçatan görünür. “Əlavə şotlu kapuçinomuz və adi kapuçinomuz var.” Qonaq premium variant istəsə, onu da götürəcək."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-upsell",
+   "cat": "SV",
+   "topic": "SV-2",
+   "ru": {
+    "title": "Апселлинг и кросс-селлинг",
+    "blocks": [
+     {
+      "h": "Апселлинг"
+     },
+     {
+      "p": "Апселлинг (upselling) — предложить гостю более дорогую, улучшенную или увеличенную версию выбранного продукта. Цель — увеличить средний чек и лучше удовлетворить потребность гостя."
+     },
+     {
+      "ul": [
+       "Больший объём напитка",
+       "Добавки: сироп, дополнительный шот эспрессо, альтернативное молоко",
+       "Напиток из более дорогого сорта зёрен"
+      ]
+     },
+     {
+      "ul": [
+       {
+        "b": "Дополнительный шот",
+        "t": ": «Хотите добавить дополнительный шот эспрессо? Это придаст вашему напитку больше крепости и аромата.»"
+       },
+       {
+        "b": "Альтернативное молоко",
+        "t": ": «У нас есть альтернативное молоко, например миндальное, овсяное и кокосовое — без дополнительной оплаты!»"
+       }
+      ]
+     },
+     {
+      "h": "Кросс-селлинг"
+     },
+     {
+      "p": "Кросс-селлинг (cross-selling) — предложить сопутствующие товары, которые дополняют основную покупку. В кофейне это десерт, выпечка, сэндвич, снек или другой напиток к основному заказу."
+     },
+     {
+      "ul": [
+       {
+        "b": "К кофе — выпечка или десерт",
+        "t": ": «К вашему капучино отлично подойдёт наш свежий круассан!», «Хотите взять к латте наш фирменный десерт? Он идеально сочетается с кофе.»"
+       },
+       {
+        "b": "К кофе — сэндвич",
+        "t": ": «У нас есть вкусные сэндвичи на завтрак, хотите добавить к вашему кофе?»"
+       },
+       {
+        "b": "К холодному напитку — снек или вода",
+        "t": ": «К вашему холодному латте отлично подойдут наши печенья.», «Хотите взять бутылку воды? В такую жару важно оставаться увлажнённым.»"
+       }
+      ]
+     },
+     {
+      "h": "Наши уникальные напитки"
+     },
+     {
+      "p": "Авторские напитки, которых нет больше нигде. Обязательно предлагайте их гостям, особенно тем, кто любит экспериментировать, и рассказывайте о них с энтузиазмом."
+     },
+     {
+      "ul": [
+       {
+        "b": "Illusion",
+        "t": " — загадочный напиток с необычным сочетанием вкусов"
+       },
+       {
+        "b": "Spanish Latte",
+        "t": " — латте со сгущённым молоком"
+       },
+       {
+        "b": "Universe",
+        "t": " — напиток с яркими вкусовыми нотами"
+       },
+       {
+        "b": "Jasmine Latte",
+        "t": " — нежный латте с жасмином"
+       },
+       {
+        "b": "Ginger Latte",
+        "t": " — согревающий латте с имбирём"
+       },
+       {
+        "b": "Euphoria",
+        "t": " — напиток, который подарит эйфорию от вкуса"
+       }
+      ]
+     },
+     {
+      "h": "Принципы эффективных предложений"
+     },
+     {
+      "ul": [
+       {
+        "b": "Естественность",
+        "t": " — предложение должно быть логичным и ненавязчивым."
+       },
+       {
+        "b": "Ценность для гостя",
+        "t": " — предлагайте то, что действительно улучшит его опыт, а не только ваш чек."
+       },
+       {
+        "b": "Знание продукта",
+        "t": " — хорошо знайте меню, чтобы предложения были уместными."
+       },
+       {
+        "b": "Чтение гостя",
+        "t": " — смотрите на настроение и потребности гостя."
+       },
+       {
+        "b": "Не давите",
+        "t": " — если гость отказался, не настаивайте."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Apsell və kross-sell",
+    "blocks": [
+     {
+      "h": "Apsell"
+     },
+     {
+      "p": "Apsell (upselling) qonağa seçdiyi məhsulun daha bahalı, təkmilləşdirilmiş və ya daha böyük variantını təklif etməkdir. Məqsəd orta çeki artırmaq və qonağın ehtiyacını daha yaxşı ödəməkdir."
+     },
+     {
+      "ul": [
+       "İçkinin daha böyük həcmi",
+       "Əlavələr: şərbət, əlavə espresso şotu, alternativ süd",
+       "Daha bahalı dənə sortundan içki"
+      ]
+     },
+     {
+      "ul": [
+       {
+        "b": "Əlavə şot",
+        "t": ": “Əlavə espresso şotu əlavə etmək istərdinizmi? Bu, içkinizə daha çox güc və aroma verər.”"
+       },
+       {
+        "b": "Alternativ süd",
+        "t": ": “Bizdə alternativ süd var, məsələn badam, yulaf və hindistan cevizi südü — əlavə ödənişsiz!”"
+       }
+      ]
+     },
+     {
+      "h": "Kross-sell"
+     },
+     {
+      "p": "Kross-sell (cross-selling) əsas alışı tamamlayan əlavə məhsulların təklif edilməsidir. Kofe məkanında bu, əsas sifarişə desert, xəmir məmulatı, sendviç, qəlyanaltı və ya başqa içkidir."
+     },
+     {
+      "ul": [
+       {
+        "b": "Qəhvəyə — xəmir məmulatı və ya desert",
+        "t": ": “Kapuçinonuza təzə kruassanımız çox yaraşar!”, “Latte-nizə fırmə desertimizi götürmək istərdinizmi? Qəhvə ilə mükəmməl uyğun gəlir.”"
+       },
+       {
+        "b": "Qəhvəyə — sendviç",
+        "t": ": “Səhər yeməyi üçün dadlı sendviçlərimiz var, qəhvənizə əlavə etmək istərdinizmi?”"
+       },
+       {
+        "b": "Soyuq içkiyə — qəlyanaltı və ya su",
+        "t": ": “Soyuq latte-nizə peçenyelərimiz çox yaraşar.”, “Bir şüşə su götürmək istərdinizmi? Belə istidə susuz qalmamaq vacibdir.”"
+       }
+      ]
+     },
+     {
+      "h": "Unikal içkilərimiz"
+     },
+     {
+      "p": "Başqa yerdə tapa bilməyəcəyiniz müəllif içkiləri. Onları mütləq qonaqlara təklif edin, xüsusilə sınaqları sevənlərə, və həvəslə danışın."
+     },
+     {
+      "ul": [
+       {
+        "b": "Illusion",
+        "t": " — qeyri-adi dad kombinasiyalı sirli içki"
+       },
+       {
+        "b": "Spanish Latte",
+        "t": " — qatılaşdırılmış südlü latte"
+       },
+       {
+        "b": "Universe",
+        "t": " — parlaq dad notlu içki"
+       },
+       {
+        "b": "Jasmine Latte",
+        "t": " — jasminli zərif latte"
+       },
+       {
+        "b": "Ginger Latte",
+        "t": " — zəncəfilli isidici latte"
+       },
+       {
+        "b": "Euphoria",
+        "t": " — dadından eyforiya bəxş edən içki"
+       }
+      ]
+     },
+     {
+      "h": "Effektiv təkliflərin prinsipləri"
+     },
+     {
+      "ul": [
+       {
+        "b": "Təbiilik",
+        "t": " — təklif məntiqli və təkidsiz olmalıdır."
+       },
+       {
+        "b": "Qonaq üçün dəyər",
+        "t": " — yalnız çekinizi yox, qonağın təcrübəsini həqiqətən yaxşılaşdıran şeyi təklif edin."
+       },
+       {
+        "b": "Məhsulu bilmək",
+        "t": " — təkliflər yerinə düşsün deyə menyunu yaxşı bilin."
+       },
+       {
+        "b": "Qonağı oxumaq",
+        "t": " — qonağın əhvalına və ehtiyaclarına fikir verin."
+       },
+       {
+        "b": "Təzyiq göstərməyin",
+        "t": " — qonaq imtina edibsə, təkid etməyin."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-questions",
+   "cat": "SV",
+   "topic": "SV-2",
+   "ru": {
+    "title": "«Правильные» вопросы",
+    "blocks": [
+     {
+      "p": "Формулировка вопроса сильно влияет на успех предложения. Закрытые вопросы, на которые отвечают «да» или «нет», часто приводят к отказу. Открытые вопросы заставляют гостя подумать и выбрать."
+     },
+     {
+      "table": {
+       "head": [
+        "Закрытый (плохо)",
+        "Открытый (хорошо)"
+       ],
+       "rows": [
+        [
+         "«Что-нибудь ещё?»",
+         "«Что бы вы хотели к вашему кофе?»"
+        ],
+        [
+         "«Вам десерт?»",
+         "«Какой десерт сегодня поднимет вам настроение?»"
+        ],
+        [
+         "«С сиропом?»",
+         "«Хотите попробовать наш новый карамельный сироп?»"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Предлагайте конкретные варианты"
+     },
+     {
+      "p": "Конкретный выбор упрощает решение гостя и повышает вероятность покупки."
+     },
+     {
+      "ul": [
+       {
+        "b": "Плохо",
+        "t": ": «Хотите что-нибудь к кофе?»"
+       },
+       {
+        "b": "Хорошо",
+        "t": ": «К вашему латте отлично подойдёт круассан с бельгийским шоколадом или тирамису. Что выберете?»"
+       }
+      ]
+     },
+     {
+      "h": "Обосновывайте предложение"
+     },
+     {
+      "ul": [
+       {
+        "b": "Плохо",
+        "t": ": «Хотите круассан?»"
+       },
+       {
+        "b": "Хорошо",
+        "t": ": «Наш круассан только что из печи, он хрустящий снаружи и нежный внутри. Отлично сочетается с капучино!»"
+       }
+      ]
+     },
+     {
+      "h": "Говорите описательно"
+     },
+     {
+      "p": "Вместо простых названий используйте слова, которые вызывают аппетит."
+     },
+     {
+      "ul": [
+       {
+        "b": "Плохо",
+        "t": ": «Хотите десерт?»"
+       },
+       {
+        "b": "Хорошо",
+        "t": ": «Хотите попробовать наш нежный тирамису? Он тает во рту!»"
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "“Düzgün” suallar",
+    "blocks": [
+     {
+      "p": "Sualın formulası təklifin uğuruna çox təsir edir. “Bəli” və ya “xeyr” cavabı olan qapalı suallar çox vaxt imtina ilə nəticələnir. Açıq suallar qonağı düşünməyə və seçməyə sövq edir."
+     },
+     {
+      "table": {
+       "head": [
+        "Qapalı (pis)",
+        "Açıq (yaxşı)"
+       ],
+       "rows": [
+        [
+         "“Başqa nəsə?”",
+         "“Qəhvənizə nə əlavə edək?”"
+        ],
+        [
+         "“Desert istəyirsiniz?”",
+         "“Bu gün hansı desert əhvalınızı qaldırar?”"
+        ],
+        [
+         "“Şərbətlə?”",
+         "“Yeni karamel şərbətimizi sınamaq istərdinizmi?”"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Konkret variantlar təklif edin"
+     },
+     {
+      "p": "Konkret seçim qonağın qərarını asanlaşdırır və alış ehtimalını artırır."
+     },
+     {
+      "ul": [
+       {
+        "b": "Pis",
+        "t": ": “Qəhvənizə nəsə istəyirsiniz?”"
+       },
+       {
+        "b": "Yaxşı",
+        "t": ": “Latte-nizə Belçika şokoladlı kruassan və ya tiramisu çox yaxşı uyğun gəlir. Hansını seçirsiniz?”"
+       }
+      ]
+     },
+     {
+      "h": "Təklifi əsaslandırın"
+     },
+     {
+      "ul": [
+       {
+        "b": "Pis",
+        "t": ": “Kruassan istəyirsiniz?”"
+       },
+       {
+        "b": "Yaxşı",
+        "t": ": “Kruassanımız təzəcə sobadan çıxıb, çölü xırtıldayan, içi yumşaqdır. Kapuçino ilə əla uyğun gəlir!”"
+       }
+      ]
+     },
+     {
+      "h": "Təsviri dildən istifadə edin"
+     },
+     {
+      "p": "Sadə adlar əvəzinə iştah oyadan sözlərdən istifadə edin."
+     },
+     {
+      "ul": [
+       {
+        "b": "Pis",
+        "t": ": “Desert istəyirsiniz?”"
+       },
+       {
+        "b": "Yaxşı",
+        "t": ": “Zərif tiramisumuzu dadmaq istərdinizmi? Ağızda əriyir!”"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-tips",
+   "cat": "SV",
+   "topic": "SV-1",
+   "ru": {
+    "title": "Что ещё повышает продажи",
+    "blocks": [
+     {
+      "h": "Знание продукта"
+     },
+     {
+      "p": "Бариста должен хорошо знать меню, состав напитков, особенности зёрен и способы приготовления. Тогда он уверенно отвечает на вопросы гостей и делает уместные рекомендации."
+     },
+     {
+      "ul": [
+       {
+        "b": "Состав каждого напитка",
+        "t": " — ингредиенты и пропорции."
+       },
+       {
+        "b": "Происхождение зёрен",
+        "t": " — откуда они и какой у них вкус."
+       },
+       {
+        "b": "Способы приготовления",
+        "t": " — как готовится каждый напиток."
+       },
+       {
+        "b": "Альтернативы",
+        "t": " — какие есть варианты молока, сиропов, размеров."
+       },
+       {
+        "b": "Акции и специальные предложения",
+        "t": " — какие действуют сейчас (смотрите раздел «Акции» справочника)."
+       }
+      ]
+     },
+     {
+      "h": "Чистота и порядок"
+     },
+     {
+      "p": "Чистая касса и рабочее место вызывают доверие. Беспорядок отпугивает гостей и создаёт впечатление, что в кофейне не заботятся о качестве."
+     },
+     {
+      "ul": [
+       "Протирайте кассу регулярно.",
+       "Убирайте со стойки крошки, пятна, мусор.",
+       "Держите инструменты (питчеры, темперы) в чистоте.",
+       "Всё должно лежать на своих местах."
+      ]
+     },
+     {
+      "h": "Визуальный мерчандайзинг"
+     },
+     {
+      "p": "Люди покупают глазами: аппетитная выкладка десертов, снеков и сопутствующих товаров заметно повышает продажи."
+     },
+     {
+      "ul": [
+       {
+        "b": "Выкладка на уровне глаз",
+        "t": " — самые популярные или прибыльные товары."
+       },
+       {
+        "b": "Освещение",
+        "t": " — хороший свет делает продукты привлекательнее."
+       },
+       {
+        "b": "Чистота витрин",
+        "t": " — витрины чистые и прозрачные."
+       },
+       {
+        "b": "Разнообразие",
+        "t": " — предлагайте разные продукты."
+       },
+       {
+        "b": "Ценники",
+        "t": " — чёткие и понятные."
+       }
+      ]
+     },
+     {
+      "h": "Акции и программа лояльности"
+     },
+     {
+      "ul": [
+       "Активно рассказывайте гостям о текущих акциях и специальных предложениях: они создают ощущение выгоды и стимулируют покупку.",
+       "Предлагайте гостям присоединиться к программе лояльности: она стимулирует повторные визиты и создаёт ощущение принадлежности к сообществу."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Satışı daha nə artırır",
+    "blocks": [
+     {
+      "h": "Məhsulu bilmək"
+     },
+     {
+      "p": "Barista menyunu, içkilərin tərkibini, dənələrin xüsusiyyətlərini və hazırlanma üsullarını yaxşı bilməlidir. Onda qonaqların suallarına inamla cavab verir və yerinə düşən tövsiyələr edir."
+     },
+     {
+      "ul": [
+       {
+        "b": "Hər içkinin tərkibi",
+        "t": " — inqrediyentlər və nisbətlər."
+       },
+       {
+        "b": "Dənələrin mənşəyi",
+        "t": " — haradandır və dadı necədir."
+       },
+       {
+        "b": "Hazırlanma üsulları",
+        "t": " — hər içki necə hazırlanır."
+       },
+       {
+        "b": "Alternativlər",
+        "t": " — süd, şərbət, ölçü variantları hansılardır."
+       },
+       {
+        "b": "Aksiyalar və xüsusi təkliflər",
+        "t": " — hazırda hansılar qüvvədədir (məlumat kitabçasının “Aksiyalar” bölməsinə baxın)."
+       }
+      ]
+     },
+     {
+      "h": "Təmizlik və nizam"
+     },
+     {
+      "p": "Təmiz kassa və iş yeri etibar doğurur. Nizamsızlıq qonaqları çəkindirir və kofe məkanında keyfiyyətə fikir verilmədiyi təəssüratı yaradır."
+     },
+     {
+      "ul": [
+       "Kassanı müntəzəm silin.",
+       "Barın üstündən qırıntıları, ləkələri, zibili yığışdırın.",
+       "Alətləri (sürahiləri, temperləri) təmiz saxlayın.",
+       "Hər şey öz yerində olmalıdır."
+      ]
+     },
+     {
+      "h": "Vizual merçandayzinq"
+     },
+     {
+      "p": "İnsanlar gözləri ilə alır: desertlərin, qəlyanaltıların və əlavə məhsulların iştahaaçan düzülüşü satışı nəzərəçarpacaq dərəcədə artırır."
+     },
+     {
+      "ul": [
+       {
+        "b": "Göz səviyyəsində düzülüş",
+        "t": " — ən populyar və ya sərfəli məhsullar."
+       },
+       {
+        "b": "İşıqlandırma",
+        "t": " — yaxşı işıq məhsulları cəlbedici edir."
+       },
+       {
+        "b": "Vitrinlərin təmizliyi",
+        "t": " — vitrinlər təmiz və şəffaf olmalıdır."
+       },
+       {
+        "b": "Müxtəliflik",
+        "t": " — müxtəlif məhsullar təklif edin."
+       },
+       {
+        "b": "Qiymət etiketləri",
+        "t": " — aydın və başa düşülən."
+       }
+      ]
+     },
+     {
+      "h": "Aksiyalar və loyallıq proqramı"
+     },
+     {
+      "ul": [
+       "Qonaqlara cari aksiyalar və xüsusi təkliflər haqqında fəal danışın: onlar fayda hissi yaradır və alışı stimullaşdırır.",
+       "Qonaqlara loyallıq proqramına qoşulmağı təklif edin: o, təkrar ziyarətləri stimullaşdırır və icmaya aidlik hissi yaradır."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-order",
+   "cat": "SV",
+   "topic": "SV-3",
+   "ru": {
+    "title": "Приём заказа от А до Я",
+    "blocks": [
+     {
+      "p": "Приветствие и приём заказа — самый важный момент: он задаёт тон всему общению. Шаги идут в таком порядке."
+     },
+     {
+      "ol": [
+       {
+        "b": "Приветствие",
+        "t": " — с улыбкой и зрительным контактом, по времени суток: «Доброе утро! Чем могу помочь?», «Добрый день! Что будете заказывать?», «Добрый вечер! Рад вас видеть!»"
+       },
+       {
+        "b": "Активное слушание",
+        "t": " — внимательно выслушайте заказ, не перебивайте; замечайте размер напитка, тип молока, сироп."
+       },
+       {
+        "b": "Уточнение",
+        "t": " — чтобы избежать ошибок: «Латте на обычном молоке, верно?», «Капучино стандартного размера, правильно?», «Американо без сахара, так?»"
+       },
+       {
+        "b": "Предложение апселла или кросс-селла",
+        "t": " — «Хотите добавить сироп к вашему латте? Это сделает его ещё вкуснее!», «К вашему капучино отлично подойдёт наш свежий круассан!»"
+       },
+       {
+        "b": "Подтверждение заказа",
+        "t": " — после ответа гостя подтвердите весь заказ: «Итак, латте на миндальном молоке и круассан. Что-нибудь ещё?»"
+       },
+       {
+        "b": "Завершение приёма заказа",
+        "t": " — если гость больше ничего не хочет, переходите к оплате: «Отлично! С вас [сумма].»"
+       }
+      ]
+     },
+     {
+      "h": "Пример диалога"
+     },
+     {
+      "ul": [
+       {
+        "b": "Бариста",
+        "t": ": «Доброе утро! Чем могу помочь?» (улыбка, зрительный контакт)"
+       },
+       {
+        "b": "Гость",
+        "t": ": «Латте, пожалуйста.»"
+       },
+       {
+        "b": "Бариста",
+        "t": ": «На каком молоке: обычном, миндальном, овсяном или кокосовом?»"
+       },
+       {
+        "b": "Гость",
+        "t": ": «На обычном.»"
+       },
+       {
+        "b": "Бариста",
+        "t": ": «Хорошо! К вашему латте возьмёте наш свежий круассан? Он только что из печи!»"
+       },
+       {
+        "b": "Гость",
+        "t": ": «Да, возьму.»"
+       },
+       {
+        "b": "Бариста",
+        "t": ": «Итак, латте на обычном молоке и круассан. Что-нибудь ещё?»"
+       }
+      ]
+     },
+     {
+      "note": "Предложение апселла или кросс-селла делается до окончательного подтверждения заказа."
+     }
+    ]
+   },
+   "az": {
+    "title": "Sifarişin qəbulu A-dan Z-ə",
+    "blocks": [
+     {
+      "p": "Salamlaşma və sifarişin qəbulu ən vacib andır: o, bütün ünsiyyətin tonunu müəyyən edir. Addımlar bu ardıcıllıqla gedir."
+     },
+     {
+      "ol": [
+       {
+        "b": "Salamlaşma",
+        "t": " — gülümsəyərək və göz təması ilə, gün vaxtına uyğun: “Sabahınız xeyir! Sizə necə kömək edə bilərəm?”, “Gününüz xeyir! Nə sifariş edəcəksiniz?”, “Axşamınız xeyir! Sizi görməyə şadam!”"
+       },
+       {
+        "b": "Aktiv dinləmə",
+        "t": " — sifarişi diqqətlə dinləyin, sözünü kəsməyin; içkinin ölçüsünə, süd növünə, şərbətə fikir verin."
+       },
+       {
+        "b": "Dəqiqləşdirmə",
+        "t": " — səhvlərin qarşısını almaq üçün: “Adi südlü latte, düzdür?”, “Standart ölçülü kapuçino, düzdür?”, “Şəkərsiz americano, belədir?”"
+       },
+       {
+        "b": "Apsell və ya kross-sell təklifi",
+        "t": " — “Latte-nizə şərbət əlavə etmək istərdinizmi? Bu, onu daha da dadlı edər!”, “Kapuçinonuza təzə kruassanımız çox yaraşar!”"
+       },
+       {
+        "b": "Sifarişin təsdiqi",
+        "t": " — qonağın cavabından sonra bütün sifarişi təsdiqləyin: “Beləliklə, badam südlü latte və kruassan. Başqa nəsə?”"
+       },
+       {
+        "b": "Sifariş qəbulunun tamamlanması",
+        "t": " — qonaq başqa nəsə istəmirsə, ödənişə keçin: “Əla! Sizdən [məbləğ].”"
+       }
+      ]
+     },
+     {
+      "h": "Dialoq nümunəsi"
+     },
+     {
+      "ul": [
+       {
+        "b": "Barista",
+        "t": ": “Sabahınız xeyir! Sizə necə kömək edə bilərəm?” (gülümsəmə, göz təması)"
+       },
+       {
+        "b": "Qonaq",
+        "t": ": “Latte, zəhmət olmasa.”"
+       },
+       {
+        "b": "Barista",
+        "t": ": “Hansı südlə: adi, badam, yulaf və ya hindistan cevizi?”"
+       },
+       {
+        "b": "Qonaq",
+        "t": ": “Adi ilə.”"
+       },
+       {
+        "b": "Barista",
+        "t": ": “Yaxşı! Latte-nizə təzə kruassanımızı götürərsinizmi? Təzəcə sobadan çıxıb!”"
+       },
+       {
+        "b": "Qonaq",
+        "t": ": “Bəli, götürürəm.”"
+       },
+       {
+        "b": "Barista",
+        "t": ": “Beləliklə, adi südlü latte və kruassan. Başqa nəsə?”"
+       }
+      ]
+     },
+     {
+      "note": "Apsell və ya kross-sell təklifi sifarişin yekun təsdiqindən əvvəl edilir."
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-pay",
+   "cat": "SV",
+   "topic": "SV-3",
+   "ru": {
+    "title": "Оплата, ожидание и выдача заказа",
+    "blocks": [
+     {
+      "h": "Оплата и ожидание"
+     },
+     {
+      "p": "Этот этап должен быть быстрым и при этом дружелюбным."
+     },
+     {
+      "ol": [
+       {
+        "b": "Озвучьте сумму",
+        "t": " чётко и ясно: «С вас [сумма].», «Итого [сумма].»"
+       },
+       {
+        "b": "Примите оплату",
+        "t": " наличными или картой. Если картой, убедитесь, что терминал работает правильно. Если наличными, дайте сдачу и чек."
+       },
+       {
+        "b": "Поблагодарите",
+        "t": " за оплату: «Спасибо!», «Благодарю вас!»"
+       },
+       {
+        "b": "Сообщите об ожидании",
+        "t": " — где и когда забрать заказ: «Ваш заказ будет готов через пару минут. Можете подождать у стойки выдачи.»"
+       },
+       {
+        "b": "Поддержите контакт",
+        "t": ", если гость ждёт дольше обычного: «Ваш заказ почти готов, ещё минутку!», «Извините за ожидание, мы готовим ваш напиток с особой тщательностью.»"
+       }
+      ]
+     },
+     {
+      "h": "Выдача заказа"
+     },
+     {
+      "p": "Это последний контакт с гостем, и он должен быть таким же позитивным, как первый."
+     },
+     {
+      "ol": [
+       {
+        "b": "Приглашение",
+        "t": " — позовите гостя по имени, если оно было названо, или опишите заказ: «Иван, ваш латте и круассан готовы!»"
+       },
+       {
+        "b": "Выдача",
+        "t": " — передайте заказ и убедитесь, что всё правильно: «Вот ваш латте и круассан. Проверьте, пожалуйста, все ли на месте.»"
+       },
+       {
+        "b": "Пожелание",
+        "t": " — «Приятного аппетита!», «Наслаждайтесь вашим кофе!», «Хорошего дня!»"
+       },
+       {
+        "b": "Благодарность и прощание",
+        "t": " — «Спасибо, что заглянули! Будем рады видеть вас снова!», «До встречи!»"
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Ödəniş, gözləmə və sifarişin təqdimatı",
+    "blocks": [
+     {
+      "h": "Ödəniş və gözləmə"
+     },
+     {
+      "p": "Bu mərhələ sürətli, eyni zamanda mehriban olmalıdır."
+     },
+     {
+      "ol": [
+       {
+        "b": "Məbləği deyin",
+        "t": " aydın və dəqiq: “Sizdən [məbləğ].”, “Cəmi [məbləğ].”"
+       },
+       {
+        "b": "Ödənişi qəbul edin",
+        "t": " nağd və ya kartla. Kartla olarsa, terminalın düzgün işlədiyinə əmin olun. Nağd olarsa, qaytarma pulunu və çeki verin."
+       },
+       {
+        "b": "Təşəkkür edin",
+        "t": " ödənişə görə: “Təşəkkür edirəm!”, “Minnətdaram!”"
+       },
+       {
+        "b": "Gözləmə haqqında məlumat verin",
+        "t": " — sifarişi harada və nə vaxt götürmək olar: “Sifarişiniz bir neçə dəqiqəyə hazır olacaq. Təhvil piştaxtasının yanında gözləyə bilərsiniz.”"
+       },
+       {
+        "b": "Əlaqəni qoruyun",
+        "t": ", qonaq adi haldan çox gözləyirsə: “Sifarişiniz demək olar ki, hazırdır, bir dəqiqə!”, “Gözləməyə görə üzr istəyirik, içkinizi xüsusi diqqətlə hazırlayırıq.”"
+       }
+      ]
+     },
+     {
+      "h": "Sifarişin təqdimatı"
+     },
+     {
+      "p": "Bu, qonaqla son təmasdır və ilk təmas qədər müsbət olmalıdır."
+     },
+     {
+      "ol": [
+       {
+        "b": "Dəvət",
+        "t": " — adı deyilibsə, qonağı adı ilə çağırın və ya sifarişi təsvir edin: “İvan, latte və kruassanınız hazırdır!”"
+       },
+       {
+        "b": "Təqdimat",
+        "t": " — sifarişi verin və hər şeyin düzgün olduğuna əmin olun: “Buyurun latte və kruassanınız. Zəhmət olmasa, hər şeyin yerində olduğunu yoxlayın.”"
+       },
+       {
+        "b": "Arzu",
+        "t": " — “Nuş olsun!”, “Qəhvənizdən zövq alın!”, “Gününüz xeyirli olsun!”"
+       },
+       {
+        "b": "Təşəkkür və vidalaşma",
+        "t": " — “Gəldiyiniz üçün təşəkkürlər! Sizi yenidən görməyə şad olarıq!”, “Görüşənədək!”"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-conflict",
+   "cat": "SV",
+   "topic": "SV-3",
+   "ru": {
+    "title": "Конфликтные ситуации",
+    "blocks": [
+     {
+      "p": "Конфликты бывают в любом бизнесе, и важно уметь разрешать их правильно. Главное правило — сохранять спокойствие и проявлять эмпатию."
+     },
+     {
+      "ol": [
+       {
+        "b": "Сохраняйте спокойствие",
+        "t": " — не повышайте голос и не спорьте, даже если гость неправ."
+       },
+       {
+        "b": "Выслушайте гостя",
+        "t": " — дайте ему высказаться, не перебивайте: «Я понимаю», «Мне очень жаль», «Я вижу, что вы расстроены»."
+       },
+       {
+        "b": "Извинитесь",
+        "t": " — даже если ошибка не ваша, извинитесь от имени кофейни: «Мне очень жаль, что так произошло.», «Прошу прощения за неудобства.»"
+       },
+       {
+        "b": "Предложите решение",
+        "t": " — замена напитка, возврат денег или комплимент: «Давайте я приготовлю вам новый напиток.»"
+       },
+       {
+        "b": "Действуйте быстро",
+        "t": " — чем быстрее решена проблема, тем лучше; не заставляйте гостя ждать."
+       },
+       {
+        "b": "Поблагодарите",
+        "t": " гостя за обратную связь: «Спасибо, что сообщили нам об этом. Мы будем работать над улучшением.»"
+       }
+      ]
+     },
+     {
+      "h": "Примеры"
+     },
+     {
+      "ul": [
+       {
+        "b": "Кофе холодный",
+        "t": ": «Мне очень жаль! Давайте я приготовлю вам новый, горячий кофе прямо сейчас.» Бариста спокоен, извиняется и сразу предлагает решение."
+       },
+       {
+        "b": "Перепутали заказ",
+        "t": ": «Я заказывал латте на миндальном молоке, а это на обычном!» Бариста извиняется, готовит правильный напиток и в качестве извинения может предложить комплимент."
+       },
+       {
+        "b": "Долгое ожидание",
+        "t": ": «Я жду уже давно! Где мой заказ?» Бариста извиняется, проверяет заказ, ускоряет его и благодарит за терпение."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Münaqişəli vəziyyətlər",
+    "blocks": [
+     {
+      "p": "Münaqişələr hər biznesdə olur və onları düzgün həll etmək vacibdir. Əsas qayda — sakitliyi qorumaq və empatiya göstərməkdir."
+     },
+     {
+      "ol": [
+       {
+        "b": "Sakit qalın",
+        "t": " — qonaq haqsız olsa belə, səsinizi qaldırmayın və mübahisə etməyin."
+       },
+       {
+        "b": "Qonağı dinləyin",
+        "t": " — danışmasına imkan verin, sözünü kəsməyin: “Başa düşürəm”, “Çox üzr istəyirəm”, “Görürəm ki, narahatsınız”."
+       },
+       {
+        "b": "Üzr istəyin",
+        "t": " — səhv sizin olmasa belə, kofe məkanı adından üzr istəyin: “Belə olduğuna görə çox üzr istəyirəm.”, “Narahatlığa görə bağışlayın.”"
+       },
+       {
+        "b": "Həll yolu təklif edin",
+        "t": " — içkinin dəyişdirilməsi, pulun qaytarılması və ya kompliment: “Qoy sizə yeni içki hazırlayım.”"
+       },
+       {
+        "b": "Tez hərəkət edin",
+        "t": " — problem nə qədər tez həll olunarsa, bir o qədər yaxşıdır; qonağı gözlətməyin."
+       },
+       {
+        "b": "Təşəkkür edin",
+        "t": " qonağa əks əlaqəyə görə: “Bu barədə bizə xəbər verdiyiniz üçün təşəkkürlər. Yaxşılaşdırmaq üçün çalışacağıq.”"
+       }
+      ]
+     },
+     {
+      "h": "Nümunələr"
+     },
+     {
+      "ul": [
+       {
+        "b": "Qəhvə soyuqdur",
+        "t": ": “Çox üzr istəyirəm! Qoy indi sizə yeni, isti qəhvə hazırlayım.” Barista sakit qalır, üzr istəyir və dərhal həll yolu təklif edir."
+       },
+       {
+        "b": "Sifariş qarışdırılıb",
+        "t": ": “Mən badam südlü latte sifariş etmişdim, bu isə adi südlüdür!” Barista üzr istəyir, düzgün içki hazırlayır və üzrxahlıq olaraq kompliment təklif edə bilər."
+       },
+       {
+        "b": "Uzun gözləmə",
+        "t": ": “Çoxdan gözləyirəm! Sifarişim haradadır?” Barista üzr istəyir, sifarişi yoxlayır, sürətləndirir və səbrə görə təşəkkür edir."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-scenarios",
+   "cat": "SV",
+   "topic": "SV-3",
+   "ru": {
+    "title": "Практические сценарии",
+    "blocks": [
+     {
+      "p": "Пять ситуаций из тренинга: что делает бариста и почему это работает."
+     },
+     {
+      "ul": [
+       {
+        "b": "Утром спешит на работу",
+        "t": " — бариста быстро принимает заказ, предлагает кросс-селл, который не нужно ждать (готовый сэндвич), и быстро выдаёт. Гость доволен скоростью."
+       },
+       {
+        "b": "Первый раз в кофейне, не знает, что заказать",
+        "t": " — бариста задаёт наводящие вопросы («Вы предпочитаете крепкий кофе или что-то более мягкое?»), даёт конкретные рекомендации, затем предлагает апселл (сироп) и кросс-селл (выпечку)."
+       },
+       {
+        "b": "Постоянный гость",
+        "t": " — бариста приветствует по имени, предлагает «как обычно» и добавляет новый десерт с социальным доказательством: «Многие наши гости уже попробовали и в восторге»."
+       },
+       {
+        "b": "Любопытный гость",
+        "t": " — бариста показывает знание продукта: рассказывает о происхождении зёрен и об обжарке, предлагает двойной эспрессо, чтобы лучше почувствовать вкус, и подходящее к нему дополнение."
+       },
+       {
+        "b": "Заказал обычный американо",
+        "t": " — бариста сочетает три триггера: дефицит («доступен только до конца месяца»), социальное доказательство («многие гости в восторге») и авторитет («я лично его очень люблю»), затем предлагает десерт. Средний чек растёт."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Praktik ssenarilər",
+    "blocks": [
+     {
+      "p": "Təlimdən beş vəziyyət: barista nə edir və bu niyə işləyir."
+     },
+     {
+      "ul": [
+       {
+        "b": "Səhər işə tələsir",
+        "t": " — barista sifarişi tez qəbul edir, gözləmə tələb etməyən kross-sell (hazır sendviç) təklif edir və tez təqdim edir. Qonaq sürətdən razı qalır."
+       },
+       {
+        "b": "Kofe məkanına ilk dəfə gəlib, nə sifariş edəcəyini bilmir",
+        "t": " — barista istiqamətləndirici suallar verir (“Güclü qəhvə, yoxsa daha yumşaq nəsə üstün tutursunuz?”), konkret tövsiyələr edir, sonra apsell (şərbət) və kross-sell (xəmir məmulatı) təklif edir."
+       },
+       {
+        "b": "Daimi qonaq",
+        "t": " — barista adı ilə salamlayır, “həmişəki kimi” təklif edir və sosial sübutla yeni desert əlavə edir: “Bir çox qonaqlarımız artıq dadıb və heyrandırlar”."
+       },
+       {
+        "b": "Maraqlanan qonaq",
+        "t": " — barista məhsulu bildiyini göstərir: dənələrin mənşəyi və qovurma haqqında danışır, dadı daha yaxşı hiss etmək üçün ikiqat espresso və ona uyğun əlavə təklif edir."
+       },
+       {
+        "b": "Adi americano sifariş etdi",
+        "t": " — barista üç tetiki birləşdirir: defisit (“yalnız ayın sonuna qədər mövcuddur”), sosial sübut (“bir çox qonaqlar heyrandır”) və avtoritet (“şəxsən mən onu çox sevirəm”), sonra desert təklif edir. Orta çek artır."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sv-checklist",
+   "cat": "SV",
+   "topic": "SV-3",
+   "ru": {
+    "title": "Чек-лист бариста",
+    "blocks": [
+     {
+      "h": "Перед началом смены"
+     },
+     {
+      "ul": [
+       "Проверить чистоту кассы и рабочего места",
+       "Проверить наличие всех продуктов и ингредиентов",
+       "Ознакомиться с текущими акциями и специальными предложениями",
+       "Настроиться на позитивный лад"
+      ]
+     },
+     {
+      "h": "Во время работы"
+     },
+     {
+      "ul": [
+       "Приветствовать каждого гостя с улыбкой и зрительным контактом",
+       "Активно слушать заказ гостя",
+       "Уточнять детали заказа",
+       "Предлагать апселл или кросс-селл",
+       "Подтверждать заказ",
+       "Благодарить за оплату",
+       "Информировать об ожидании",
+       "Выдавать заказ с пожеланием приятного аппетита",
+       "Благодарить за визит и приглашать снова"
+      ]
+     },
+     {
+      "h": "При конфликте"
+     },
+     {
+      "ul": [
+       "Сохранять спокойствие",
+       "Выслушать гостя",
+       "Извиниться",
+       "Предложить решение",
+       "Действовать быстро",
+       "Поблагодарить за обратную связь"
+      ]
+     },
+     {
+      "h": "После окончания смены"
+     },
+     {
+      "ul": [
+       "Убрать рабочее место",
+       "Проанализировать успехи и ошибки дня",
+       "Подготовиться к следующей смене"
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Barista üçün çek-list",
+    "blocks": [
+     {
+      "h": "Növbənin əvvəlində"
+     },
+     {
+      "ul": [
+       "Kassanın və iş yerinin təmizliyini yoxlamaq",
+       "Bütün məhsulların və inqrediyentlərin olduğunu yoxlamaq",
+       "Cari aksiyalar və xüsusi təkliflərlə tanış olmaq",
+       "Müsbət əhval-ruhiyyəyə köklənmək"
+      ]
+     },
+     {
+      "h": "İş zamanı"
+     },
+     {
+      "ul": [
+       "Hər qonağı gülümsəyərək və göz təması ilə salamlamaq",
+       "Qonağın sifarişini aktiv dinləmək",
+       "Sifarişin detallarını dəqiqləşdirmək",
+       "Apsell və ya kross-sell təklif etmək",
+       "Sifarişi təsdiqləmək",
+       "Ödənişə görə təşəkkür etmək",
+       "Gözləmə haqqında məlumat vermək",
+       "Sifarişi nuş olsun arzusu ilə təqdim etmək",
+       "Ziyarətə görə təşəkkür edib yenidən dəvət etmək"
+      ]
+     },
+     {
+      "h": "Münaqişə zamanı"
+     },
+     {
+      "ul": [
+       "Sakit qalmaq",
+       "Qonağı dinləmək",
+       "Üzr istəmək",
+       "Həll yolu təklif etmək",
+       "Tez hərəkət etmək",
+       "Əks əlaqəyə görə təşəkkür etmək"
+      ]
+     },
+     {
+      "h": "Növbənin sonunda"
+     },
+     {
+      "ul": [
+       "İş yerini yığışdırmaq",
+       "Günün uğurlarını və səhvlərini təhlil etmək",
+       "Növbəti növbəyə hazırlaşmaq"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sn-hygiene",
+   "cat": "SN",
+   "topic": "SN-1",
+   "ru": {
+    "title": "Гигиена и безопасность",
+    "blocks": [
+     {
+      "note": "Перекрёстное загрязнение — это загрязнение продуктов питания микробами из воздуха, от человека, из другой еды, от инструментов или рабочих поверхностей!"
+     },
+     {
+      "h": "Правила"
+     },
+     {
+      "ul": [
+       "Часто используемые инструменты (темпер, питчер, чистящие средства) лежат в удобных местах.",
+       "Чашки на подогревателе, блюдца и ложки стоят рядом с рабочей зоной.",
+       "Тряпки для паровика, поверхности бара и портафильтра хранятся в назначенных местах.",
+       "Разлитую жидкость убирайте сразу, уборка идёт по ходу работы.",
+       "Мойте руки перед входом в бар и после еды, питья, курения.",
+       "Держите в чистоте тело, одежду и фартук, соблюдайте личную гигиену.",
+       "Не касайтесь краёв чашек и питчеров.",
+       "Безопасно используйте и чистите оборудование по инструкциям производителя.",
+       "Безопасно используйте химические средства по инструкциям производителя."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Gigiyena və təhlükəsizlik",
+    "blocks": [
+     {
+      "note": "Çarpaz çirklənmə qidanın havadan, insandan, digər qidalardan, alətlərdən və ya iş səthlərindən mikroblarla çirklənməsidir!"
+     },
+     {
+      "h": "Qaydalar"
+     },
+     {
+      "ul": [
+       "Tez-tez istifadə olunan alətlər (temper, sürahi, təmizləyicilər) əlverişli yerlərdə yerləşdirilir.",
+       "Qızdırıcıdakı fincanlar, nəlbəkilər və qaşıqlar iş sahəsinin yanında yerləşdirilir.",
+       "Buxarlayıcı, bar səthi və portafiltr üçün dəsmallar təyin olunmuş yerlərdə saxlanılır.",
+       "Tökülmüş mayeni dərhal silin, təmizlik iş prosesi zamanı aparılır.",
+       "Bara girməzdən əvvəl və yemək, içmək, siqaret çəkdikdən sonra əlləri yuyun.",
+       "Bədəni, paltarı və önlüyü təmiz saxlayın, şəxsi gigiyena qaydalarına riayət edin.",
+       "Fincanların və sürahilərin kənarlarına toxunmayın.",
+       "Avadanlıqdan təhlükəsiz istifadə edin və təmizləyin, istehsalçının göstərişlərinə uyğun olaraq.",
+       "Kimyəvi maddələrdən təhlükəsiz istifadə edin, istehsalçının göstərişlərinə uyğun olaraq."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sn-bar",
+   "cat": "SN",
+   "topic": "SN-1",
+   "ru": {
+    "title": "Работа в баре и FIFO",
+    "blocks": [
+     {
+      "p": "Сфера обслуживания — коллективный бизнес. Он требует чёткой организации труда и распределения обязанностей между членами команды: от приёма заказов до расчёта с гостями."
+     },
+     {
+      "note": "Цель у всех одна — высокий уровень обслуживания гостей!"
+     },
+     {
+      "ul": [
+       "Улыбайтесь и поддерживайте зрительный контакт с гостями!",
+       "Знайте своё оборудование и продукцию!",
+       "Передавайте смены коллегам и относитесь к ним с пониманием!",
+       "Соблюдайте чистоту рабочего пространства!",
+       "Обязательно соблюдайте правило FIFO (First In, First Out): первым используется то, что поступило раньше."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Barda iş və FIFO",
+    "blocks": [
+     {
+      "p": "Xidmət sektoru kollektiv biznesdir. O, işin dəqiq təşkilini və komanda üzvləri arasında vəzifələrin bölüşdürülməsini tələb edir: sifarişlərin qəbulundan qonaqların ödənilməsinə qədər."
+     },
+     {
+      "note": "Hər kəsin məqsədi eynidir — yüksək səviyyəli müştəri xidməti!"
+     },
+     {
+      "ul": [
+       "Gülümsəyin və qonaqlarla göz təması qurun!",
+       "Avadanlığınızı və məhsullarınızı tanıyın!",
+       "Növbələri həmkarlarınıza təhvil verin və onlara anlayışla yanaşın!",
+       "İş yerinizi təmiz saxlayın!",
+       "FIFO (First In, First Out) qaydasına mütləq əməl edin: əvvəl daxil olan məhsul birinci istifadə olunur."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "sn-guests",
+   "cat": "SN",
+   "topic": "SN-1",
+   "ru": {
+    "title": "Работа с гостями: жалоба",
+    "blocks": [
+     {
+      "p": "Если гость недоволен, действуйте по пяти шагам."
+     },
+     {
+      "ol": [
+       "Выслушайте, что говорит гость.",
+       "Извинитесь незамедлительно и искренне.",
+       "Скажите гостю, что вы планируете сделать, чтобы исправить ситуацию.",
+       "Предпримите надлежащие действия, чтобы исправить ситуацию.",
+       "Убедитесь, что гость доволен, и проанализируйте процедуры на рабочем месте (при необходимости запишите шаги)."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Qonaqlarla iş: şikayət",
+    "blocks": [
+     {
+      "p": "Qonaq narazıdırsa, beş addım üzrə hərəkət edin."
+     },
+     {
+      "ol": [
+       "Qonağın dediklərini dinləyin.",
+       "Dərhal və səmimi şəkildə üzr istəyin.",
+       "Qonağa vəziyyəti düzəltmək üçün nə edəcəyinizi deyin.",
+       "Vəziyyəti düzəltmək üçün müvafiq tədbirlər görün.",
+       "Qonağın razı qaldığına əmin olun və iş yerindəki prosedurları nəzərdən keçirin (lazım olduqda addımları qeyd edin)."
       ]
      }
     ]
