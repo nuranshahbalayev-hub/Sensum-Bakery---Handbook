@@ -1,0 +1,2418 @@
+{
+ "cats": {
+  "CF": {
+   "icon": "🌱",
+   "ru": {
+    "t": "Кофе",
+    "d": "От зерна до чашки: происхождение, обработка, обжарка, эспрессо, молоко, заваривание"
+   },
+   "az": {
+    "t": "Qəhvə",
+    "d": "Dənədən fincana: mənşə, emal, qovurma, espresso, süd, dəmləmə"
+   }
+  }
+ },
+ "lessons": [
+  {
+   "id": "cf-origin",
+   "cat": "CF",
+   "topic": "CF-1",
+   "ru": {
+    "title": "Легенда и происхождение",
+    "blocks": [
+     {
+      "p": "По широко распространённой легенде, свойства кофейного дерева открыл эфиопский пастух Калдим (Калди) примерно в IX веке."
+     },
+     {
+      "h": "Арабика"
+     },
+     {
+      "ul": [
+       "Родина — Эфиопия (в том числе часть Южного Судана).",
+       "Йемен — между VI и XIII веками.",
+       "Голландия, Цейлон (Шри-Ланка) — 1680 год.",
+       "Франция, остров Бурбон — 1715 год.",
+       "Дальнейшее распространение — XIX–XX века."
+      ]
+     },
+     {
+      "h": "Робуста"
+     },
+     {
+      "ul": [
+       "Родина — Гвинея и Конго, Центральная Африка.",
+       "Голландцы впервые начали выращивать её в 1900 году на острове Ява."
+      ]
+     },
+     {
+      "note": "Запомните: арабика родом из Эфиопии, робуста — из Центральной Африки."
+     }
+    ]
+   },
+   "az": {
+    "title": "Əfsanə və mənşəyi",
+    "blocks": [
+     {
+      "p": "Geniş yayılmış əfsanəyə görə, kofe ağacının xüsusiyyətlərini təxminən IX əsrdə efiopiyalı çoban Kaldim (Kaldi) kəşf etmişdir."
+     },
+     {
+      "h": "Arabika"
+     },
+     {
+      "ul": [
+       "Vətəni Efiopiyadır (Cənubi Sudanın bir hissəsi də daxil olmaqla).",
+       "Yəmən — VI–XIII əsrlər arasında.",
+       "Hollandiya, Seylon (Şri-Lanka) — 1680-ci il.",
+       "Fransa, Burbon adası — 1715-ci il.",
+       "Sonrakı yayılması — XIX–XX əsrlər."
+      ]
+     },
+     {
+      "h": "Robusta"
+     },
+     {
+      "ul": [
+       "Vətəni Qvineya və Konqodur, Mərkəzi Afrika.",
+       "Hollandlar onu ilk dəfə 1900-cü ildə Yava adasında becərməyə başlayıblar."
+      ]
+     },
+     {
+      "note": "Yadda saxlayın: arabikanın vətəni Efiopiya, robustanın vətəni Mərkəzi Afrikadır."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-farm",
+   "cat": "CF",
+   "topic": "CF-1",
+   "ru": {
+    "title": "Ферма, плод и сбор урожая",
+    "blocks": [
+     {
+      "h": "Финка, ферма, фазенда"
+     },
+     {
+      "p": "Так называют место, где кофейные ягоды выращивают и (или) проводят их первичную обработку."
+     },
+     {
+      "ul": [
+       "Более 70 % плантаций — малые производства, и каждая вторая не больше 5 га.",
+       "Самая большая ферма в мире — 5500 га.",
+       "Большинство фермеров стараются получить как можно больше кофе при минимуме ресурсов.",
+       "Лишь немногие применяют научный подход и вкладывают в инфраструктуру, чтобы изменить вкус кофе."
+      ]
+     },
+     {
+      "h": "Фермерский кооператив"
+     },
+     {
+      "p": "Фермеры объединяют ресурсы в определённых областях. Кооператив занимается:"
+     },
+     {
+      "ul": [
+       "консолидацией мелких лотов;",
+       "первичной обработкой ягоды;",
+       "сушкой;",
+       "подготовкой к экспорту и экспортом."
+      ]
+     },
+     {
+      "h": "Строение плода — от зерна к кожице"
+     },
+     {
+      "ol": [
+       "Зерно (на нём — продольный желобок)",
+       "Серебряная кожица (сильвер скин)",
+       "Пергаментная оболочка (парчмент)",
+       "Пектиновый слой (муселяж)",
+       "Мезокарпий — плодовая мякоть (пульпа)",
+       "Экзокарпий — кожица"
+      ]
+     },
+     {
+      "p": "Мутации зерна: пибери (Peaberry) и тринглс (Triangles)."
+     },
+     {
+      "h": "Сбор урожая"
+     },
+     {
+      "ul": [
+       {
+        "b": "Выборочный (пикинг)",
+        "t": " — вручную собирают только спелые ягоды."
+       },
+       {
+        "b": "Обдирка (стриппинг)",
+        "t": " — с ветки сразу срывают все ягоды."
+       },
+       {
+        "b": "Механический",
+        "t": " — ягоды собирает машина."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Ferma, meyvə və məhsul yığımı",
+    "blocks": [
+     {
+      "h": "Finka, ferma, fazenda"
+     },
+     {
+      "p": "Bu, kofe giləmeyvələrinin becərildiyi və (və ya) ilkin emal edildiyi yerdir."
+     },
+     {
+      "ul": [
+       "Əkin sahələrinin 70 %-dən çoxu kiçik istehsaldır, onların hər ikincisi 5 hektardan çox deyil.",
+       "Dünyanın ən böyük ferması 5500 hektar sahəyə malikdir.",
+       "Əksər fermerlər minimum resursla maksimum kofe istehsal etməyə çalışırlar.",
+       "Çox az fermer elmi yanaşmadan istifadə edir və kofenin dad profilini dəyişmək üçün infrastruktura vəsait yatırır."
+      ]
+     },
+     {
+      "h": "Fermer kooperativi"
+     },
+     {
+      "p": "Fermerlər müəyyən sahələrdə resurslarını birləşdirirlər. Kooperativ aşağıdakılarla məşğul olur:"
+     },
+     {
+      "ul": [
+       "kiçik lotların birləşdirilməsi;",
+       "giləmeyvənin ilkin emalı;",
+       "qurutma;",
+       "ixraca hazırlıq və ixrac."
+      ]
+     },
+     {
+      "h": "Meyvənin quruluşu — dənədən üst dəriyə doğru"
+     },
+     {
+      "ol": [
+       "Dənə (üzərində uzunlamasına girinti var)",
+       "Gümüş dəri",
+       "Perqament qabığı (perçment)",
+       "Pektin qatı (muselyaj)",
+       "Mezokarp — meyvə pulpası",
+       "Eksokarp — üst dəri"
+      ]
+     },
+     {
+      "p": "Dənənin mutasiyaları: piberi (Peaberry) və trianqlslar (Triangles)."
+     },
+     {
+      "h": "Məhsul yığımı"
+     },
+     {
+      "ul": [
+       {
+        "b": "Seçmə (pikinq)",
+        "t": " — yalnız yetişmiş giləmeyvələr əllə yığılır."
+       },
+       {
+        "b": "Soyma (stripinq)",
+        "t": " — budaqdan bütün giləmeyvələr birdəfəyə yığılır."
+       },
+       {
+        "b": "Mexaniki",
+        "t": " — giləmeyvələri maşın yığır."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-species",
+   "cat": "CF",
+   "topic": "CF-2",
+   "ru": {
+    "title": "Арабика и робуста",
+    "blocks": [
+     {
+      "table": {
+       "head": [
+        "",
+        "Арабика",
+        "Робуста"
+       ],
+       "rows": [
+        [
+         "Высота",
+         "800–2300 м, горы",
+         "до 800 м, равнины"
+        ],
+        [
+         "Идеальная температура",
+         "15–24 °C",
+         "22–30 °C"
+        ],
+        [
+         "Идеальные осадки",
+         "1000–1200 мм",
+         "1800–2200 мм"
+        ],
+        [
+         "Вкус",
+         "более кислая",
+         "более горькая"
+        ],
+        [
+         "Размер зерна",
+         "8–12 мм",
+         "5–8 мм"
+        ],
+        [
+         "Форма зерна",
+         "овальное, вытянутое, плоское, S-образный разрез",
+         "круглое, высокое, заострённые концы, прямой разрез"
+        ],
+        [
+         "Созревание",
+         "6–9 месяцев",
+         "9–11 месяцев"
+        ],
+        [
+         "Устойчивость к болезням",
+         "менее устойчива",
+         "более устойчива"
+        ],
+        [
+         "Кофеин",
+         "1–1,5 %",
+         "2–3 %"
+        ]
+       ]
+      }
+     },
+     {
+      "note": "В мировом производстве на арабику приходится 70 %, на робусту — остальные 30 %."
+     }
+    ]
+   },
+   "az": {
+    "title": "Arabika və Robusta",
+    "blocks": [
+     {
+      "table": {
+       "head": [
+        "",
+        "Arabika",
+        "Robusta"
+       ],
+       "rows": [
+        [
+         "Hündürlük",
+         "800–2300 m, dağlıq ərazi",
+         "800 m-ə qədər, düz ərazi"
+        ],
+        [
+         "İdeal temperatur",
+         "15–24 °C",
+         "22–30 °C"
+        ],
+        [
+         "İdeal yağıntı",
+         "1000–1200 mm",
+         "1800–2200 mm"
+        ],
+        [
+         "Dad",
+         "daha turş",
+         "daha acı"
+        ],
+        [
+         "Dənənin ölçüsü",
+         "8–12 mm",
+         "5–8 mm"
+        ],
+        [
+         "Dənənin forması",
+         "oval, uzunsov, yastı, S-formalı kəsik",
+         "yumru, hündür, uclu kənarlar, düz kəsik"
+        ],
+        [
+         "Yetişmə dövrü",
+         "6–9 ay",
+         "9–11 ay"
+        ],
+        [
+         "Xəstəliyə davamlılıq",
+         "daha az davamlı",
+         "daha davamlı"
+        ],
+        [
+         "Kofein",
+         "1–1,5 %",
+         "2–3 %"
+        ]
+       ]
+      }
+     },
+     {
+      "note": "Dünya istehsalında arabikanın payı 70 %-dir, qalan 30 % robustanın payına düşür."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-altitude",
+   "cat": "CF",
+   "topic": "CF-2",
+   "ru": {
+    "title": "Высота и вкус",
+    "blocks": [
+     {
+      "p": "Чем выше выращен кофе, тем отчётливее его кислотность и сладость. Высоту обычно называют в метрах над уровнем моря (masl)."
+     },
+     {
+      "ul": [
+       "Очень низко — 600 masl",
+       "Низко — 750 masl",
+       "Выше среднего — 900 masl",
+       "Высоко — 1200 masl",
+       "Очень высоко — 1500 masl"
+      ]
+     },
+     {
+      "h": "Что меняется с высотой"
+     },
+     {
+      "ul": [
+       {
+        "b": "Положительные кислоты.",
+        "t": " Чем выше выращен кофе, тем больше в чашке лимонной, яблочной и фосфорной кислот."
+       },
+       {
+        "b": "Сахара.",
+        "t": " Чем выше регион, тем холоднее ночью. Растение хранит больше сахаров для защиты клеточной структуры, и кофе получается слаще."
+       },
+       {
+        "b": "Хлорогеновая кислота (горечь).",
+        "t": " Чем ниже высота, тем её больше. При обжарке она распадается на хинную и кофейную кислоты (кисло-горький вкус)."
+       },
+       {
+        "b": "Липиды.",
+        "t": " Чем ниже высота, тем больше липидов, поэтому положительная кислотность воспринимается менее интенсивно."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Hündürlük və dad",
+    "blocks": [
+     {
+      "p": "Kofe nə qədər yüksəkdə yetişdirilirsə, onun turşuluğu və şirinliyi bir o qədər aydın olur. Hündürlük adətən dəniz səviyyəsindən metrlə (masl) göstərilir."
+     },
+     {
+      "ul": [
+       "Çox aşağı — 600 masl",
+       "Aşağı — 750 masl",
+       "Orta yuxarı — 900 masl",
+       "Yuxarı — 1200 masl",
+       "Çox yuxarı — 1500 masl"
+      ]
+     },
+     {
+      "h": "Hündürlüklə nə dəyişir"
+     },
+     {
+      "ul": [
+       {
+        "b": "Müsbət turşular.",
+        "t": " Kofe nə qədər yüksəkdə yetişdirilsə, fincanda sitrik, alma və fosfor turşuları bir o qədər çox olur."
+       },
+       {
+        "b": "Şəkərlər.",
+        "t": " Region nə qədər hündürdürsə, gecə bir o qədər soyuq olur. Bitki hüceyrə quruluşunu qorumaq üçün daha çox şəkər saxlayır və kofe daha şirin olur."
+       },
+       {
+        "b": "Xlorogen turşusu (acılıq).",
+        "t": " Hündürlük nə qədər aşağıdırsa, o bir o qədər çox olur. Qovurma zamanı xinin və kofe turşularına parçalanır (acı-turş dad)."
+       },
+       {
+        "b": "Lipidlər.",
+        "t": " Hündürlük nə qədər aşağıdırsa, lipidlər bir o qədər çox olur, buna görə müsbət turşuluq daha az hiss olunur."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-process",
+   "cat": "CF",
+   "topic": "CF-3",
+   "ru": {
+    "title": "Обработка и ферментация",
+    "blocks": [
+     {
+      "p": "Собранные ягоды отбирают и классифицируют, затем обрабатывают одним из традиционных способов. Способ обработки влияет на тело, сладость, кислотность и вкусовой профиль кофе."
+     },
+     {
+      "h": "Способы обработки"
+     },
+     {
+      "ul": [
+       "Натуральная",
+       "Мытая",
+       "Мытая механическая",
+       "Хани",
+       "Влажный халлинг"
+      ]
+     },
+     {
+      "h": "Ферментация"
+     },
+     {
+      "ul": [
+       "Аэробная",
+       "Анаэробная",
+       "Углекислотная мацерация",
+       "Полууглекислотная мацерация"
+      ]
+     },
+     {
+      "note": "Важно помнить! Ферментация — естественный и неизбежный процесс. Её нужно максимально контролировать, чтобы раскрыть потенциал вкуса: добавить сладости, кислотности и тела. Неправильная ферментация может испортить урожай: появится химический привкус, а сладость и кислотность станут менее выраженными."
+     },
+     {
+      "h": "Декафеинизация"
+     },
+     {
+      "ul": [
+       "Традиционный способ",
+       "Швейцарский способ"
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Emal və fermentasiya",
+    "blocks": [
+     {
+      "p": "Yığılmış giləmeyvələr seçilir və təsnif edilir, sonra ənənəvi üsullardan biri ilə emal olunur. Emal üsulu kofenin bədəninə, şirinliyinə, turşuluğuna və dad profilinə təsir edir."
+     },
+     {
+      "h": "Emal üsulları"
+     },
+     {
+      "ul": [
+       "Təbii (natural)",
+       "Yuma",
+       "Mexaniki yuma",
+       "Xani",
+       "Sulu xalinq"
+      ]
+     },
+     {
+      "h": "Fermentasiya"
+     },
+     {
+      "ul": [
+       "Aerob",
+       "Anaerob",
+       "Karbon dioksidin maserasiyası",
+       "Yarı karbon dioksid maserasiyası"
+      ]
+     },
+     {
+      "note": "Unutmayın! Fermentasiya təbii və qaçılmaz prosesdir. Dad potensialını açmaq üçün ona mümkün qədər nəzarət etmək lazımdır: şirinlik, turşuluq və bədən əlavə etmək. Yanlış fermentasiya məhsulu korlaya bilər: dadda kimyəvi çalar yaranır, şirinlik və turşuluq daha az xarakterik olur."
+     },
+     {
+      "h": "Kofeinsizləşdirmə"
+     },
+     {
+      "ul": [
+       "Ənənəvi üsul",
+       "İsveçrə üsulu"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-defects",
+   "cat": "CF",
+   "topic": "CF-3",
+   "ru": {
+    "title": "Дефекты зелёного зерна",
+    "blocks": [
+     {
+      "p": "Дефекты появляются в трёх местах: на дереве, во время сбора урожая и при обработке. У каждого — свой вид, причина и вкус в чашке."
+     },
+     {
+      "h": "Поражённые на дереве"
+     },
+     {
+      "ul": [
+       {
+        "b": "Чёрное зерно",
+        "t": " — поверхность чёрная; причина — грибок, поражающий ягоду; вкус — тяжёлая горечь, ферментный привкус, фенол."
+       },
+       {
+        "b": "Поражённое насекомыми",
+        "t": " — сферические отверстия (вход и выход); причина — брокка; вкус — от лёгкой до тяжёлой горечи."
+       },
+       {
+        "b": "Тёмно-коричневое зерно",
+        "t": " — коричневое, почти чёрное; причина — недозревшая замёрзшая ягода; вкус — тяжёлая «фруктоватость»."
+       },
+       {
+        "b": "Шел (раковина)",
+        "t": " — ненормальная форма; причина — дефект развития; вкус — низкая кислотность, пустой, водянистый."
+       },
+       {
+        "b": "Морщинистое зерно",
+        "t": " — морщинистая поверхность; причина — дефект развития, нехватка воды и питания; вкус — низкая кислотность, пустой."
+       }
+      ]
+     },
+     {
+      "h": "Появившиеся при сборе урожая"
+     },
+     {
+      "ul": [
+       {
+        "b": "Незрелое зерно",
+        "t": " — серо-зелёное, морщинистое; причина — недозревшая ягода; вкус — низкая кислотность, «фруктоватость», горечь."
+       },
+       {
+        "b": "Белое зерно",
+        "t": " — белесое; причина — недозревшая ягода, собранная с земли; вкус — низкая кислотность, горечь, плоский вкус злаков."
+       },
+       {
+        "b": "Тёмно-зелёное зерно",
+        "t": " — тёмно-зелёное; причина — недозревшее зерно, высушенное при высокой температуре; вкус — вяжущая кислотность, резкий запах."
+       },
+       {
+        "b": "Фенол",
+        "t": " — тяжёлый горький запах; причина — экстремально жёсткие условия созревания; вкус — жёсткая химическая горечь."
+       },
+       {
+        "b": "Рио / Риадо",
+        "t": " — медицинский запах при надрезании; причина — перезревшая ягода, оставшаяся на дереве; вкус — химический, медицинский, йод."
+       }
+      ]
+     },
+     {
+      "h": "Появившиеся при обработке"
+     },
+     {
+      "ul": [
+       {
+        "b": "Деформированное зерно",
+        "t": " — фрагменты зерна; причина — плохо отрегулированное оборудование; вкус — пустой, плоский."
+       },
+       {
+        "b": "Закисшее зерно",
+        "t": " — коричнево-рыжее на поверхности; причина — бесконтрольная ферментация; вкус — сырой затхлый картофель, ферментный привкус, горечь."
+       },
+       {
+        "b": "Стинкер («зерно-вонючка»)",
+        "t": " — на вид почти незаметен; вкус — отвратительная горечь."
+       },
+       {
+        "b": "Инородный материал",
+        "t": " — парчмент, каскара, камни, палки; причина — некорректная чистка; вкус — грязный, фенол, земля, ферментный привкус; возможна поломка оборудования."
+       },
+       {
+        "b": "Грибок",
+        "t": " — на поверхности зерна; причина — нарушены условия сушки или хранения; вкус — затхлый, плесень, «сырой погреб»."
+       },
+       {
+        "b": "Каучук",
+        "t": " — по виду не определить; вкус — каучук, сера."
+       },
+       {
+        "b": "Зерно с закрытым запахом",
+        "t": " — жёлто-коричневое; причина — пересушено на патио; вкус — плоский, пустой, старый."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Yaşıl dənənin qüsurları",
+    "blocks": [
+     {
+      "p": "Qüsurlar üç yerdə yaranır: ağacda, məhsul yığımı zamanı və emal zamanı. Hər birinin öz görünüşü, səbəbi və fincandakı dadı var."
+     },
+     {
+      "h": "Ağacda yaranan qüsurlar"
+     },
+     {
+      "ul": [
+       {
+        "b": "Tam qara dənə",
+        "t": " — səthi qara; səbəb — giləmeyvəni zədələyən göbələk; dad — ağır acılıq, ferment, fenol."
+       },
+       {
+        "b": "Həşəratlar tərəfindən zədələnmiş",
+        "t": " — sferik deşiklər (giriş və çıxış); səbəb — brokka; dad — yüngüldən ağıra qədər acılıq."
+       },
+       {
+        "b": "Tünd qəhvəyi dənə",
+        "t": " — qəhvəyi, demək olar ki, qara; səbəb — yetişməmiş donmuş giləmeyvə; dad — ağır «meyvə dadı»."
+       },
+       {
+        "b": "Şel",
+        "t": " — anormal forma; səbəb — inkişaf qüsuru; dad — az turşuluq, boş, sulu."
+       },
+       {
+        "b": "Qırış-qırış dənə",
+        "t": " — səthi qırışlıdır; səbəb — inkişaf qüsuru, su və qida çatışmazlığı; dad — az turşuluq, boş."
+       }
+      ]
+     },
+     {
+      "h": "Məhsul yığımı zamanı yaranan qüsurlar"
+     },
+     {
+      "ul": [
+       {
+        "b": "Yetişməmiş dənə",
+        "t": " — boz-yaşıl, qırışlı; səbəb — yetişməmiş giləmeyvə; dad — az turşuluq, «meyvəlik», acılıq."
+       },
+       {
+        "b": "Ağ dənə",
+        "t": " — ağımtıl; səbəb — yetişməmiş, yerdən yığılmış giləmeyvə; dad — az turşuluq, acılıq, düyü-taxıl dadı."
+       },
+       {
+        "b": "Tünd yaşıl dənə",
+        "t": " — tünd yaşıl; səbəb — yüksək temperaturda qurudulmuş yetişməmiş dənə; dad — büzücü turşuluq, kəskin qoxu."
+       },
+       {
+        "b": "Fenol",
+        "t": " — ağır acı qoxu; səbəb — yetişmənin ekstremal şəraiti; dad — sərt kimyəvi acılıq."
+       },
+       {
+        "b": "Rio / Riado",
+        "t": " — kəsdikdə tibbi qoxu; səbəb — ağacda qalıb həddindən artıq yetişmiş giləmeyvə; dad — kimyəvi, tibbi, yod."
+       }
+      ]
+     },
+     {
+      "h": "Emal zamanı yaranan qüsurlar"
+     },
+     {
+      "ul": [
+       {
+        "b": "Deformasiya olunmuş dənə",
+        "t": " — dənə parçaları; səbəb — pis tənzimlənmiş avadanlıq; dad — boş, yastı."
+       },
+       {
+        "b": "Turşumuş dənə",
+        "t": " — səthi qəhvəyi-qırmızı; səbəb — nəzarətsiz fermentasiya; dad — xam küflü kartof, ferment, acılıq."
+       },
+       {
+        "b": "Stinker («iyli dənə»)",
+        "t": " — gözlə demək olar ki, görünmür; dad — iyrənc acılıq."
+       },
+       {
+        "b": "Kənar material",
+        "t": " — perqament, kaskara, daşlar, çubuqlar; səbəb — düzgün aparılmamış təmizləmə; dad — çirkli, fenol, torpaq, ferment; avadanlıq zədələnə bilər."
+       },
+       {
+        "b": "Göbələk",
+        "t": " — dənənin üzərində; səbəb — qurutma və ya saxlama şəraiti pozulub; dad — küflü, kif, «rütubətli zirzəmi»."
+       },
+       {
+        "b": "Rezin",
+        "t": " — gözlə müəyyən etmək olmur; dad — rezin, kükürd."
+       },
+       {
+        "b": "Qapalı qoxulu dənə",
+        "t": " — sarı-qəhvəyi; səbəb — patioda həddindən artıq qurudulub; dad — yastı, boş, köhnə."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-market",
+   "cat": "CF",
+   "topic": "CF-4",
+   "ru": {
+    "title": "Экспорт, производство и цены",
+    "blocks": [
+     {
+      "h": "Как упаковывают для экспорта"
+     },
+     {
+      "ul": [
+       "Биг-бэг — 1 тонна",
+       "Джут или сизаль — 59, 60, 69 или 70 кг",
+       "GrainPro — 30, 35, 60, 69 или 70 кг",
+       "Вакуумная упаковка — 10–40 кг"
+      ]
+     },
+     {
+      "p": "Перевозят кофе самолётом, морем и по суше."
+     },
+     {
+      "h": "Кто производит"
+     },
+     {
+      "ul": [
+       "Бразилия — около 40 % мирового кофе.",
+       "Вьетнам — около 20 %.",
+       "Остальные страны — около 40 %.",
+       "Арабика — 70 % мирового производства, робуста — 30 %."
+      ]
+     },
+     {
+      "h": "Какой это кофе"
+     },
+     {
+      "ul": [
+       "Биржевой (commodity) — около 66 %.",
+       "Сертифицированный (RFA, органик и др.) — около 24 %.",
+       "Спешиалти — около 10 %."
+      ]
+     },
+     {
+      "h": "Как формируется цена"
+     },
+     {
+      "ul": [
+       "Биржевой кофе торгуют по ценам «C»-фьючерса: Нью-Йорк — арабика, Лондон — робуста.",
+       "У спешиалти-трейдеров — прайс-лист. Для каждого лота в нём указаны происхождение, регион, название, размер зерна (screen), тип и название обработки, профиль, оценка (score), ключевой дескриптор и цена."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "İxrac, istehsal və qiymətlər",
+    "blocks": [
+     {
+      "h": "İxrac üçün necə qablaşdırılır"
+     },
+     {
+      "ul": [
+       "Biq-bəq — 1 ton",
+       "Cut və ya sizal — 59, 60, 69 və ya 70 kq",
+       "GrainPro — 30, 35, 60, 69 və ya 70 kq",
+       "Vakuum qablaşdırma — 10–40 kq"
+      ]
+     },
+     {
+      "p": "Kofe təyyarə ilə, dəniz və quru yolla daşınır."
+     },
+     {
+      "h": "Kim istehsal edir"
+     },
+     {
+      "ul": [
+       "Braziliya — dünya kofesinin təxminən 40 %-i.",
+       "Vyetnam — təxminən 20 %.",
+       "Digər ölkələr — təxminən 40 %.",
+       "Arabika dünya istehsalının 70 %-ni, robusta 30 %-ni təşkil edir."
+      ]
+     },
+     {
+      "h": "Bu hansı kofedir"
+     },
+     {
+      "ul": [
+       "Birja (commodity) kofesi — təxminən 66 %.",
+       "Sertifikatlaşdırılmış (RFA, orqanik və s.) — təxminən 24 %.",
+       "Speşalti — təxminən 10 %."
+      ]
+     },
+     {
+      "h": "Qiymət necə formalaşır"
+     },
+     {
+      "ul": [
+       "Birja kofesi «C» fyuçersinin qiymətləri ilə satılır: Nyu-York — arabika, London — robusta.",
+       "Speşalti treyderlərin qiymət siyahısı olur. Hər lot üçün mənşə, region, ad, dənənin ölçüsü (screen), emalın növü və adı, profil, qiymət (score), əsas deskriptor və qiymət göstərilir."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-specialty",
+   "cat": "CF",
+   "topic": "CF-4",
+   "ru": {
+    "title": "Коммерческий и спешиалти кофе",
+    "blocks": [
+     {
+      "ul": [
+       {
+        "b": "Коммерческий кофе (conventional)",
+        "t": " — для производителя это скорее цифры и решение базовых потребностей, для потребителя — рутина и источник кофеина. В целом его не воспринимают как вкусный и интересный напиток."
+       },
+       {
+        "b": "Особенный кофе (specialty)",
+        "t": " — прежде всего особый подход к производству на всех этапах и всеми участниками цепочки. Помимо особого вкуса он служит источником информации, рождает вопросы и ответы и собирает вокруг себя людей."
+       }
+      ]
+     },
+     {
+      "note": "Производитель, продукт и потребитель — отражение и продолжение друг друга. Особенный продукт и особенные люди создают особенную атмосферу!"
+     },
+     {
+      "h": "Общая оценка качества"
+     },
+     {
+      "table": {
+       "head": [
+        "Баллы",
+        "Оценка"
+       ],
+       "rows": [
+        [
+         "90–100",
+         "выдающийся"
+        ],
+        [
+         "85–89,99",
+         "отлично (спешиалти)"
+        ],
+        [
+         "80–84,99",
+         "очень хорошо (спешиалти)"
+        ],
+        [
+         "ниже 80",
+         "ниже качества спешиалти"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Что оценивают"
+     },
+     {
+      "ul": [
+       "Размер зерна (скрин).",
+       "Дефекты.",
+       "Общая оценка по каппингу."
+      ]
+     },
+     {
+      "note": "Для спешиалти на 350 г кофе не должно быть ни одного зерна с первичным дефектом, а вторичных допускается не более 5."
+     }
+    ]
+   },
+   "az": {
+    "title": "Kommersiya və speşalti kofe",
+    "blocks": [
+     {
+      "ul": [
+       {
+        "b": "Kommersiya kofesi (conventional)",
+        "t": " — istehsalçı üçün daha çox rəqəmlər və əsas ehtiyacların həllidir, istehlakçı üçün adi vərdiş və kofein mənbəyi. Kütləvi olaraq dadlı və maraqlı içki sayılmır."
+       },
+       {
+        "b": "Xüsusi kofe (speşalti)",
+        "t": " — ilk növbədə istehsala bütün mərhələlərdə və zəncirin bütün iştirakçıları tərəfindən xüsusi yanaşmadır. Fərqli daddan əlavə, məlumat mənbəyidir, suallar və cavablar yaradır, insanları ətrafında toplayır."
+       }
+      ]
+     },
+     {
+      "note": "İstehsalçı, məhsul və istehlakçı bir-birinin əksi və davamıdır. Xüsusi məhsul və xüsusi insanlar xüsusi atmosfer yaradır!"
+     },
+     {
+      "h": "Ümumi keyfiyyət qiymətləndirməsi"
+     },
+     {
+      "table": {
+       "head": [
+        "Xal",
+        "Qiymətləndirmə"
+       ],
+       "rows": [
+        [
+         "90–100",
+         "mükəmməl"
+        ],
+        [
+         "85–89,99",
+         "əla (speşalti)"
+        ],
+        [
+         "80–84,99",
+         "çox yaxşı (speşalti)"
+        ],
+        [
+         "80-dən aşağı",
+         "speşalti keyfiyyətindən aşağı"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Nə qiymətləndirilir"
+     },
+     {
+      "ul": [
+       "Dənənin ölçüsü (skrin).",
+       "Qüsurlar.",
+       "Kappinq üzrə ümumi qiymət."
+      ]
+     },
+     {
+      "note": "Speşalti kofe nümunəsində 350 q-a bir dənə də birincili qüsur düşməməlidir, ikincili qüsurlar isə 5-dən çox olmamalıdır."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-green",
+   "cat": "CF",
+   "topic": "CF-4",
+   "ru": {
+    "title": "Зелёный кофе и прослеживаемость",
+    "blocks": [
+     {
+      "p": "Девиз раздела: создавайте сильные рабочие сообщества, разделяя общие цели по качеству и количеству."
+     },
+     {
+      "h": "Три линейки"
+     },
+     {
+      "ul": [
+       {
+        "b": "Terras («земля»)",
+        "t": " — передаёт самую чистую суть региона выращивания."
+       },
+       {
+        "b": "Constellations («созвездия»)",
+        "t": " — кофе с профилем чашки, отмеченным характером и индивидуальностью."
+       },
+       {
+        "b": "Uniques («уникальные»)",
+        "t": " — показывает техническую сторону кофе и передаёт его эмоциональную сторону."
+       }
+      ]
+     },
+     {
+      "h": "Прослеживаемость (traceability)"
+     },
+     {
+      "p": "О каждом лоте известно:"
+     },
+     {
+      "ul": [
+       {
+        "b": "География и терруар",
+        "t": " — место происхождения, рельеф, климат, высота."
+       },
+       {
+        "b": "Обработка и физические данные зерна",
+        "t": " — вид и разновидность, название обработки, размер, цвет, влажность, водная активность и другие параметры физического состояния."
+       },
+       {
+        "b": "Органолептический профиль и дескрипторы",
+        "t": " — техническое описание лота, его вкусо-ароматические особенности и интенсивность атрибутов."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Yaşıl kofe və izlənilmə",
+    "blocks": [
+     {
+      "p": "Bölmənin şüarı: keyfiyyət və kəmiyyət üzrə ümumi məqsədləri bölüşərək güclü iş icmaları yaradın."
+     },
+     {
+      "h": "Üç çeşid"
+     },
+     {
+      "ul": [
+       {
+        "b": "Terras («yer»)",
+        "t": " — kofenin yetişdiyi bölgənin ən saf mahiyyətini çatdırır."
+       },
+       {
+        "b": "Constellations («bürclər»)",
+        "t": " — xarakter və şəxsiyyətlə seçilən fincan profilli kofe."
+       },
+       {
+        "b": "Uniques («unikallar»)",
+        "t": " — kofenin texniki tərəfini göstərir və emosional tərəfini çatdırır."
+       }
+      ]
+     },
+     {
+      "h": "İzlənilmə (traceability)"
+     },
+     {
+      "p": "Hər lot haqqında aşağıdakılar məlumdur:"
+     },
+     {
+      "ul": [
+       {
+        "b": "Coğrafiya və terroir",
+        "t": " — mənşə yeri, relyef, iqlim, hündürlük."
+       },
+       {
+        "b": "Emal və dənənin fiziki göstəriciləri",
+        "t": " — növ və çeşid, emalın adı, ölçü, rəng, rütubət, suyun aktivliyi və fiziki vəziyyəti göstərən digər parametrlər."
+       },
+       {
+        "b": "Orqanoleptik profil və deskriptorlar",
+        "t": " — lotun texniki təsviri, dad-aroma xüsusiyyətləri və atributların intensivliyi."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-roast",
+   "cat": "CF",
+   "topic": "CF-5",
+   "ru": {
+    "title": "Обжарка",
+    "blocks": [
+     {
+      "p": "Чтобы кофе растворялся в воде, его обжаривают: обжарка высвобождает потенциал кофе. Обжаркой управляют, меняя время, температуру, поток воздуха и следя за цветом."
+     },
+     {
+      "ul": [
+       {
+        "b": "Ростер",
+        "t": " — оборудование для обжарки кофейных зёрен."
+       },
+       {
+        "b": "Профиль обжарки",
+        "t": " — график времени и температуры."
+       }
+      ]
+     },
+     {
+      "h": "Стадии обжарки"
+     },
+     {
+      "ol": [
+       "Сушка",
+       "Пожелтение",
+       "Первый крэк",
+       "Развитие",
+       "Второй крэк",
+       "Охлаждение"
+      ]
+     },
+     {
+      "note": "При тёмной обжарке объём кофе может увеличиться вдвое."
+     },
+     {
+      "h": "Что происходит в зерне"
+     },
+     {
+      "p": "Вкус создают сухая дистилляция, карамелизация, реакция Майяра и образование кислот. От степени обжарки зависят кислотность, тело, сладость, терруар и аромат."
+     },
+     {
+      "h": "Размер обжарщика"
+     },
+     {
+      "ul": [
+       "Микрообжарщик — до 10 000 кг в месяц.",
+       "Средний — больше 10 000 кг в месяц.",
+       "Крупный — больше 100 000 кг в месяц."
+      ]
+     },
+     {
+      "h": "Каналы сбыта"
+     },
+     {
+      "p": "Выбор зерна, стиль обжарки и вид конечного продукта зависят от развития рынка и каналов сбыта."
+     },
+     {
+      "ul": [
+       {
+        "b": "Retail",
+        "t": " — розничная торговля, продажа прямо конечному потребителю. Для неё чаще берут несложное зерно и обжаривают его с максимальным развитием."
+       },
+       {
+        "b": "HoReCa",
+        "t": " — сегмент сферы услуг и канал сбыта с потреблением на месте продажи. Качество и сложность кофе сильно различаются в зависимости от формата заведения и способов приготовления."
+       }
+      ]
+     },
+     {
+      "h": "Дефекты обжарки"
+     },
+     {
+      "ul": [
+       "Baked — запечённое зерно",
+       "Light — светлое",
+       "Fast — быстрое",
+       "Underdeveloped — неразвитое",
+       "Scorched — ожог контактом",
+       "Tipped — ожог воздухом",
+       "Burnt — сожжённое"
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Qovurma",
+    "blocks": [
+     {
+      "p": "Kofenin suda həll olması üçün onu qovururlar: qovurma kofenin potensialını açır. Qovurma vaxt, temperatur, hava axını dəyişməklə və rəngə nəzarət etməklə idarə olunur."
+     },
+     {
+      "ul": [
+       {
+        "b": "Roster",
+        "t": " — kofe dənələrini qovurmaq üçün avadanlıq."
+       },
+       {
+        "b": "Qovurma profili",
+        "t": " — vaxt və temperatur qrafiki."
+       }
+      ]
+     },
+     {
+      "h": "Qovurma mərhələləri"
+     },
+     {
+      "ol": [
+       "Qurutma",
+       "Sarılıq",
+       "İlk krek",
+       "İnkişaf",
+       "İkinci krek",
+       "Soyutma"
+      ]
+     },
+     {
+      "note": "Tünd qovurmada kofenin həcmi iki dəfə artıra bilər."
+     },
+     {
+      "h": "Dənədə nə baş verir"
+     },
+     {
+      "p": "Dadı quru distillə, karamelizasiya, Mayar reaksiyası və turşuların əmələ gəlməsi yaradır. Qovurma dərəcəsindən turşuluq, bədən, şirinlik, terroir və aroma asılıdır."
+     },
+     {
+      "h": "Qovuranın ölçüsü"
+     },
+     {
+      "ul": [
+       "Mikro roster — ayda ən çox 10 000 kq.",
+       "Orta roster — ayda 10 000 kq-dan çox.",
+       "Böyük roster — ayda 100 000 kq-dan çox."
+      ]
+     },
+     {
+      "h": "Satış kanalları"
+     },
+     {
+      "p": "Dənənin seçimi, qovurma tərzi və son məhsulun növü bazarın inkişafından və satış kanallarından asılıdır."
+     },
+     {
+      "ul": [
+       {
+        "b": "Pərakəndə (retail)",
+        "t": " — birbaşa son istehlakçıya satış. Bunun üçün çox vaxt sadə dənə seçilir və maksimum inkişafla qovrulur."
+       },
+       {
+        "b": "HoReCa",
+        "t": " — xidmət sektorunun seqmenti və satış nöqtəsində birbaşa istehlak ilə satış kanalı. Kofenin keyfiyyəti və mürəkkəbliyi müəssisənin formatından və hazırlama üsullarından asılı olaraq çox fərqlənir."
+       }
+      ]
+     },
+     {
+      "h": "Qovurma qüsurları"
+     },
+     {
+      "ul": [
+       "Baked — bişmiş dənə",
+       "Light — açıq",
+       "Fast — tez qovrulmuş",
+       "Underdeveloped — inkişafsız",
+       "Scorched — təmasla yanma",
+       "Tipped — hava ilə yanma",
+       "Burnt — yanmış"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-fresh",
+   "cat": "CF",
+   "topic": "CF-5",
+   "ru": {
+    "title": "Дегазация и свежесть",
+    "blocks": [
+     {
+      "h": "Дегазация"
+     },
+     {
+      "p": "Это процесс, который идёт при хранении свежеобжаренного кофе. При обжарке образуется много газа, в основном углекислого. Он остаётся «запертым» в зёрнах и постепенно выходит."
+     },
+     {
+      "h": "Что влияет на свежесть"
+     },
+     {
+      "ul": [
+       "Свет",
+       "Кислород",
+       "Тепло",
+       "Влага"
+      ]
+     },
+     {
+      "h": "Как хранить"
+     },
+     {
+      "ul": [
+       "Держать зёрна в закрытом пакете: без доступа воздуха, влаги, света, тепла и посторонних запахов.",
+       "Крышки бункера для зёрен и камеры дозатора держать закрытыми.",
+       "В идеале использовать зёрна в течение одного месяца после обжарки, но не позже чем через три.",
+       "Свежемолотый кофе использовать как можно быстрее после помола.",
+       "Хранить в прохладном месте."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Deqazasiya və təzəlik",
+    "blocks": [
+     {
+      "h": "Deqazasiya"
+     },
+     {
+      "p": "Bu, təzə qovrulmuş kofenin saxlanması zamanı gedən prosesdir. Qovurma zamanı çox qaz, əsasən karbon dioksid əmələ gəlir. O dənələrdə «bağlı» qalır və tədricən çıxır."
+     },
+     {
+      "h": "Təzəliyə nə təsir edir"
+     },
+     {
+      "ul": [
+       "İşıq",
+       "Oksigen",
+       "İstilik",
+       "Nəmlik"
+      ]
+     },
+     {
+      "h": "Necə saxlamaq lazımdır"
+     },
+     {
+      "ul": [
+       "Dənələri qapalı paketdə saxlayın: hava, nəm, işıq, istilik və kənar qoxulardan qorunmuş şəkildə.",
+       "Dənə bunkerinin və doza kamerasının qapaqlarını bağlı saxlayın.",
+       "İdeal olaraq dənələri qovurmadan sonra bir ay ərzində, ən gec üç aya qədər istifadə edin.",
+       "Təzə üyüdülmüş kofeni üyütmədən sonra mümkün qədər tez istifadə edin.",
+       "Sərin yerdə saxlayın."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-equip",
+   "cat": "CF",
+   "topic": "CF-6",
+   "ru": {
+    "title": "Методы приготовления и оборудование",
+    "blocks": [
+     {
+      "h": "Методы приготовления"
+     },
+     {
+      "ul": [
+       "Гравитация (капельные), например V60",
+       "Вакуумная фильтрация",
+       "Иммерсия",
+       "Давление, например эспрессо",
+       "Кипячение, например джезва (турка)",
+       "Комбинации: иммерсия + декантирование, иммерсия + давление, иммерсия + гравитация"
+      ]
+     },
+     {
+      "h": "Эспрессо-машины"
+     },
+     {
+      "ul": [
+       {
+        "b": "Леверная (ручная)",
+        "t": " — управляется рычагом."
+       },
+       {
+        "b": "Полуавтоматическая",
+        "t": " — электронный насос прогоняет воду через кофе, а бариста вручную запускает и останавливает пролив."
+       },
+       {
+        "b": "Автоматическая",
+        "t": " — прогоняет запрограммированную порцию воды; нужный объём выбирают одной из программируемых кнопок."
+       },
+       {
+        "b": "Полностью автоматическая",
+        "t": " — одним нажатием готовит любой напиток, включая латте и капучино."
+       }
+      ]
+     },
+     {
+      "h": "Кофемолки"
+     },
+     {
+      "ul": [
+       "Эспрессо-кофемолки: прямого потока и с дозатором.",
+       "Есть магазинные и лабораторные кофемолки."
+      ]
+     },
+     {
+      "h": "Жернова"
+     },
+     {
+      "ul": [
+       "Конические",
+       "Плоские",
+       "Роллерные",
+       "Есть и двойное смалывание."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Dəmləmə üsulları və avadanlıq",
+    "blocks": [
+     {
+      "h": "Dəmləmə üsulları"
+     },
+     {
+      "ul": [
+       "Qravitasiya (damcı), məsələn V60",
+       "Vakuum filtrasiya",
+       "İmmersiya",
+       "Təzyiq, məsələn espresso",
+       "Qaynatma, məsələn cezva",
+       "Kombinasiyalar: immersiya + dekantasiya, immersiya + təzyiq, immersiya + qravitasiya"
+      ]
+     },
+     {
+      "h": "Espresso maşınları"
+     },
+     {
+      "ul": [
+       {
+        "b": "Lever (əl ilə)",
+        "t": " — qolla idarə olunur."
+       },
+       {
+        "b": "Yarımavtomat",
+        "t": " — elektron nasos suyu kofedən keçirir, barista isə axını əllə başladır və dayandırır."
+       },
+       {
+        "b": "Avtomat",
+        "t": " — proqramlaşdırılmış su miqdarını keçirir; lazımi həcm proqramlaşdırılan düymələrdən biri ilə seçilir."
+       },
+       {
+        "b": "Tam avtomat",
+        "t": " — bir düyməni basmaqla istənilən içki, o cümlədən latte və kapuçino hazırlanır."
+       }
+      ]
+     },
+     {
+      "h": "Kofe üyüdənlər"
+     },
+     {
+      "ul": [
+       "Espresso üçün kofe üyüdənlər: birbaşa axınlı və dozatorlu.",
+       "Mağaza və laboratoriya kofe üyüdənləri də var."
+      ]
+     },
+     {
+      "h": "Üyüdücü dişlilər"
+     },
+     {
+      "ul": [
+       "Konik",
+       "Yastı (paralel)",
+       "Roller",
+       "İkiqat üyütmə də var."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-espresso",
+   "cat": "CF",
+   "topic": "CF-7",
+   "ru": {
+    "title": "Эспрессо, помол и EBF",
+    "blocks": [
+     {
+      "p": "Эспрессо — метод приготовления: кофе мелкого помола уплотняют в портафильтре и пропускают через него горячую воду под давлением. Получается концентрированный напиток."
+     },
+     {
+      "p": "Научно эспрессо — это экстракт кофе, а его приготовление — экстракция."
+     },
+     {
+      "h": "Помол"
+     },
+     {
+      "p": "От самого крупного к самому мелкому помолу:"
+     },
+     {
+      "ol": [
+       "холодное заваривание и иммерсионные методы;",
+       "капельные (гравитационные) методы;",
+       "мелкий фильтр;",
+       "эспрессо;",
+       "джезва (ибрик) — самый мелкий."
+      ]
+     },
+     {
+      "h": "EBF — Espresso Brew Formula"
+     },
+     {
+      "ul": [
+       "Доза — количество молотого кофе в портафильтре.",
+       "Выход напитка — вес жидкости в чашке."
+      ]
+     },
+     {
+      "p": "EBF, % = доза × 100 / вес напитка"
+     },
+     {
+      "p": "Brew ratio = вес напитка / доза"
+     },
+     {
+      "p": "Пример: доза 18 г, выход 36 г. EBF = 18 × 100 / 36 = 50 %, brew ratio = 36 / 18 = 2."
+     },
+     {
+      "h": "Зачем это нужно"
+     },
+     {
+      "ul": [
+       "Показывает плотность эспрессо и растворимость используемого кофе.",
+       "Упрощает повторение и изменение рецепта."
+      ]
+     },
+     {
+      "note": "В Sensum двойной эспрессо — это доза 18 г и выход 36 г."
+     }
+    ]
+   },
+   "az": {
+    "title": "Espresso, üyütmə dərəcəsi və EBF",
+    "blocks": [
+     {
+      "p": "Espresso — dəmləmə üsuludur: incə üyüdülmüş kofe portafiltrdə sıxılır və içindən təzyiq altında isti su keçirilir. Nəticədə qatılaşdırılmış içki alınır."
+     },
+     {
+      "p": "Elmi baxımdan espresso kofe ekstraktından başqa bir şey deyil, onun hazırlanması isə ekstraksiyadır."
+     },
+     {
+      "h": "Üyütmə dərəcəsi"
+     },
+     {
+      "p": "Ən iridən ən xırdaya qədər üyütmə:"
+     },
+     {
+      "ol": [
+       "soyuq dəmləmə və immersiya üsulları;",
+       "damcı (qravitasiya) üsulları;",
+       "incə filtr;",
+       "espresso;",
+       "cezva (ibrik) — ən xırda."
+      ]
+     },
+     {
+      "h": "EBF — Espresso Brew Formula"
+     },
+     {
+      "ul": [
+       "Doza — portafiltrdəki üyüdülmüş kofenin miqdarı.",
+       "İçki çıxışı — fincandakı mayenin çəkisi."
+      ]
+     },
+     {
+      "p": "EBF, % = doza × 100 / içkinin çəkisi"
+     },
+     {
+      "p": "Brew ratio = içkinin çəkisi / doza"
+     },
+     {
+      "p": "Nümunə: doza 18 q, çıxış 36 q. EBF = 18 × 100 / 36 = 50 %, brew ratio = 36 / 18 = 2."
+     },
+     {
+      "h": "Bu nə üçün lazımdır"
+     },
+     {
+      "ul": [
+       "Espressonun sıxlığını və istifadə olunan kofenin həllolma qabiliyyətini göstərir.",
+       "Resepti təkrarlamağı və ya dəyişdirməyi asanlaşdırır."
+      ]
+     },
+     {
+      "note": "Sensum-da ikiqat espresso — 18 q doza və 36 q çıxışdır."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-extract",
+   "cat": "CF",
+   "topic": "CF-7",
+   "ru": {
+    "title": "Экстракция, крепость и вкус эспрессо",
+    "blocks": [
+     {
+      "ul": [
+       {
+        "b": "Экстракция",
+        "t": " — переход вкусовых компонентов из твёрдой формы в жидкую."
+       },
+       {
+        "b": "Крепость (% TDS)",
+        "t": " — процент всех растворённых веществ в жидком кофе (Total Dissolved Solids). Чем он выше относительно воды, тем крепче напиток."
+       }
+      ]
+     },
+     {
+      "p": "Уровень экстракции, % = выход напитка (г) × TDS (%) / доза кофе (г)"
+     },
+     {
+      "ul": [
+       "Для лучшего результата экстракция должна быть 18–22 %.",
+       "Максимум растворимых веществ обжаренного кофе в воде — около 30–35 %.",
+       "Готовый напиток на 98,5 % состоит из воды."
+      ]
+     },
+     {
+      "h": "Баланс экстракции"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Что чувствуется"
+       ],
+       "rows": [
+        [
+         "Недоэкстракция",
+         "резкая кислотность, солоноватость, нет сладости, короткое послевкусие"
+        ],
+        [
+         "Баланс",
+         "приятная кислотность, сладость, сочность, чистота, долгое послевкусие"
+        ],
+        [
+         "Переэкстракция",
+         "горечь, сухость, пустота"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Сенсорные аспекты эспрессо"
+     },
+     {
+      "ul": [
+       {
+        "b": "Аромат",
+        "t": " — летучие соединения, которые возбуждают наши рецепторы: шоколадный, цветочный, фруктовый."
+       },
+       {
+        "b": "Вкус",
+        "t": " — совокупное восприятие всех вкусовых ощущений: кислый, горький, сладкий, солёный, умами."
+       },
+       {
+        "b": "Тело",
+        "t": " — вес напитка, который ощущает язык: лёгкое, среднее, плотное."
+       },
+       {
+        "b": "Текстура",
+        "t": " — ощущение, когда жидкость покрывает язык: водянистая, сливочная, сочная."
+       }
+      ]
+     },
+     {
+      "h": "Обжарка и вкус эспрессо"
+     },
+     {
+      "ul": [
+       "Светлая обжарка даёт больше кислотности.",
+       "Тёмная — больше горечи.",
+       "Средняя находится между ними."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Ekstraksiya, güc və espressonun dadı",
+    "blocks": [
+     {
+      "ul": [
+       {
+        "b": "Ekstraksiya",
+        "t": " — dad komponentlərinin bərk haldan maye halına keçməsi."
+       },
+       {
+        "b": "Güc (% TDS)",
+        "t": " — maye kofedə bütün həll olmuş maddələrin faizi (Total Dissolved Solids). Suya nisbətən nə qədər yüksəkdirsə, içki bir o qədər güclüdür."
+       }
+      ]
+     },
+     {
+      "p": "Ekstraksiya dərəcəsi, % = içki çıxışı (q) × TDS (%) / kofe dozası (q)"
+     },
+     {
+      "ul": [
+       "Ən yaxşı dad üçün ekstraksiya 18–22 % olmalıdır.",
+       "Qovrulmuş kofenin suda həll olan maddələrinin maksimum miqdarı təxminən 30–35 %-dir.",
+       "Hazır içkinin 98,5 %-i sudan ibarətdir."
+      ]
+     },
+     {
+      "h": "Ekstraksiyanın balansı"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Nə hiss olunur"
+       ],
+       "rows": [
+        [
+         "Az çıxarış",
+         "kəskin turşuluq, şorluq, şirinlik yoxdur, qısa son dad"
+        ],
+        [
+         "Balans",
+         "xoş turşuluq, şirinlik, şirəlilik, saflıq, uzun son dad"
+        ],
+        [
+         "Artıq çıxarış",
+         "acılıq, quruluq, boşluq"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Espressonun sensor aspektləri"
+     },
+     {
+      "ul": [
+       {
+        "b": "Aroma",
+        "t": " — dad qönçələrimizi oyadan uçucu birləşmələr: şokoladlı, çiçəkli, meyvəli."
+       },
+       {
+        "b": "Dad",
+        "t": " — bütün dad hisslərinin birləşmiş qavrayışı: turş, acı, şirin, duzlu, umami."
+       },
+       {
+        "b": "Bədən",
+        "t": " — dilin hiss etdiyi çəki: yüngül, orta, sıx."
+       },
+       {
+        "b": "Tekstura",
+        "t": " — maye dili əhatə edərkən yaranan hiss: sulu, qaymaqlı, şirəli."
+       }
+      ]
+     },
+     {
+      "h": "Qovurma və espressonun dadı"
+     },
+     {
+      "ul": [
+       "Açıq qovurma daha çox turşuluq verir.",
+       "Tünd qovurma daha çox acılıq verir.",
+       "Orta qovurma bunların arasındadır."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-milk",
+   "cat": "CF",
+   "topic": "CF-8",
+   "ru": {
+    "title": "Молоко",
+    "blocks": [
+     {
+      "h": "Состав молока"
+     },
+     {
+      "ul": [
+       "Вода — около 88 %",
+       "Лактоза — 3,6–5,5 %",
+       "Белки — 3–5 %",
+       "Жиры — 3–5 %",
+       "Минералы — 0,6–0,9 %"
+      ]
+     },
+     {
+      "ul": [
+       {
+        "b": "Лактоза",
+        "t": " — молочный сахар, отвечает за сладость."
+       },
+       {
+        "b": "Белок",
+        "t": " — его молекулы формируют стабильную пену."
+       },
+       {
+        "b": "Жир",
+        "t": " — отвечает за эластичность пены и влияет на тактильные ощущения."
+       }
+      ]
+     },
+     {
+      "h": "Когда молоко портится"
+     },
+     {
+      "ul": [
+       "Бактерии повышают кислотность молока. В итоге белки и жиры распадаются, и молоко становится непригодным по гигиеническим причинам.",
+       "Такое молоко не вспенивается.",
+       "Кислотность эспрессо часто сворачивает молоко из заменителей.",
+       "Причины порчи: истёк срок годности или молоко хранили при высокой температуре."
+      ]
+     },
+     {
+      "h": "Температура взбивания"
+     },
+     {
+      "ul": [
+       "По стандарту SCA молоко взбивают при 55–65 °C.",
+       "Максимально допустимая температура — 70 °C."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Süd",
+    "blocks": [
+     {
+      "h": "Südün tərkibi"
+     },
+     {
+      "ul": [
+       "Su — təxminən 88 %",
+       "Laktoza — 3,6–5,5 %",
+       "Zülallar — 3–5 %",
+       "Yağlar — 3–5 %",
+       "Minerallar — 0,6–0,9 %"
+      ]
+     },
+     {
+      "ul": [
+       {
+        "b": "Laktoza",
+        "t": " — süd şəkəri, şirinliyə cavabdehdir."
+       },
+       {
+        "b": "Zülal",
+        "t": " — onun molekulları sabit köpük əmələ gətirir."
+       },
+       {
+        "b": "Yağ",
+        "t": " — köpüyün elastikliyinə cavabdehdir və toxunma hissinə təsir edir."
+       }
+      ]
+     },
+     {
+      "h": "Süd nə vaxt xarab olur"
+     },
+     {
+      "ul": [
+       "Bakteriyalar südün turşuluğunu artırır. Nəhayət, zülallar və yağlar parçalanır və süd gigiyenik səbəblərə görə yararsız olur.",
+       "Belə süd köpüklənmir.",
+       "Espressonun turşuluğu çox vaxt əvəzedicilərdən hazırlanmış südü qatılaşdırır.",
+       "Xarab olma səbəbləri: yararlılıq müddətinin bitməsi və ya südün yüksək temperaturda saxlanması."
+      ]
+     },
+     {
+      "h": "Köpükləndirmə temperaturu"
+     },
+     {
+      "ul": [
+       "SCA standartına görə süd 55–65 °C-də köpükləndirilir.",
+       "İcazə verilən maksimum temperatur 70 °C-dir."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-brew",
+   "cat": "CF",
+   "topic": "CF-9",
+   "ru": {
+    "title": "Заваривание: рецепт и вода",
+    "blocks": [
+     {
+      "h": "Ключевые элементы"
+     },
+     {
+      "ul": [
+       "Соотношение воды и кофе (brew ratio)",
+       "Помол",
+       "Время заваривания",
+       "Температура воды",
+       "Турбулентность",
+       "Качество воды",
+       "Материал фильтра"
+      ]
+     },
+     {
+      "h": "Как управлять экстракцией"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Увеличить экстракцию",
+        "Уменьшить экстракцию"
+       ],
+       "rows": [
+        [
+         "Помол",
+         "мельче",
+         "крупнее"
+        ],
+        [
+         "Вода",
+         "больше",
+         "меньше"
+        ],
+        [
+         "Кофе",
+         "меньше",
+         "больше"
+        ],
+        [
+         "Турбулентность",
+         "больше",
+         "меньше"
+        ],
+        [
+         "Температура",
+         "выше",
+         "ниже"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Соотношение воды и кофе"
+     },
+     {
+      "p": "Сколько воды (мл) нужно на дозу кофе при заданной крепости. Слева — слабее (55 г/л), справа — крепче (70 г/л)."
+     },
+     {
+      "table": {
+       "head": [
+        "Доза",
+        "55 г/л",
+        "60 г/л",
+        "65 г/л",
+        "70 г/л"
+       ],
+       "rows": [
+        [
+         "15 г",
+         "273",
+         "250",
+         "231",
+         "214"
+        ],
+        [
+         "18 г",
+         "327",
+         "300",
+         "277",
+         "257"
+        ],
+        [
+         "19 г",
+         "345",
+         "317",
+         "292",
+         "271"
+        ],
+        [
+         "20 г",
+         "364",
+         "333",
+         "308",
+         "286"
+        ],
+        [
+         "21 г",
+         "382",
+         "350",
+         "323",
+         "300"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Вода"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Оптимум",
+        "Приемлемо"
+       ],
+       "rows": [
+        [
+         "Запах",
+         "чистая, без запаха",
+         ""
+        ],
+        [
+         "Цвет",
+         "чистая, прозрачная",
+         ""
+        ],
+        [
+         "Хлор",
+         "0 мг/л",
+         ""
+        ],
+        [
+         "TDS",
+         "150 мг/л",
+         "75–250 мг/л"
+        ],
+        [
+         "Кальциевая жёсткость",
+         "4 зерна, или 68 мг/л",
+         "1–5 зёрен, или 17–85 мг/л"
+        ],
+        [
+         "Щёлочность",
+         "40 мг/л",
+         "около 40 мг/л"
+        ],
+        [
+         "pH",
+         "7,0",
+         "6,5–7,5"
+        ],
+        [
+         "Натрий",
+         "10 мг/л",
+         "около 10 мг/л"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Температура"
+     },
+     {
+      "p": "Чем выше температура, тем быстрее идёт экстракция. Температура влияет и на то, что именно извлекается, поэтому при разных температурах вкус получается разным. SCA рекомендует 93 °C ± 3 °C."
+     },
+     {
+      "h": "Турбулентность"
+     },
+     {
+      "p": "Это увеличение взаимодействия частиц кофе с водой. Её создают:"
+     },
+     {
+      "ul": [
+       "помешивание ложкой: усиливает экстракцию, но контролировать его трудно;",
+       "высота вливания воды: чем выше, тем сильнее взаимодействие;",
+       "кипячение."
+      ]
+     },
+     {
+      "h": "Фильтры"
+     },
+     {
+      "ul": [
+       "Бумажные: чашка чище и прозрачнее.",
+       "Тканевые: чашка насыщеннее.",
+       "Металлические: плотность напитка выше, но чистота теряется."
+      ]
+     },
+     {
+      "h": "Анализ заваривания"
+     },
+     {
+      "ul": [
+       {
+        "b": "Крепость",
+        "t": " — концентрация растворённых веществ кофе в чашке. Это не профиль обжарки и не количество кофеина."
+       },
+       {
+        "b": "Выход растворимых веществ (экстракция)",
+        "t": " — процент веществ, которые мы растворили при заваривании молотого кофе."
+       }
+      ]
+     },
+     {
+      "note": "Заваривание с оптимальным процентом экстракции и оптимальной крепостью называется сбалансированным. Рекомендация SCA: выход растворимых веществ 18–22 %, концентрация 1,15–1,45 %."
+     }
+    ]
+   },
+   "az": {
+    "title": "Dəmləmə: resept və su",
+    "blocks": [
+     {
+      "h": "Əsas elementlər"
+     },
+     {
+      "ul": [
+       "Su və kofenin nisbəti (brew ratio)",
+       "Üyütmə dərəcəsi",
+       "Dəmləmə vaxtı",
+       "Suyun temperaturu",
+       "Turbulentlik",
+       "Suyun keyfiyyəti",
+       "Filtrin materialı"
+      ]
+     },
+     {
+      "h": "Ekstraksiyanı necə idarə etmək olar"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Ekstraksiyanı artırmaq",
+        "Ekstraksiyanı azaltmaq"
+       ],
+       "rows": [
+        [
+         "Üyütmə",
+         "daha xırda",
+         "daha iri"
+        ],
+        [
+         "Su",
+         "daha çox",
+         "daha az"
+        ],
+        [
+         "Kofe",
+         "daha az",
+         "daha çox"
+        ],
+        [
+         "Turbulentlik",
+         "daha çox",
+         "daha az"
+        ],
+        [
+         "Temperatur",
+         "daha yüksək",
+         "daha aşağı"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Su və kofenin nisbəti"
+     },
+     {
+      "p": "Verilmiş güc üçün kofe dozasına nə qədər su (ml) lazımdır. Solda daha zəif (55 q/l), sağda daha güclü (70 q/l)."
+     },
+     {
+      "table": {
+       "head": [
+        "Doza",
+        "55 q/l",
+        "60 q/l",
+        "65 q/l",
+        "70 q/l"
+       ],
+       "rows": [
+        [
+         "15 q",
+         "273",
+         "250",
+         "231",
+         "214"
+        ],
+        [
+         "18 q",
+         "327",
+         "300",
+         "277",
+         "257"
+        ],
+        [
+         "19 q",
+         "345",
+         "317",
+         "292",
+         "271"
+        ],
+        [
+         "20 q",
+         "364",
+         "333",
+         "308",
+         "286"
+        ],
+        [
+         "21 q",
+         "382",
+         "350",
+         "323",
+         "300"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Su"
+     },
+     {
+      "table": {
+       "head": [
+        "",
+        "Optimal",
+        "Qəbul edilən"
+       ],
+       "rows": [
+        [
+         "Qoxu",
+         "təmiz, qoxusuz",
+         ""
+        ],
+        [
+         "Rəng",
+         "təmiz, şəffaf",
+         ""
+        ],
+        [
+         "Xlor",
+         "0 mq/l",
+         ""
+        ],
+        [
+         "TDS",
+         "150 mq/l",
+         "75–250 mq/l"
+        ],
+        [
+         "Kalsium sərtliyi",
+         "4 dənə, yaxud 68 mq/l",
+         "1–5 dənə, yaxud 17–85 mq/l"
+        ],
+        [
+         "Qələvilik",
+         "40 mq/l",
+         "40 mq/l-ə yaxın"
+        ],
+        [
+         "pH",
+         "7,0",
+         "6,5–7,5"
+        ],
+        [
+         "Natrium",
+         "10 mq/l",
+         "10 mq/l-ə yaxın"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Temperatur"
+     },
+     {
+      "p": "Temperatur nə qədər yüksəkdirsə, ekstraksiya bir o qədər sürətli gedir. Temperatur həm də nəyin çıxarıldığına təsir edir, buna görə müxtəlif temperaturlarda dad fərqli olur. SCA 93 °C ± 3 °C tövsiyə edir."
+     },
+     {
+      "h": "Turbulentlik"
+     },
+     {
+      "p": "Bu, kofe hissəciklərinin su ilə qarşılıqlı təsirinin artmasıdır. Onu yaradır:"
+     },
+     {
+      "ul": [
+       "qaşıqla qarışdırmaq: ekstraksiyanı artırır, lakin nəzarət etmək çətindir;",
+       "suyun töküldüyü hündürlük: nə qədər yüksəkdirsə, qarşılıqlı təsir bir o qədər güclüdür;",
+       "qaynama."
+      ]
+     },
+     {
+      "h": "Filtrlər"
+     },
+     {
+      "ul": [
+       "Kağız: fincan daha təmiz və şəffaf olur.",
+       "Parça: fincan daha zəngin olur.",
+       "Metal: içkinin sıxlığı artır, lakin saflıq itir."
+      ]
+     },
+     {
+      "h": "Dəmləmənin analizi"
+     },
+     {
+      "ul": [
+       {
+        "b": "Güc",
+        "t": " — fincanda həll olmuş kofe maddələrinin konsentrasiyası. Bu, qovurma profili və ya kofeinin miqdarı deyil."
+       },
+       {
+        "b": "Həll olan maddələrin çıxışı (ekstraksiya)",
+        "t": " — üyüdülmüş kofenin dəmlənməsi nəticəsində həll etdiyimiz maddələrin faizi."
+       }
+      ]
+     },
+     {
+      "note": "Optimal ekstraksiya faizi və optimal güc ilə dəmləmə balanslı adlanır. SCA tövsiyəsi: həll olan maddələrin çıxışı 18–22 %, konsentrasiya 1,15–1,45 %."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cf-sensory",
+   "cat": "CF",
+   "topic": "CF-10",
+   "ru": {
+    "title": "Сенсорный анализ и каппинг",
+    "blocks": [
+     {
+      "p": "Сенсорный анализ — это дегустация, при которой определяют и оценивают органолептические характеристики кофе: вкус, аромат, потенциал."
+     },
+     {
+      "h": "Для чего используется"
+     },
+     {
+      "ul": [
+       "Отбор и контроль качества зелёного кофе",
+       "Разработка нового продукта",
+       "Поиск и разработка профилей обжарки",
+       "Контроль качества готового продукта",
+       "Принятие потребителями",
+       "Коммуникация"
+      ]
+     },
+     {
+      "h": "Пять базовых вкусов"
+     },
+     {
+      "ul": [
+       {
+        "b": "Кислый",
+        "t": " — лимонная (цитрусовая) кислота"
+       },
+       {
+        "b": "Горький",
+        "t": " — кофеин, хлорогеновые кислоты"
+       },
+       {
+        "b": "Сладкий",
+        "t": " — сахароза, фруктоза"
+       },
+       {
+        "b": "Солёный",
+        "t": " — хлорид натрия"
+       },
+       {
+        "b": "Умами",
+        "t": " — глутамат натрия (MSG)"
+       }
+      ]
+     },
+     {
+      "note": "За первые 5 минут обжарки в кофе образуется более 20 кислот."
+     },
+     {
+      "h": "Протокол каппинга"
+     },
+     {
+      "ul": [
+       "Время обжарки образца — 8–12 минут.",
+       "Средняя степень обжарки: 60–65 по шкале Agtron, 90–105 по Colorette.",
+       "Каппинг проводят через 8–24 часа после обжарки.",
+       "Помол чуть крупнее, чем для фильтра. Молоть не раньше чем за 15 минут до начала.",
+       "4–5 чашек на каждый образец.",
+       "8,25 г кофе на 150 мл воды.",
+       "Чашки — стекло или керамика, 200–260 мл, диаметр 75–90 мм.",
+       "Ложки — серебро или нержавеющая сталь, 4–5 мл.",
+       "Вода чистая, прозрачная, без вкуса и запаха: TDS 75–250 ppm (1 мг/л = 1 ppm), pH 7,0–7,5, температура 93 °C.",
+       "Воду наливают сверху прямо на молотый кофе, равномерно от чашки к чашке."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Sensor analizi və kappinq",
+    "blocks": [
+     {
+      "p": "Sensor analizi — kofenin orqanoleptik xüsusiyyətlərinin, dad və aroma keyfiyyətlərinin, potensialının müəyyən edildiyi və qiymətləndirildiyi dadma prosesidir."
+     },
+     {
+      "h": "Nə üçün istifadə olunur"
+     },
+     {
+      "ul": [
+       "Yaşıl kofenin seçilməsi və keyfiyyətinə nəzarət",
+       "Yeni məhsulun hazırlanması",
+       "Qovurma profillərinin axtarışı və hazırlanması",
+       "Son məhsulun keyfiyyətinə nəzarət",
+       "İstehlakçılar tərəfindən qəbul",
+       "Ünsiyyət"
+      ]
+     },
+     {
+      "h": "Beş əsas dad"
+     },
+     {
+      "ul": [
+       {
+        "b": "Turş",
+        "t": " — sitrus turşusu"
+       },
+       {
+        "b": "Acı",
+        "t": " — kofein, xlorogen turşuları"
+       },
+       {
+        "b": "Şirin",
+        "t": " — saxaroza, fruktoza"
+       },
+       {
+        "b": "Duzlu",
+        "t": " — natrium xlorid"
+       },
+       {
+        "b": "Umami",
+        "t": " — monosodium glutamat (MSG)"
+       }
+      ]
+     },
+     {
+      "note": "Kofenin qovrulması prosesində ilk 5 dəqiqə ərzində 20-dən çox turşu əmələ gəlir."
+     },
+     {
+      "h": "Kappinq protokolu"
+     },
+     {
+      "ul": [
+       "Nümunənin qovrulma müddəti — 8–12 dəqiqə.",
+       "Orta qovurma dərəcəsi: Agtron şkalası üzrə 60–65, Colorette üzrə 90–105.",
+       "Kappinq qovurmadan 8–24 saat sonra aparılır.",
+       "Üyütmə filtrdən bir az iridir. Başlamazdan ən geci 15 dəqiqə əvvəl üyüdülür.",
+       "Hər nümunə üçün 4–5 fincan.",
+       "150 ml suya 8,25 q kofe.",
+       "Fincanlar — şüşə və ya keramika, həcmi 200–260 ml, diametri 75–90 mm.",
+       "Qaşıqlar — gümüş və ya paslanmayan polad, 4–5 ml.",
+       "Su təmiz, şəffaf, dadsız və qoxusuz olmalıdır: TDS 75–250 ppm (1 mq/l = 1 ppm), pH 7,0–7,5, temperatur 93 °C.",
+       "Su üstdən birbaşa üyüdülmüş kofenin üzərinə, fincandan fincana bərabər tökülür."
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

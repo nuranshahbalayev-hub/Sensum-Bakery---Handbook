@@ -466,6 +466,39 @@ const server = http.createServer((req, res) => {
   } };
   await page.click('#learnroot [data-l="mat"]');
   check(await page.locator('#learnroot [data-l="matcat"]').count() === 3, 'materials: drinks, preps and vitrina');
+
+  /* lessons: a category tile, a list, a lesson, «прочитано», and a theory test on the lesson's topic */
+  check(await page.locator('#learnroot [data-l="lcat"]').count() === 1 && (await page.locator('#learnroot [data-l="lcat"]').innerText()).includes('0 / 17'), 'lessons: one category tile (coffee) with 0 / 17 read');
+  await page.click('#learnroot [data-l="lcat"]');
+  check(await page.locator('#learnroot [data-l="lesson"]').count() === 17, 'lessons: the list has the 17 coffee lessons');
+  await page.click('#learnroot [data-l="lesson"]:nth-child(3)');
+  const les3 = await page.evaluate(() => ({ id: L.lid, title: LES.find(x => x.id === L.lid).title }));
+  const lt = await page.locator('#learnroot').innerText();
+  check(les3.id === 'cf-species' && lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: title, the arabica / robusta table and its numbers');
+  check(await page.locator('#learnroot [data-l="lread"]').count() === 1 && await page.locator('#learnroot [data-l="ltest"]').count() === 1, 'lesson: «mark read» and «test yourself» buttons');
+  await page.click('#learnroot [data-l="lread"]');
+  check(await page.evaluate(() => LS.read['cf-species'] === 1) && await page.locator('#learnroot [data-l="lread"]').count() === 0, 'lesson: marked read, remembered in sensum_learn.read');
+  await page.click('#learnroot [data-l="lcat"]');
+  check((await page.locator('#learnroot .tile.read').count()) === 1 && (await page.locator('#learnroot .lpanel').first().innerText()).includes('1 / 17'), 'lessons: the list shows the read lesson and 1 / 17');
+  await page.click('#learnroot [data-l="mat"]');
+  check((await page.locator('#learnroot [data-l="lcat"]').innerText()).includes('1 / 17'), 'materials: the tile counts the read lessons');
+  await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; L.lid = 'cf-milk'; L.view = 'lesson'; renderLearn(); });
+  await page.click('#learnroot [data-l="ltest"]');
+  const lq = await page.evaluate(() => ({ view: L.view, kind: L.qz && L.qz.kind, topic: L.qz && [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))], n: L.qz && L.qz.qs.length, scope: L.qz && L.qz.scope }));
+  check(lq.view === 'quiz' && lq.kind === 'theory' && lq.topic.length === 1 && lq.topic[0] === 'CF-8' && lq.n >= 3 && lq.scope.includes('Молоко'), 'lesson test: a theory test of this lesson’s topic only (CF-8, ' + lq.n + ' questions)');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exit"]');
+  await page.evaluate(() => { L.view = 'home'; L.qz = null; renderLearn(); });
+  const lessonProblems = async () => page.evaluate(() => { const bad = [], sa = document.getElementById('scrollArea'); sa.scrollLeft = 0;
+    for (const les of LES) { L.lid = les.id; L.view = 'lesson'; renderLearn(); const t = document.getElementById('learnroot').innerText;
+      if (sa.scrollWidth > sa.clientWidth) bad.push(les.id + ': wider than the screen');
+      if (t.includes('undefined') || !t.includes(les.title)) bad.push(les.id + ': text');
+      if (LANG === 'az' && /[А-Яа-яЁё]/.test(t)) bad.push(les.id + ': Russian letters'); }
+    L.view = 'home'; renderLearn(); return bad; });
+  const badRu = await lessonProblems();
+  check(badRu.length === 0, 'every lesson renders at 390px without side scroll (RU)' + (badRu.length ? ': ' + badRu.join(' | ') : ''));
+  await page.evaluate(() => { L.view = 'home'; renderLearn(); });
+  await page.click('#learnroot [data-l="mat"]');
   await page.click('#learnroot [data-l="matcat"][data-v="v"]');
   check(await page.locator('#learnroot [data-l="mvcat"]').count() === 4 && await page.locator('#learnroot [data-l="cards"]').count() === 1, 'materials: the vitrina has its category chips and a cards button');
   await page.click('#learnroot [data-l="mvcat"][data-v="dessert"]');
@@ -492,6 +525,9 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="mat"]');
   const azMat = await page.locator('#learnroot').innerText();
   check(azMat.includes('Materiallar') && azMat.includes('Vitrin') && !/[А-Яа-яЁё]/.test(azMat), 'AZ: the materials screen is Azerbaijani');
+  const badAz = await lessonProblems();
+  check(badAz.length === 0, 'every lesson renders at 390px without side scroll, no Russian letters (AZ)' + (badAz.length ? ': ' + badAz.join(' | ') : ''));
+  await page.evaluate(() => { L.view = 'materials'; renderLearn(); });
   await page.click('#langbtn');  /* a language switch returns to the training home */
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exam"]');
