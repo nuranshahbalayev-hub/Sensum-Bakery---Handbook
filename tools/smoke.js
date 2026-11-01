@@ -206,6 +206,118 @@ const server = http.createServer((req, res) => {
   const cl = posted[2] || {};
   check(posted.length === 3 && cl.aborted === true && cl.mistakes.length + cl.score === 1, 'a test closed half-way reaches the sheet as aborted');
 
+  /* theory: the question bank, its four kinds of question, the filters, both languages */
+  const th = await page.evaluate(() => {
+    const out = { total: 0, bad: [], types: {} };
+    for (const lang of ['ru', 'az']) {
+      setLang(lang);
+      if (!TH.length || !Object.keys(TDIRS).length || !Object.keys(TTOPICS).length) out.bad.push(lang + ': no theory data');
+      for (const t of TH) for (let i = 0; i < 5; i++) {
+        const q = mkTheoryQ(t), o = q.opts || [];
+        out.total++; out.types[q.tt] = (out.types[q.tt] || 0) + 1;
+        const fine = q.text && q.correct && !/undefined|NaN/.test(q.text + q.correct + o.join()) && (q.tt === 'num' ? Number.isFinite(q.val)
+          : o.length === 4 && new Set(o).size === 4 && (q.tt === 'one' ? o.includes(q.correct) : q.tt === 'multi' ? q.set.length >= 2 && q.set.every(x => o.includes(x))
+            : [...q.seq].sort().join('|') === [...o].sort().join('|')));
+        if (!fine) out.bad.push(lang + ':' + t.id);
+      }
+    }
+    setLang('ru');
+    return out;
+  });
+  check(th.total > 0 && th.bad.length === 0 && ['one', 'multi', 'order', 'num'].every(k => th.types[k]),
+    `theory questions: ${th.total} built in both languages, ${th.bad.length} broken${th.bad.length ? ' (' + th.bad.slice(0, 3).join(', ') + ')' : ''}`);
+
+  await page.click('nav.tabs button[data-tab="more"]');
+  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
+  check(await page.locator('#learnroot [data-l="dir"]').count() === 5 && await page.locator('#learnroot [data-l="cards"]').count() === 0
+    && await page.locator('#learnroot [data-l="quiz"]').count() === 1, 'theory: a chip per direction, a test, no flashcards');
+  await page.click('#learnroot [data-l="dir"][data-v="CF"]');
+  check(await page.locator('#learnroot [data-l="topic"]').count() === 11, 'theory: a direction shows its topics');
+  await page.click('#learnroot [data-l="topic"][data-v="CF-8"]');
+  await page.click('#learnroot [data-l="quiz"]');
+  check(await page.evaluate(() => L.qz.qs.length === 4 && L.qz.qs.every(q => q.id.startsWith('CF-4') || /^CF-/.test(q.id)) && L.qz.scope.includes('Молоко')),
+    'theory: a topic test takes only that topic and names it');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exit"]');
+  await page.waitForTimeout(300);
+  const nTheoryBefore = posted.length;
+  check(posted[nTheoryBefore - 1].aborted === true && posted[nTheoryBefore - 1].kind === 'theory', 'theory: an aborted test is sent as a theory test');
+
+  /* all four kinds of question, answered right through the screen */
+  const startTheory = ids => page.evaluate(ids => { L.scope = 'theory'; beginQuiz(ids.map(id => mkTheoryQ(TH.find(t => t.id === id))), 'theory', scopeLabel()); }, ids);
+  const opt = txt => page.locator('#learnroot .opt', { hasText: txt }).first();
+  const nextBtn = () => page.click('#learnroot [data-l="next"]');
+  const verdict = async () => (await page.locator('#learnroot .fb').first().getAttribute('class')) || '';
+  await startTheory(['CF-06', 'CF-05', 'CF-11', 'SV-17', 'CF-02']);
+  const sec0 = await page.evaluate(() => Math.ceil((L.qz.deadline - Date.now()) / 1000));
+  check(sec0 > 25 && sec0 <= 30, `theory: a question with several answers gets ${sec0} s, not the 15 s of a recipe question`);
+  check(await page.locator('#learnroot [data-l="submit"][disabled]').count() === 1, 'theory: «Проверить» waits for a choice');
+  await opt('Пибери').click(); await opt('Тринглс').click();
+  check(await page.locator('#learnroot .opt.sel').count() === 2 && await page.locator('#learnroot [data-l="submit"][disabled]').count() === 0, 'theory: marked options are shown, «Проверить» unlocks');
+  await page.click('#learnroot [data-l="submit"]');
+  check((await verdict()).includes('okn'), 'theory: all the right options marked = right');
+  await nextBtn();
+  for (const t of ['Серебряная', 'Пергамент', 'Пектиновый', 'Пульпа']) await opt(t).click();
+  check(await page.locator('#learnroot .opt .pos').count() === 4, 'theory: a sequence question numbers the options as they are tapped');
+  await page.click('#learnroot [data-l="submit"]');
+  check((await verdict()).includes('okn'), 'theory: the right order = right');
+  await nextBtn();
+  check(await page.evaluate(() => document.activeElement && document.activeElement.id === 'qnum'), 'theory: a number question opens the keyboard');
+  await page.keyboard.type('70'); await page.keyboard.press('Enter');
+  check((await verdict()).includes('okn'), 'theory: the right number = right (Enter submits)');
+  await nextBtn();
+  for (const t of ['Приветствие', 'Уточнение', 'Предложение апселла', 'Подтверждение']) await opt(t).click();
+  await page.click('#learnroot [data-l="submit"]');
+  check((await verdict()).includes('okn'), 'theory: a second sequence, right');
+  await nextBtn();
+  await opt('Эфиопия').click();
+  check((await verdict()).includes('okn') && await page.locator('#learnroot [data-openitem]').count() === 0, 'theory: a single choice is right and offers no recipe to open');
+  await nextBtn();
+  await page.waitForTimeout(400);
+  const tp = posted[posted.length - 1] || {};
+  check(await page.evaluate(() => ['CF-06', 'CF-05', 'CF-11', 'SV-17', 'CF-02'].every(id => boxOf(TH.find(t => t.id === id)) === 1)), 'theory: right answers raise a question’s box (progress)');
+  check((await page.locator('#learnroot .score').innerText()).startsWith('5') && tp.kind === 'theory' && tp.score === 5 && tp.total === 5 && tp.scope.includes('Теория'),
+    'theory: a clean test is sent as kind «theory» with its scope');
+
+  /* the same questions answered wrong: the mistakes are shown, nothing to open, and they can be repeated */
+  await startTheory(['CF-06', 'CF-05', 'CF-11', 'CF-02']);
+  await opt('Хани').click(); await opt('Бурбон').click(); await page.click('#learnroot [data-l="submit"]');
+  check((await verdict()).includes('badn'), 'theory: the wrong options marked = wrong');
+  await nextBtn();
+  for (const t of ['Пульпа', 'Пектиновый', 'Серебряная', 'Пергамент']) await opt(t).click();
+  await page.click('#learnroot [data-l="submit"]');
+  const ordered = await page.locator('#learnroot .opt').allInnerTexts();
+  check((await verdict()).includes('badn') && /^1/.test(ordered[0].replace(/[^\d]/g, '')) && ordered[0].includes('Серебряная'), 'theory: a wrong order is wrong and the options are then listed in the right order');
+  await nextBtn();
+  await page.keyboard.type('71'); await page.click('#qsubmit');
+  check((await verdict()).includes('badn'), 'theory: a wrong number = wrong');
+  await nextBtn();
+  await opt('Йемен').click(); await nextBtn();
+  await page.waitForTimeout(300);
+  check(await page.locator('#learnroot .mist').count() === 4 && await page.locator('#learnroot .mist [data-openitem]').count() === 0, 'theory: four mistakes listed, none offers a recipe');
+  await page.click('#learnroot [data-l="retry"]');
+  check(await page.evaluate(() => L.qz.qs.length === 4 && L.qz.kind === 'theory' && L.qz.qs.some(q => q.tt === 'num')), 'theory: «Повторить ошибки» repeats them, number question included');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exit"]');
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => ['CF-06', 'CF-05', 'CF-11', 'CF-02'].every(id => boxOf(TH.find(t => t.id === id)) === 0) && boxOf(TH.find(t => t.id === 'SV-17')) === 1),
+    'theory: a wrong answer sends the question back to box 0, a right one keeps its box');
+
+  /* AZ */
+  await page.click('#langbtn');
+  /* the «last test» line keeps the scope in the language it was taken in, so only the chips and the test tile are checked */
+  const azHome = (await page.locator('#learnroot .lchips').allInnerTexts()).join(' ') + ' ' + await page.locator('#learnroot [data-l="quiz"]').innerText();
+  check(azHome.includes('Qəhvə: nəzəriyyə') && azHome.includes('Nəzəriyyə') && !/[А-Яа-яЁё]/.test(azHome), 'AZ: theory chips and test tile are Azerbaijani');
+  await page.click('#learnroot [data-l="dir"][data-v="SV"]');
+  await page.click('#learnroot [data-l="quiz"]');
+  check(await page.locator('#learnroot .qtext').count() === 1 && !/[А-Яа-яЁё]/.test(await page.locator('#learnroot .qtext').innerText()), 'AZ: a theory question is in Azerbaijani');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exit"]');
+  await page.waitForTimeout(300);
+  await page.click('#langbtn');
+  await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
+
   /* the game: level, owls, board and badges come from the sheet; the monthly exam */
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');

@@ -15,6 +15,9 @@
  * (до 50 в месяц, журнал на листе «Совы», начисляет тренинг-менеджер в Sensum OS
  * по списку из недельного отчёта), «Экзамен месяца» (одна попытка в месяц,
  * итоги 1-го числа) и рейтинг недели в справочнике (?action=me).
+ *
+ * С v5.2 справочник присылает и тесты раздела «Теория» (тип «theory»): направление и тема
+ * теста стоят в столбце «область», тип в столбце R.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -25,10 +28,10 @@ const SHEET_OWLS = 'Совы';
 const RESULT_COLS = 18;  // A–R
 const ID_COL = 13;        // M: attempt id, used to drop repeats
 const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван', 'Тип'];  // N–R
-const KINDS = ['drinks', 'preps', 'exam', 'mix'];  // R: what the test was about; exam = «Экзамен месяца»
+const KINDS = ['drinks', 'preps', 'exam', 'mix', 'theory'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
 const OWLS_MONTH_CAP = 50;
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.1';
+const SCRIPT_VERSION = 'v5.2';
 
 /* ---------- меню в таблице ---------- */
 

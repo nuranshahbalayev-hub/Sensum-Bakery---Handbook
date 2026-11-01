@@ -211,6 +211,66 @@ def check_triggers(D):
                     warn(f'preps_{lang}/{p["id"]}: "{other["name"]}" links to it via ingredient but is not in usedin')
 
 
+THEORY_TYPES = {'one', 'multi', 'order', 'num'}
+THEORY_LEVELS = {'trainee', 'barista', 'senior'}
+
+
+def check_theory(D):
+    """The question bank: RU and AZ line up, the answer key points at real options, every topic is named."""
+    ru, az = D.get('theory_ru', []), D.get('theory_az', [])
+    dup_ids(ru, 'theory_ru')
+    dup_ids(az, 'theory_az')
+    for key in ('tdirs', 'ttopics'):
+        if list(D.get(key + '_ru', {})) != list(D.get(key + '_az', {})):
+            err(f'{key}: RU/AZ keys differ')
+    if [x['id'] for x in ru] != [x['id'] for x in az]:
+        err(f'theory: RU/AZ id lists differ (count {len(ru)} vs {len(az)})')
+        return
+    used = set()
+    for a, b in zip(ru, az):
+        qid, t = a['id'], a.get('type')
+        for f in ('topic', 'lvl', 'type', 'ans'):
+            if a.get(f) != b.get(f):
+                err(f'theory/{qid}: "{f}" differs RU {a.get(f)!r} vs AZ {b.get(f)!r}')
+        if t not in THEORY_TYPES:
+            err(f'theory/{qid}: unknown type "{t}"')
+            continue
+        if a.get('lvl') not in THEORY_LEVELS:
+            err(f'theory/{qid}: unknown level "{a.get("lvl")}"')
+        used.add(a['topic'])
+        if a['topic'] not in D['ttopics_ru']:
+            err(f'theory/{qid}: topic "{a["topic"]}" has no name in ttopics')
+        elif a['topic'].split('-')[0] not in D['tdirs_ru']:
+            err(f'theory/{qid}: topic "{a["topic"]}" has no direction in tdirs')
+        for lang, x in (('RU', a), ('AZ', b)):
+            if not x.get('q', '').strip():
+                err(f'theory/{qid}: empty {lang} question')
+        # an AZ text copied from the Russian exam keeps its Cyrillic letters
+        if any(re.search('[А-Яа-яЁё]', s) for s in [b.get('q', '')] + b.get('opts', [])):
+            err(f'theory/{qid}: AZ text contains Russian letters')
+        ans = a.get('ans')
+        if t == 'num':
+            if 'opts' in a or 'opts' in b:
+                err(f'theory/{qid}: a numeric question has no options')
+            if isinstance(ans, bool) or not isinstance(ans, (int, float)):
+                err(f'theory/{qid}: the answer must be a number, got {ans!r}')
+            continue
+        for lang, x in (('RU', a), ('AZ', b)):
+            o = x.get('opts', [])
+            if len(o) != 4 or not all(s.strip() for s in o) or len(set(o)) != 4:
+                err(f'theory/{qid}: {lang} needs four different, non-empty options')
+        ints = lambda v: isinstance(v, list) and all(isinstance(i, int) and not isinstance(i, bool) and 0 <= i < 4 for i in v)
+        if t == 'one' and not (isinstance(ans, int) and not isinstance(ans, bool) and 0 <= ans < 4):
+            err(f'theory/{qid}: "one" needs the index of the right option, got {ans!r}')
+        if t == 'multi' and not (ints(ans) and len(ans) >= 2 and ans == sorted(set(ans))):
+            err(f'theory/{qid}: "multi" needs two or more sorted, distinct indexes, got {ans!r}')
+        if t == 'order' and not (ints(ans) and sorted(ans) == [0, 1, 2, 3]):
+            err(f'theory/{qid}: "order" needs every index once, got {ans!r}')
+    for k in D.get('ttopics_ru', {}):
+        if k not in used:
+            warn(f'ttopics: topic "{k}" has no questions')
+
+
 def check_meta(D, changelog, version, cache):
     if cache != 'sensum-v' + version:
         err(f'version mismatch: APP_VERSION={version} but sw.js CACHE={cache}')
@@ -236,10 +296,11 @@ def main():
     check_parity(D)
     check_refs(D, images)
     check_triggers(D)
+    check_theory(D)
     check_meta(D, changelog, version, cache)
 
     print(f'v{version}: {len(D["drinks_ru"])} drinks, {len(D["preps_ru"])} preps, '
-          f'{len(D["vitrina_ru"])} vitrina, {len(D["promos_ru"])} promos, {len(images)} images')
+          f'{len(D["vitrina_ru"])} vitrina, {len(D["promos_ru"])} promos, {len(D.get("theory_ru", []))} theory questions, {len(images)} images')
     for w in warns:
         print('WARN ', w)
     for e in errors:

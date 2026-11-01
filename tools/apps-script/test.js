@@ -159,9 +159,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.1'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.2'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.1');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.2');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -239,6 +239,12 @@ assert.deepStrictEqual(preSh.checkboxes, ['2:7']);
 pre.post({ id: 'p2', code: '9001', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, ts: at(0, 10) });
 assert.strictEqual(preSh.data[2][1], '9001', 'the next one right under it');
 assert.strictEqual(JSON.parse(pre.api.doGet({ parameter: { action: 'me', code: '9002' } }).text).owlsMonth, 1, 'owls read back from the ledger');
+// a theory test (v5.2): its type is kept in column R and it earns XP like any other test
+const th = env({ notifyAll: false, now: NOW });
+const thR = th.post({ id: 'th1', code: '9002', scope: 'Теория · Кофе: теория', kind: 'theory', score: 8, total: 10, ts: at(0, 9) });
+assert.strictEqual(thR.xp, 80, 'theory: 10 XP per right answer');
+assert.strictEqual(th.results.data[th.results.data.length - 1][17], 'theory', 'type column R says «theory»');
+assert.strictEqual(th.results.data[th.results.data.length - 1][4], 'Теория · Кофе: теория', 'the topic stays in the scope');
 // monthly cap
 const cap = env({ notifyAll: false, now: NOW });
 cap.post({ id: 'c1', code: '9003', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(2) });  // +1, creates «Совы»
