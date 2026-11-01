@@ -271,6 +271,74 @@ def check_theory(D):
             warn(f'ttopics: topic "{k}" has no questions')
 
 
+LESSON_KINDS = ('h', 'p', 'note', 'ul', 'ol', 'table')
+
+
+def lesson_texts(b):
+    k = next((x for x in LESSON_KINDS if x in b), None)
+    v = b.get(k)
+    if k in ('h', 'p', 'note'):
+        return [v]
+    if k in ('ul', 'ol'):
+        return [s for it in v for s in ([it] if isinstance(it, str) else [it.get('b', ''), it.get('t', '')])]
+    if k == 'table':
+        return list(v['head']) + [c for r in v['rows'] for c in r]
+    return []
+
+
+def lesson_shape(b):
+    ks = [x for x in LESSON_KINDS if x in b]
+    if len(ks) != 1 or len(b) != 1:
+        return None
+    k, v = ks[0], b[ks[0]]
+    if k in ('h', 'p', 'note'):
+        return (k,)
+    if k in ('ul', 'ol'):
+        return (k, tuple('s' if isinstance(i, str) else 'b' for i in v))
+    return (k, len(v['head']), tuple(len(r) for r in v['rows']))
+
+
+def check_lessons(D):
+    """The written lessons of «Материалы»: RU and AZ line up block by block, topic and category exist."""
+    ru, az = D.get('lessons_ru', []), D.get('lessons_az', [])
+    dup_ids(ru, 'lessons_ru')
+    dup_ids(az, 'lessons_az')
+    if list(D.get('lcats_ru', {})) != list(D.get('lcats_az', {})):
+        err('lcats: RU/AZ keys differ')
+    if [x['id'] for x in ru] != [x['id'] for x in az]:
+        err(f'lessons: RU/AZ id lists differ (count {len(ru)} vs {len(az)})')
+        return
+    for a, b in zip(ru, az):
+        lid = a['id']
+        for f in ('cat', 'topic'):
+            if a.get(f) != b.get(f):
+                err(f'lessons/{lid}: "{f}" differs RU {a.get(f)!r} vs AZ {b.get(f)!r}')
+        if a['cat'] not in D.get('lcats_ru', {}):
+            err(f'lessons/{lid}: category "{a["cat"]}" is not in lcats')
+        if a['topic'] not in D.get('ttopics_ru', {}):
+            err(f'lessons/{lid}: topic "{a["topic"]}" is not in ttopics (the «Проверить себя» test needs it)')
+        elif a['topic'].split('-')[0] != a['cat']:
+            err(f'lessons/{lid}: topic "{a["topic"]}" is not of category {a["cat"]}')
+        elif not any(q['topic'] == a['topic'] for q in D.get('theory_ru', [])):
+            warn(f'lessons/{lid}: topic "{a["topic"]}" has no questions yet')
+        if len(a['blocks']) != len(b['blocks']):
+            err(f'lessons/{lid}: {len(a["blocks"])} RU blocks vs {len(b["blocks"])} AZ blocks')
+            continue
+        for i, (x, y) in enumerate(zip(a['blocks'], b['blocks'])):
+            sx, sy = lesson_shape(x), lesson_shape(y)
+            if sx is None or sy is None:
+                err(f'lessons/{lid} block {i + 1}: a block is exactly one of {", ".join(LESSON_KINDS)}')
+            elif sx != sy:
+                err(f'lessons/{lid} block {i + 1}: RU and AZ differ in shape')
+            elif sorted(re.findall(r'\d+(?:[.,]\d+)?', ' '.join(lesson_texts(x)))) != sorted(re.findall(r'\d+(?:[.,]\d+)?', ' '.join(lesson_texts(y)))):
+                err(f'lessons/{lid} block {i + 1}: RU and AZ differ in numbers')
+            if sx and sx[0] != 'table' and any(not t.strip() for t in lesson_texts(x) + lesson_texts(y)):
+                err(f'lessons/{lid} block {i + 1}: empty text')
+        texts = [b['title']] + [s for bl in b['blocks'] for s in lesson_texts(bl)]
+        if any(re.search('[А-Яа-яЁё]', s) for s in texts):
+            err(f'lessons/{lid}: AZ text contains Russian letters')
+
+
 def check_meta(D, changelog, version, cache):
     if cache != 'sensum-v' + version:
         err(f'version mismatch: APP_VERSION={version} but sw.js CACHE={cache}')
@@ -297,6 +365,7 @@ def main():
     check_refs(D, images)
     check_triggers(D)
     check_theory(D)
+    check_lessons(D)
     check_meta(D, changelog, version, cache)
 
     print(f'v{version}: {len(D["drinks_ru"])} drinks, {len(D["preps_ru"])} preps, '
