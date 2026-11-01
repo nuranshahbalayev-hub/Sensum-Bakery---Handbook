@@ -468,15 +468,17 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="mat"]');
   check(await page.locator('#learnroot [data-l="matcat"]').count() === 3, 'materials: drinks, preps and vitrina');
   const backTxt0 = () => page.locator('#learnBack').innerText();
+  const ttl = () => page.locator('#learnTitle').innerText();
+  check(await ttl() === 'Материалы' && !(await page.locator('#learnroot').innerText()).includes('📖') && await page.locator('#learnroot .hint.lead').count() === 1, 'title: «Материалы» is the big title of the top bar, no grey duplicate under it, the description stays');
   check((await backTxt0()).includes('Обучение') && await page.locator('#learnroot [data-l="home"]').count() === 0 && (await page.locator('#learnroot').innerText()).indexOf('К обучению') < 0, 'back: materials returns to «Обучение» (the button names it) and has no extra link');
 
   /* lessons: a category tile, a list, a lesson, «прочитано», and a theory test on the lesson's topic */
   check(await page.locator('#learnroot [data-l="lcat"]').count() === 1 && (await page.locator('#learnroot [data-l="lcat"]').innerText()).includes('0 / 17'), 'lessons: one category tile (coffee) with 0 / 17 read');
   await page.click('#learnroot [data-l="lcat"]');
   check(await page.locator('#learnroot [data-l="lesson"]').count() === 17, 'lessons: the list has the 17 coffee lessons');
-  check((await backTxt0()).includes('Материалы'), 'back: the lesson list returns to «Материалы»');
+  check((await backTxt0()).includes('Материалы') && await ttl() === 'Кофе', 'back: the lesson list returns to «Материалы», its title is «Кофе»');
   await page.click('#learnroot [data-l="lesson"]:nth-child(3)');
-  check((await backTxt0()).includes('Кофе'), 'back: a lesson returns to its list, the button says «Кофе»');
+  check((await backTxt0()).includes('Кофе') && await ttl() === await page.evaluate(() => LES[2].title) && (await page.locator('#learnroot .qtop').first().innerText()).includes('Урок 3 из 17'), 'back: a lesson returns to its list («Кофе»), its title is the lesson’s, «Урок 3 из 17» under it');
   const les3 = await page.evaluate(() => ({ id: L.lid, title: LES.find(x => x.id === L.lid).title }));
   const lt = await page.locator('#learnroot').innerText();
   check(les3.id === 'cf-species' && lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: title, the arabica / robusta table and its numbers');
@@ -485,6 +487,11 @@ const server = http.createServer((req, res) => {
   check(await page.evaluate(() => LS.read['cf-species'] === 1) && await page.locator('#learnroot [data-l="lread"]').count() === 0, 'lesson: marked read, remembered in sensum_learn.read');
   await page.click('#learnBack');
   check((await page.locator('#learnroot .tile.read').count()) === 1 && (await page.locator('#learnroot .lpanel').first().innerText()).includes('1 / 17'), 'lessons: the list shows the read lesson and 1 / 17');
+  /* a long lesson title fits the top bar: two lines at most, no side scroll */
+  await page.evaluate(() => { L.view = 'lesson'; L.lid = 'cf-equip'; renderLearn(); });
+  const bar = await page.evaluate(() => { const h = document.getElementById('learnTitle'), sa = document.getElementById('scrollArea'); return { h: h.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(h).lineHeight), wide: sa.scrollWidth > sa.clientWidth, txt: h.textContent }; });
+  check(bar.txt.length > 25 && bar.h <= bar.lh * 2 + 2 && !bar.wide, 'title: a long lesson title takes two lines at most (' + Math.round(bar.h) + ' px) without side scroll');
+  await page.evaluate(() => { L.view = 'lessons'; renderLearn(); });
   /* the scroll position comes back with the screen */
   await page.click('#learnroot [data-l="lesson"]:nth-child(14)');
   const y14 = await page.evaluate(() => { const y = L.nav[L.nav.length - 1].y; return y; });
@@ -527,7 +534,9 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="matcat"][data-v="v"]');
   check(await page.locator('#learnroot [data-l="mvcat"]').count() === 4 && await page.locator('#learnroot [data-l="cards"]').count() === 1, 'materials: the vitrina has its category chips and a cards button');
   await page.click('#learnroot [data-l="mvcat"][data-v="dessert"]');
+  check(await ttl() === 'Витрина', 'title: a card deck is titled with its source');
   await page.click('#learnroot [data-l="cards"]');
+  check(await ttl() === 'Карточки' && (await backTxt0()).includes('Витрина'), 'title: the cards screen is «Карточки», the button leads back to «Витрина»');
   const front = await page.locator('#learnroot .fc').innerText();
   check(await page.evaluate(() => L.fc.src === 'v' && L.fc.deck.every(id => vitById[id].cat === 'dessert')) && !front.includes('Аллерген'), 'vitrina card: the front shows the name only, from the chosen category');
   const vitName = await page.evaluate(() => vitById[L.fc.deck[0]].name);
@@ -550,7 +559,7 @@ const server = http.createServer((req, res) => {
   await page.click('#langbtn');
   check(await page.evaluate(() => L.view === 'cardsdone'), 'language switch: the finished cards screen stays');
   await page.click('#learnBack'); await page.click('#learnBack');
-  const azMat = await page.locator('#learnroot').innerText();
+  const azMat = await page.locator('#learnTitle').innerText() + ' ' + await page.locator('#learnroot').innerText();
   check(azMat.includes('Materiallar') && azMat.includes('Vitrin') && !/[А-Яа-яЁё]/.test(azMat), 'AZ: the materials screen is Azerbaijani');
   const badAz = await lessonProblems();
   check(badAz.length === 0, 'every lesson renders at 390px without side scroll, no Russian letters (AZ)' + (badAz.length ? ': ' + badAz.join(' | ') : ''));
