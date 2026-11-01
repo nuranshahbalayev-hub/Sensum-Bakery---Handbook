@@ -427,7 +427,7 @@ const server = http.createServer((req, res) => {
   await page.waitForSelector('#learnroot #sendstat .badn', { timeout: 5000 }).catch(() => {});
   check((await page.locator('#learnroot #sendstat').innerText()).includes('сверх недельного лимита'), 'limit: the result says when the sheet counted it over the limit');
   mockOver = false;
-  await page.click('#learnroot [data-l="home"]');
+  await page.click('#learnBack');
   delete ME.limits; delete ME.week;
   await page.evaluate(() => { LS.att = []; });
   await refreshStats();
@@ -464,31 +464,56 @@ const server = http.createServer((req, res) => {
     if (await page.locator('#learnroot .fc.back').count()) await page.click('#learnroot [data-l="know"]');
     else { await page.click('#learnroot [data-l="flip"]'); await page.locator('#learnroot .fc.back').waitFor(); }
   } };
+  await page.evaluate(() => { L.nav = []; });
   await page.click('#learnroot [data-l="mat"]');
   check(await page.locator('#learnroot [data-l="matcat"]').count() === 3, 'materials: drinks, preps and vitrina');
+  const backTxt0 = () => page.locator('#learnBack').innerText();
+  check((await backTxt0()).includes('Обучение') && await page.locator('#learnroot [data-l="home"]').count() === 0 && (await page.locator('#learnroot').innerText()).indexOf('К обучению') < 0, 'back: materials returns to «Обучение» (the button names it) and has no extra link');
 
   /* lessons: a category tile, a list, a lesson, «прочитано», and a theory test on the lesson's topic */
   check(await page.locator('#learnroot [data-l="lcat"]').count() === 1 && (await page.locator('#learnroot [data-l="lcat"]').innerText()).includes('0 / 17'), 'lessons: one category tile (coffee) with 0 / 17 read');
   await page.click('#learnroot [data-l="lcat"]');
   check(await page.locator('#learnroot [data-l="lesson"]').count() === 17, 'lessons: the list has the 17 coffee lessons');
+  check((await backTxt0()).includes('Материалы'), 'back: the lesson list returns to «Материалы»');
   await page.click('#learnroot [data-l="lesson"]:nth-child(3)');
+  check((await backTxt0()).includes('Кофе'), 'back: a lesson returns to its list, the button says «Кофе»');
   const les3 = await page.evaluate(() => ({ id: L.lid, title: LES.find(x => x.id === L.lid).title }));
   const lt = await page.locator('#learnroot').innerText();
   check(les3.id === 'cf-species' && lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: title, the arabica / robusta table and its numbers');
   check(await page.locator('#learnroot [data-l="lread"]').count() === 1 && await page.locator('#learnroot [data-l="ltest"]').count() === 1, 'lesson: «mark read» and «test yourself» buttons');
   await page.click('#learnroot [data-l="lread"]');
   check(await page.evaluate(() => LS.read['cf-species'] === 1) && await page.locator('#learnroot [data-l="lread"]').count() === 0, 'lesson: marked read, remembered in sensum_learn.read');
-  await page.click('#learnroot [data-l="lcat"]');
+  await page.click('#learnBack');
   check((await page.locator('#learnroot .tile.read').count()) === 1 && (await page.locator('#learnroot .lpanel').first().innerText()).includes('1 / 17'), 'lessons: the list shows the read lesson and 1 / 17');
-  await page.click('#learnroot [data-l="mat"]');
+  /* the scroll position comes back with the screen */
+  await page.click('#learnroot [data-l="lesson"]:nth-child(14)');
+  const y14 = await page.evaluate(() => { const y = L.nav[L.nav.length - 1].y; return y; });
+  await page.click('#learnBack');
+  check(y14 > 0 && Math.abs(await page.evaluate(() => document.getElementById('scrollArea').scrollTop) - y14) <= 2, 'back: the list is scrolled where it was (' + y14 + ' px)');
+  await page.click('#learnBack');
   check((await page.locator('#learnroot [data-l="lcat"]').innerText()).includes('1 / 17'), 'materials: the tile counts the read lessons');
-  await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; L.lid = 'cf-milk'; L.view = 'lesson'; renderLearn(); });
+  await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; });
+  await page.click('#learnroot [data-l="lcat"]');
+  await page.click('#learnroot [data-l="lesson"][data-v="cf-milk"]');
   await page.click('#learnroot [data-l="ltest"]');
   const lq = await page.evaluate(() => ({ view: L.view, kind: L.qz && L.qz.kind, topic: L.qz && [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))], n: L.qz && L.qz.qs.length, scope: L.qz && L.qz.scope }));
   check(lq.view === 'quiz' && lq.kind === 'theory' && lq.topic.length === 1 && lq.topic[0] === 'CF-8' && lq.n >= 3 && lq.scope.includes('Молоко'), 'lesson test: a theory test of this lesson’s topic only (CF-8, ' + lq.n + ' questions)');
   page.once('dialog', d => d.accept());
-  await page.click('#learnroot [data-l="exit"]');
-  await page.evaluate(() => { L.view = 'home'; L.qz = null; renderLearn(); });
+  await page.click('#learnBack');
+  await page.waitForTimeout(250);
+  check(await page.evaluate(() => L.view === 'lesson' && L.lid === 'cf-milk' && !L.qz), 'back: leaving a test started from a lesson returns to that lesson');
+  /* a language switch keeps the screen */
+  await page.click('#langbtn');
+  const azLes = await page.locator('#learnroot').innerText();
+  check(await page.evaluate(() => L.view === 'lesson' && L.lid === 'cf-milk') && azLes.includes('Süd') && !/[А-Яа-яЁё]/.test(azLes + await backTxt0()), 'language switch: an open lesson stays open, now in Azerbaijani');
+  await page.click('#langbtn');
+  await page.click('#learnBack'); await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'materials'), 'back: lesson → list → materials');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'home' && L.nav.length === 0) && (await backTxt0()).includes('Ещё'), 'back: materials → «Обучение», whose button says «Ещё»');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => state.tab === 'more'), 'back: the last step leaves «Обучение» for «Ещё»');
+  await page.click('#morehub [data-gotab="learn"]');
   const lessonProblems = async () => page.evaluate(() => { const bad = [], sa = document.getElementById('scrollArea'); sa.scrollLeft = 0;
     for (const les of LES) { L.lid = les.id; L.view = 'lesson'; renderLearn(); const t = document.getElementById('learnroot').innerText;
       if (sa.scrollWidth > sa.clientWidth) bad.push(les.id + ': wider than the screen');
@@ -497,7 +522,7 @@ const server = http.createServer((req, res) => {
     L.view = 'home'; renderLearn(); return bad; });
   const badRu = await lessonProblems();
   check(badRu.length === 0, 'every lesson renders at 390px without side scroll (RU)' + (badRu.length ? ': ' + badRu.join(' | ') : ''));
-  await page.evaluate(() => { L.view = 'home'; renderLearn(); });
+  await page.evaluate(() => { L.view = 'home'; L.nav = []; renderLearn(); });
   await page.click('#learnroot [data-l="mat"]');
   await page.click('#learnroot [data-l="matcat"][data-v="v"]');
   check(await page.locator('#learnroot [data-l="mvcat"]').count() === 4 && await page.locator('#learnroot [data-l="cards"]').count() === 1, 'materials: the vitrina has its category chips and a cards button');
@@ -512,8 +537,9 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="know"]');
   check(await page.evaluate(id => LS.box['v:' + id] === 1, await page.evaluate(() => L.fc.deck[0])), 'vitrina card: «Знаю» raises the card’s box (v:<id>)');
   await runCards();
-  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 0 && await page.locator('#learnroot [data-l="mat"]').count() === 1, 'vitrina cards done: no recipe test offered, a way back to materials');
-  await page.click('#learnroot [data-l="mat"]');
+  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 0 && (await backTxt0()).includes('Витрина'), 'vitrina cards done: no recipe test offered, «назад» returns to the deck');
+  await page.click('#learnBack'); await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'materials'), 'back: cards → deck → materials');
   await page.click('#learnroot [data-l="matcat"][data-v="d"]');
   await page.click('#learnroot [data-l="cards"]');
   await page.click('#learnroot [data-l="flip"]');
@@ -522,13 +548,16 @@ const server = http.createServer((req, res) => {
   await runCards();
   check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 1, 'drink cards done: the recipe test is offered');
   await page.click('#langbtn');
-  await page.click('#learnroot [data-l="mat"]');
+  check(await page.evaluate(() => L.view === 'cardsdone'), 'language switch: the finished cards screen stays');
+  await page.click('#learnBack'); await page.click('#learnBack');
   const azMat = await page.locator('#learnroot').innerText();
   check(azMat.includes('Materiallar') && azMat.includes('Vitrin') && !/[А-Яа-яЁё]/.test(azMat), 'AZ: the materials screen is Azerbaijani');
   const badAz = await lessonProblems();
   check(badAz.length === 0, 'every lesson renders at 390px without side scroll, no Russian letters (AZ)' + (badAz.length ? ': ' + badAz.join(' | ') : ''));
   await page.evaluate(() => { L.view = 'materials'; renderLearn(); });
-  await page.click('#langbtn');  /* a language switch returns to the training home */
+  await page.click('#langbtn');
+  check(await page.evaluate(() => L.view === 'materials'), 'language switch: the materials screen stays');
+  await page.click('#learnBack');
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exam"]');
   const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));
@@ -541,7 +570,9 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(500);
   const pe = posted[posted.length - 1] || {};
   check(pe.kind === 'exam' && pe.total === 20 && (await page.locator('#learnroot #sendstat').innerText()).includes('🦉 +15'), 'the exam is sent as the exam and shows the owls it earned');
-  await page.click('#learnroot [data-l="home"]');
+  await page.click('#langbtn');  /* the finished test’s texts are in the old language: «язык» leaves the result for the screen the test started from */
+  check(await page.evaluate(() => L.view === 'home' && !L.qz && L.nav.length === 0), 'language switch: a finished test’s result gives way to the screen before the test');
+  await page.click('#langbtn');
   check(await page.locator('#learnroot [data-l="exam"][disabled]').count() === 1, 'one exam a month: the tile locks after it');
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
