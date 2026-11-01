@@ -401,6 +401,57 @@ const server = http.createServer((req, res) => {
     && await page.locator('#learnroot .bdg.on').count() === 3, 'game card, weekly board and badges come from the sheet');
   await page.click('#learnroot [data-l="board"][data-v="branches"]');
   check((await page.locator('#learnroot .board').innerText()).includes('Central Park'), 'board switches to branches');
+
+  /* the order of the training home: level, rank, progress, materials, test, and the weekly board well below the test */
+  await page.click('#learnroot [data-l="board"][data-v="people"]');
+  const tops = await page.evaluate(() => {
+    const r = document.getElementById('learnroot'), sa = document.getElementById('scrollArea'), y = el => el ? el.getBoundingClientRect().top - sa.getBoundingClientRect().top + sa.scrollTop : -1;
+    const lp = txt => [...r.querySelectorAll('.lpanel')].find(e => e.innerText.includes(txt));
+    const quiz = r.querySelector('[data-l="quiz"]'), big = r.querySelector('h4.lsect.big');
+    return { id: y(r.querySelector('.idrow')), level: y(lp('Твой уровень')), rank: y(r.querySelector('.lpanel.game')), progress: y(lp('Твой прогресс')),
+      mat: y(r.querySelector('[data-l="mat"]')), test: y(r.querySelector('h4.lsect')), quiz: y(quiz), rating: y(big), board: y(r.querySelector('.board')),
+      gap: big && quiz ? big.getBoundingClientRect().top - quiz.getBoundingClientRect().bottom : -1 };
+  });
+  const seq = ['id', 'level', 'rank', 'progress', 'mat', 'test', 'quiz', 'rating', 'board'].map(k => tops[k]);
+  check(seq.every(v => v >= 0) && seq.every((v, i) => i === 0 || v > seq[i - 1]), 'training home order: employee, level, rank, progress, materials, test, rating' + (seq.every((v, i) => v >= 0 && (i === 0 || v > seq[i - 1])) ? '' : ' ' + JSON.stringify(tops)));
+  check(tops.gap >= 24, `training home: the weekly board starts ${Math.round(tops.gap)} px below the test`);
+  const homeTxt = await page.locator('#learnroot').innerText();
+  check(homeTxt.includes('Твой уровень: Бариста') && /ранг \d/.test(homeTxt) && !/уровень \d/.test(homeTxt), 'the level is the employee’s level, the XP level is called a rank');
+
+  /* materials: cards for drinks, preps and the vitrina */
+  const runCards = async () => { for (let i = 0; i < 60 && await page.evaluate(() => L.view) === 'cards'; i++) {
+    if (await page.locator('#learnroot .fc.back').count()) await page.click('#learnroot [data-l="know"]');
+    else { await page.click('#learnroot [data-l="flip"]'); await page.locator('#learnroot .fc.back').waitFor(); }
+  } };
+  await page.click('#learnroot [data-l="mat"]');
+  check(await page.locator('#learnroot [data-l="matcat"]').count() === 3, 'materials: drinks, preps and vitrina');
+  await page.click('#learnroot [data-l="matcat"][data-v="v"]');
+  check(await page.locator('#learnroot [data-l="mvcat"]').count() === 4 && await page.locator('#learnroot [data-l="cards"]').count() === 1, 'materials: the vitrina has its category chips and a cards button');
+  await page.click('#learnroot [data-l="mvcat"][data-v="dessert"]');
+  await page.click('#learnroot [data-l="cards"]');
+  const front = await page.locator('#learnroot .fc').innerText();
+  check(await page.evaluate(() => L.fc.src === 'v' && L.fc.deck.every(id => vitById[id].cat === 'dessert')) && !front.includes('Аллерген'), 'vitrina card: the front shows the name only, from the chosen category');
+  const vitName = await page.evaluate(() => vitById[L.fc.deck[0]].name);
+  await page.click('#learnroot [data-l="flip"]');
+  const backTxt = await page.locator('#learnroot .fc.back').innerText();
+  check(backTxt.includes(vitName) && backTxt.includes(await page.evaluate(() => T('sec_sostav'))) && backTxt.toLowerCase().includes((await page.evaluate(() => T('sec_allergens'))).toLowerCase()), 'vitrina card: the back shows composition and allergens');
+  await page.click('#learnroot [data-l="know"]');
+  check(await page.evaluate(id => LS.box['v:' + id] === 1, await page.evaluate(() => L.fc.deck[0])), 'vitrina card: «Знаю» raises the card’s box (v:<id>)');
+  await runCards();
+  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 0 && await page.locator('#learnroot [data-l="mat"]').count() === 1, 'vitrina cards done: no recipe test offered, a way back to materials');
+  await page.click('#learnroot [data-l="mat"]');
+  await page.click('#learnroot [data-l="matcat"][data-v="d"]');
+  await page.click('#learnroot [data-l="cards"]');
+  await page.click('#learnroot [data-l="flip"]');
+  await page.locator('#learnroot .fc.back').waitFor();
+  check(await page.locator('#learnroot .fc.back table.ing').count() === 1, 'drink card: the back still shows the recipe');
+  await runCards();
+  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 1, 'drink cards done: the recipe test is offered');
+  await page.click('#langbtn');
+  await page.click('#learnroot [data-l="mat"]');
+  const azMat = await page.locator('#learnroot').innerText();
+  check(azMat.includes('Materiallar') && azMat.includes('Vitrin') && !/[А-Яа-яЁё]/.test(azMat), 'AZ: the materials screen is Azerbaijani');
+  await page.click('#langbtn');  /* a language switch returns to the training home */
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exam"]');
   const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));
