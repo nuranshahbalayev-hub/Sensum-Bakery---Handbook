@@ -32,7 +32,7 @@ const server = http.createServer((req, res) => {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
   /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
-  const ME = { ok: true, name: 'Smoke Test', branch: 'Test', xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
+  const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
     badges: ['first', 'perfect', 'exam100'], exam: null,
     board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
       branches: [{ branch: 'Central Park', xp: 70, staff: 5 }] } };
@@ -45,7 +45,7 @@ const server = http.createServer((req, res) => {
     }
     else if (url.searchParams.get('action') === 'me') body = ME;
     else if (url.searchParams.get('action') === 'whoami') {
-      body = url.searchParams.get('code') === '1234' ? { ok: true, name: 'Smoke Test', branch: 'Test' } : { ok: false, error: 'unknown_code' };
+      body = url.searchParams.get('code') === '1234' ? { ok: true, name: 'Smoke Test', branch: 'Test', level: ME.level } : { ok: false, error: 'unknown_code' };
     } else body = { ok: true, service: 'sensum-learn', version: 'mock' };
     route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(body) });
   });
@@ -341,7 +341,8 @@ const server = http.createServer((req, res) => {
   await page.click('#langbtn');
   /* the «last test» line keeps the scope in the language it was taken in, so only the chips and the test tile are checked */
   const azHome = (await page.locator('#learnroot .lchips').allInnerTexts()).join(' ') + ' ' + await page.locator('#learnroot [data-l="quiz"]').innerText();
-  check(azHome.includes('Qəhvə: nəzəriyyə') && azHome.includes('Nəzəriyyə') && !/[А-Яа-яЁё]/.test(azHome), 'AZ: theory chips and test tile are Azerbaijani');
+  check(azHome.includes('Qəhvə: nəzəriyyə') && azHome.includes('Nəzəriyyə') && azHome.includes('Mənim səviyyəm') && !/[А-Яа-яЁё]/.test(azHome)
+    && (await page.locator('#learnroot').innerText()).includes('Sənin səviyyən: Barista'), 'AZ: theory chips, level chips, level panel and test tile are Azerbaijani');
   await page.click('#learnroot [data-l="dir"][data-v="SV"]');
   await page.click('#learnroot [data-l="quiz"]');
   check(await page.locator('#learnroot .qtext').count() === 1 && !/[А-Яа-яЁё]/.test(await page.locator('#learnroot .qtext').innerText()), 'AZ: a theory question is in Azerbaijani');
@@ -349,6 +350,46 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="exit"]');
   await page.waitForTimeout(300);
   await page.click('#langbtn');
+  await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
+
+  /* levels: cumulative, taken from the staff sheet at login */
+  const lvlCount = () => page.evaluate(() => theoryItems().length);
+  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
+  const home1 = await page.locator('#learnroot').innerText();
+  check(home1.includes('Smoke Test · Test · Бариста') && home1.includes('Твой уровень: Бариста') && await page.locator('#learnroot [data-l="lvl"]').count() === 2,
+    'levels: the login shows the level; the theory home shows the level panel and the two level chips');
+  check(await lvlCount() === 92 && await page.evaluate(() => theoryItems().every(t => t.lvl !== 'senior')), 'levels: a barista gets the trainee and barista questions (92), none of the senior ones');
+  await page.click('#learnroot [data-l="lvl"][data-v="all"]');
+  check(await lvlCount() === 101, 'levels: «Все уровни» shows all 101');
+  await page.click('#learnroot [data-l="lvl"][data-v="my"]');
+  ME.level = 'trainee';  /* the trainer sets the level in the sheet; the app picks it up with the next stats refresh */
+  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); L.dir = 'all'; L.topic = 'all'; });
+  await page.waitForTimeout(500);
+  check(await lvlCount() === 31 && await page.evaluate(() => theoryItems().every(t => t.lvl === 'trainee')), 'levels: a trainee gets only the 31 trainee questions');
+  await page.click('#learnroot [data-l="dir"][data-v="CF"]');
+  const cfTopics = await page.locator('#learnroot [data-l="topic"]').count();
+  const cfExpected = await page.evaluate(() => new Set(TH.filter(t => t.lvl === 'trainee' && t.topic.startsWith('CF-')).map(t => t.topic)).size + 1);
+  check(cfTopics === cfExpected && cfTopics < 11, `levels: a trainee sees only the coffee topics that have trainee questions (${cfTopics - 1} of 10)`);
+  await page.click('#learnroot [data-l="quiz"]');
+  check(await page.evaluate(() => L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).lvl === 'trainee') && L.qz.scope.includes('Стажёр')),
+    'levels: the test takes only trainee questions and names the level in its scope');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnroot [data-l="exit"]');
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { levelSet('trainee').forEach(t => { LS.box[boxKey(t)] = 2; }); L.dir = 'all'; L.topic = 'all'; renderLearn(); });
+  check((await page.locator('#learnroot').innerText()).includes('Ты готов к уровню «Бариста»'), 'levels: 80% of the level learned = «ready for the next level»');
+  ME.level = 'senior';
+  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
+  await page.waitForTimeout(500);
+  check((await page.locator('#learnroot').innerText()).includes('Высший уровень') && await lvlCount() === 101, 'levels: a senior sees everything and the top-level note');
+  ME.level = '';
+  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
+  await page.waitForTimeout(500);
+  check(await page.locator('#learnroot [data-l="lvl"]').count() === 0 && await lvlCount() === 101 && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'),
+    'levels: no level (an older sheet script, an empty cell) = all questions, no level chips, no panel');
+  ME.level = 'barista';
+  await page.evaluate(() => { LS.box = {}; saveLearn(); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
+  await page.waitForTimeout(500);
   await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
 
   /* the game: level, owls, board and badges come from the sheet; the monthly exam */

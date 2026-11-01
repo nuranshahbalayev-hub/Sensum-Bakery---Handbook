@@ -18,6 +18,9 @@
  *
  * С v5.2 справочник присылает и тесты раздела «Теория» (тип «theory»): направление и тема
  * теста стоят в столбце «область», тип в столбце R.
+ *
+ * С v5.3 скрипт отдаёт уровень сотрудника (trainee / barista / senior) из столбца D листа
+ * «Сотрудники»: справочник показывает вопросы «Теории» до этого уровня включительно.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -30,8 +33,10 @@ const ID_COL = 13;        // M: attempt id, used to drop repeats
 const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван', 'Тип'];  // N–R
 const KINDS = ['drinks', 'preps', 'exam', 'mix', 'theory'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
 const OWLS_MONTH_CAP = 50;
+// Уровень сотрудника: столбец D листа «Сотрудники». Приложение получает его кодом и показывает вопросы «Теории» до этого уровня включительно.
+const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бариста': 'barista', 'старший': 'senior' };
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.2';
+const SCRIPT_VERSION = 'v5.3';
 
 /* ---------- меню в таблице ---------- */
 
@@ -52,7 +57,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'whoami') {
     const s = findStaff_(p.code);
-    return json_(s ? { ok: true, name: s.name, branch: s.branch } : { ok: false, error: 'unknown_code' });
+    return json_(s ? { ok: true, name: s.name, branch: s.branch, level: levelOf_(s.role) } : { ok: false, error: 'unknown_code' });
   }
   if (p.action === 'status') return json_(status_());
   if (p.action === 'me') return json_(me_(p.code));
@@ -319,6 +324,10 @@ function findStaff_(code) {
   return activeStaff_().filter(s => s.code === c)[0] || null;
 }
 
+function levelOf_(role) {
+  return LEVELS[String(role == null ? '' : role).trim().toLowerCase()] || '';
+}
+
 function activeStaff_() {
   const sh = sheet_(SHEET_STAFF), last = sh.getLastRow();
   if (last < 2) return [];
@@ -499,7 +508,7 @@ function me_(code) {
       return { branch, xp: Math.round(xp / list.length), staff: list.length };
     }).sort((a, b) => b.xp - a.xp);
   return {
-    ok: true, name: s.name, branch: s.branch,
+    ok: true, name: s.name, branch: s.branch, level: levelOf_(s.role),
     xp: sum(mine, r => r.xp), weekXp: sum(mine.filter(r => weekKey_(r.date) === week), r => r.xp),
     weekTests: mine.filter(r => weekKey_(r.date) === week && counts_(r)).length,
     streak: st.cur, owlsMonth: sum(ledger.filter(o => monthKey_(o.date) === month), o => o.n),
