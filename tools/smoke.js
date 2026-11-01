@@ -150,6 +150,39 @@ const server = http.createServer((req, res) => {
   check(gen.total > 0 && gen.bad === 0, `quiz generator: ${gen.total} questions, ${gen.bad} broken`);
   check(gen.samePhoto === 0, `photo questions: ${gen.samePhoto} offer a drink with the same photo`);
 
+  /* exam-style questions across recipes: exactly one option is right, checked here against the recipes themselves */
+  const exs = await page.evaluate(() => {
+    const out = { n: {}, bad: [] }, NEW = ['has', 'without', 'both', 'most', 'least', 'same'];
+    const exact = (d, k) => d.ing.some(([n]) => n.toLowerCase() === k);
+    const dose = (d, k, u) => { for (const [n, qq] of d.ing) if (n.toLowerCase() === k) { const p = parseQ(qq); if (p && p.u === u) return p.n; } return null; };
+    for (const lang of ['ru', 'az']) {
+      setLang(lang); L.scope = 'drinks'; L.cat = 'all';
+      const by = Object.fromEntries(drinks.map(d => [d.name, d]));
+      for (let i = 0; i < 60; i++) for (const q of buildQuiz(learnItems())) {
+        if (!NEW.includes(q.type)) continue;
+        out.n[lang + q.type] = (out.n[lang + q.type] || 0) + 1;
+        const ds = q.opts.map(o => by[o]), right = by[q.correct], m = q.meta || {};
+        const wrong = ds.filter(d => d !== right);
+        let ok = ds.every(Boolean) && !!right && wrong.length === 3 && !!q.explain && !/undefined|NaN/.test(q.text + q.explain);
+        if (ok && q.type === 'has') ok = exact(right, m.k) && wrong.every(d => !exact(d, m.k));
+        if (ok && q.type === 'without') ok = !exact(right, m.k) && wrong.every(d => exact(d, m.k));
+        if (ok && q.type === 'both') ok = exact(right, m.ka) && exact(right, m.kb) && wrong.every(d => !(exact(d, m.ka) && exact(d, m.kb)));
+        if (ok && (q.type === 'most' || q.type === 'least')) {
+          const rv = dose(right, m.k, m.u), more = q.type === 'most';
+          ok = rv !== null && wrong.every(d => { const v = dose(d, m.k, m.u); return v !== null && (more ? v < rv : v > rv) && Math.abs(v - rv) / Math.max(v, rv) >= 0.1; });
+        }
+        if (ok && q.type === 'same') ok = dose(right, m.k, m.u) === m.v && wrong.every(d => { const v = dose(d, m.k, m.u); return v !== null && v !== m.v; });
+        if (!ok) out.bad.push(lang + ':' + q.type + ':' + q.id);
+      }
+    }
+    setLang('ru');
+    return out;
+  });
+  const exTotal = Object.values(exs.n).reduce((a, b) => a + b, 0);
+  check(exs.bad.length === 0 && exTotal > 0, `exam-style recipe questions: ${exTotal} checked against the recipes, ${exs.bad.length} with a wrong or doubtful answer${exs.bad.length ? ' (' + exs.bad.slice(0, 3).join(', ') + ')' : ''}`);
+  check(['has', 'without', 'both', 'same'].every(k => exs.n['ru' + k] && exs.n['az' + k]) && (exs.n.rumost || 0) + (exs.n.ruleast || 0) > 0 && (exs.n.azmost || 0) + (exs.n.azleast || 0) > 0,
+    'exam-style recipe questions: every kind appears in both languages');
+
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');
   await page.evaluate(() => { LS.me = null; LS.outbox = []; renderLearn(); });
@@ -331,6 +364,7 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="exam"]');
   const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));
   check(ex.n === 20 && ex.kind === 'exam' && ex.preps === 8, 'the monthly exam: 20 questions, drinks and preps together');
+  check(await page.evaluate(() => L.qz.qs.every(q => ['dose', 'comp', 'photo', 'vessel', 'shelf', 'used', 'storage'].includes(q.type))), 'the monthly exam keeps its plain question set');
   for (let i = 0; i < 25 && await page.locator('#learnroot [data-l="ans"]').count(); i++) {
     await page.locator('#learnroot [data-l="ans"]').first().click();
     await page.click('#learnroot [data-l="next"]');
