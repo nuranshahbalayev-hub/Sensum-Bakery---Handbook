@@ -159,9 +159,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.3'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.4'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.3');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.4');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -217,8 +217,9 @@ gr = g.post({ id: 'g6', code: '9001', scope: 'Напитки', kind: 'drinks', s
 assert.strictEqual(gr.xp, 0); assert.deepStrictEqual(gr.owls, [], 'aborted: nothing');
 gr = g.post({ id: 'g7', code: '9002', scope: 'Напитки', kind: 'drinks', score: 10, total: 10, ts: at(0, 12), away: 1 });
 assert.deepStrictEqual(gr.owls, [], 'left the app: no «90%+» owl');
-for (let i = 0; i < 4; i++) g.post({ id: 'g8' + i, code: '9002', scope: 'Напитки', kind: 'drinks', score: 5, total: 10, ts: at(0, 13 + i) });
-gr = g.post({ id: 'g9', code: '9002', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, ts: at(0, 18) });
+/* retries («mix») are not limited, so the daily cap of 5 is still reachable: recipe tests stop at 3 a week */
+for (let i = 0; i < 4; i++) g.post({ id: 'g8' + i, code: '9002', scope: 'Напитки', kind: 'mix', score: 5, total: 10, ts: at(0, 13 + i) });
+gr = g.post({ id: 'g9', code: '9002', scope: 'Напитки', kind: 'mix', score: 9, total: 10, ts: at(0, 18) });
 assert.strictEqual(gr.xp, 0, 'only the first 5 tests of a day give XP');
 assert.deepStrictEqual(gr.owls, [{ why: 'Тест на 90%+', n: 1 }], 'but the first clean 90%+ test of the day still earns its owl');
 const ledger = g.sheets['Совы'];
@@ -252,6 +253,32 @@ lv.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажер', true], ['90
 const lvl = code => JSON.parse(lv.api.doGet({ parameter: { action: 'whoami', code } }).text).level;
 assert.deepStrictEqual(['9001', '9004', '9005', '9006', '9007'].map(lvl), ['barista', 'trainee', 'senior', '', ''], 'level from the role column; unknown text = no level');
 assert.strictEqual(lv.me('9004').level, 'trainee', '?action=me carries the level too');
+// weekly limit (v5.4): 3 recipe tests (drinks and preps together) and 2 theory tests a week
+const lim = env({ notifyAll: true, now: NOW });
+const lp = (id, kind, h, o) => lim.post(Object.assign({ id, code: '9002', scope: 'Тест', kind, score: 10, total: 10, ts: at(0, h) }, o));
+const r1 = lp('l1', 'drinks', 7), r2 = lp('l2', 'preps', 8), r3 = lp('l3', 'drinks', 9);
+assert.ok([r1, r2, r3].every(r => r.xp > 0 && r.over === false), 'the first three recipe tests of the week count (drinks and preps together)');
+const r4 = lp('l4', 'drinks', 10);
+assert.deepStrictEqual([r4.ok, r4.xp, r4.over, r4.owls], [true, 0, true, []], 'the fourth is saved, but without XP and owls');
+assert.ok(lim.results.data.some(x => x[12] === 'l4'), 'the result over the limit is not lost');
+assert.ok(lim.sent[lim.sent.length - 1].includes('Сверх недельного лимита'), 'the trainer\u2019s message says it was over the limit');
+/* another day, so the daily cap of 5 does not get in the way */
+const tq1 = lp('t1', 'theory', 11, { ts: at(1, 11) }), tq2 = lp('t2', 'theory', 12, { ts: at(1, 12) }), tq3 = lp('t3', 'theory', 13, { ts: at(1, 13) });
+assert.ok(tq1.xp > 0 && tq2.xp > 0 && tq1.over === false && tq2.over === false && tq3.over === true && tq3.xp === 0, 'theory has its own limit of 2');
+assert.ok(lp('m1', 'mix', 14, { ts: at(2, 14) }).over === false && lp('m2', 'exam', 15, { total: 20, score: 20, ts: at(2, 15) }).over === false, 'retries and the monthly exam are not attempts');
+const lme = lim.me('9002');
+assert.deepStrictEqual([lme.week, lme.limits], [{ recipes: 4, theory: 3 }, { recipes: 3, theory: 2 }], '?action=me reports the attempts and the limits');
+// an aborted test is an attempt
+const ab = env({ notifyAll: false, now: NOW });
+['a1', 'a2'].forEach((id, i) => ab.post({ id, code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 7 + i) }));
+ab.post({ id: 'a3', code: '9002', scope: 'x', kind: 'drinks', score: 2, total: 10, ts: at(0, 9), aborted: true });
+assert.strictEqual(ab.post({ id: 'a4', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 10) }).over, true, 'two tests and an aborted one use the three attempts');
+// last week's attempts do not count
+const wk = env({ notifyAll: false, now: NOW });
+for (const d of [8, 9, 10]) wk.results.data.push([new Date(at(d)), '9002', 'Тест-2', 'White City', 'x', 10, 10, '', '', '', 'ru', '1.9', 'w' + d, '', '', '', '', 'drinks']);
+assert.strictEqual(wk.me('9002').week.recipes, 0, 'attempts of the previous week are not counted');
+const wr1 = wk.post({ id: 'w1', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 8) });
+assert.ok(wr1.over === false && wr1.xp > 0 && wk.me('9002').week.recipes === 1, 'a new week starts from zero');
 // monthly cap
 const cap = env({ notifyAll: false, now: NOW });
 cap.post({ id: 'c1', code: '9003', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(2) });  // +1, creates «Совы»

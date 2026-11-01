@@ -21,6 +21,9 @@
  *
  * С v5.3 скрипт отдаёт уровень сотрудника (trainee / barista / senior) из столбца D листа
  * «Сотрудники»: справочник показывает вопросы «Теории» до этого уровня включительно.
+ *
+ * С v5.4 попыток в неделю: 3 рецептурных теста и 2 по теории (WEEK_LIMITS). Сверх лимита результат
+ * сохраняется, но без XP и сов; ?action=me отдаёт использованное (week) и лимиты (limits).
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -35,8 +38,12 @@ const KINDS = ['drinks', 'preps', 'exam', 'mix', 'theory'];  // R: what the test
 const OWLS_MONTH_CAP = 50;
 // Уровень сотрудника: столбец D листа «Сотрудники». Приложение получает его кодом и показывает вопросы «Теории» до этого уровня включительно.
 const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бариста': 'barista', 'старший': 'senior' };
+// Попыток в неделю (пн–вс, время Баку): рецептурные тесты (напитки и заготовки вместе) и тесты по теории.
+// Прерванный тест — попытка. «Экзамен месяца» и «Повторить ошибки» (mix) не считаются. Сверх лимита результат
+// сохраняется, но без XP, сов и зачёта в «учебную неделю». Приложение читает лимит отсюда (?action=me).
+const WEEK_LIMITS = { recipes: 3, theory: 2 };
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.3';
+const SCRIPT_VERSION = 'v5.4';
 
 /* ---------- меню в таблице ---------- */
 
@@ -118,11 +125,12 @@ function doPost(e) {
   }
 
   /* the game: XP of this test and owls it earned; a failure here never loses the saved result */
-  let xp = 0, owls = [];
+  let xp = 0, owls = [], over = false;
   try {
     const all = withXp_(results_()), mine = all.filter(r => r.code === staff.code);
     const self = mine.filter(r => id ? r.id === id : true).pop();  // a result sent late (offline) is not the newest row
     xp = self ? self.xp : 0;
+    over = !!(self && self.over);
     owls = awardOwls_(staff, self, mine);
   } catch (err) {
     console.warn('game: ' + err.message);
@@ -142,11 +150,12 @@ function doPost(e) {
     if (away) checks.push(`📵 выходы из приложения: ${away}`);
     if (checks.length) lines.push(checks.join(' · '));
     if (owls.length) lines.push(`🦉 +${owls.reduce((s, o) => s + o.n, 0)}: ${owls.map(o => o.why).join(', ')}`);
+    if (over) lines.push('⚠️ Сверх недельного лимита попыток: XP и совы не начислены');
     if (mistakes.length) lines.push('', 'Ошибки:', ...mistakes.slice(0, 10).map(m => `• ${m}`));
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
   }
-  return json_({ ok: true, xp, owls });
+  return json_({ ok: true, xp, owls, over });
 }
 
 /* ---------- сводки по расписанию ---------- */
@@ -374,23 +383,29 @@ function topMistakes_(rows, n) {
 
 /* XP per test: 10 per right answer (15 in the exam), +50 for a flawless test of 10+ questions,
    nothing for an aborted one; only the first 5 tests of a day count, so grinding doesn't win the board */
+function limitGroup_(kind) { return kind === 'drinks' || kind === 'preps' ? 'recipes' : kind === 'theory' ? 'theory' : ''; }
+
 function withXp_(rows) {
-  const perDay = {};
+  const perDay = {}, perWeek = {};
   return rows.slice().sort((a, b) => a.date - b.date).map(r => {
     const k = r.code + ' ' + dayKey_(r.date);
     perDay[k] = (perDay[k] || 0) + 1;
-    const xp = r.aborted || perDay[k] > 5 ? 0
+    /* attempts of the week, oldest first: whatever comes after the limit is «over» */
+    const g = limitGroup_(r.kind);
+    let over = false;
+    if (g) { const wk = r.code + ' ' + weekKey_(r.date) + ' ' + g; perWeek[wk] = (perWeek[wk] || 0) + 1; over = perWeek[wk] > WEEK_LIMITS[g]; }
+    const xp = r.aborted || over || perDay[k] > 5 ? 0
       : r.score * (r.kind === 'exam' ? 15 : 10) + (r.total >= 10 && r.score === r.total ? 50 : 0);
-    return Object.assign({}, r, { xp });
+    return Object.assign({}, r, { xp, over });
   });
 }
 
 /* a test that counts for the study week: finished, 10+ questions, 70% or more */
-function counts_(r) { return !r.aborted && r.total >= 10 && r.ratio >= 0.7; }
+function counts_(r) { return !r.aborted && !r.over && r.total >= 10 && r.ratio >= 0.7; }
 
 /* owls for the test just saved (`self`, one of `mine`), at most OWLS_MONTH_CAP a month; each rule once per its period */
 function awardOwls_(staff, self, mine) {
-  if (!self || self.aborted || self.total < 10) return [];
+  if (!self || self.aborted || self.over || self.total < 10) return [];
   const month = monthKey_(self.date), ledger = owls_().filter(o => o.code === staff.code);
   let left = OWLS_MONTH_CAP - ledger.filter(o => monthKey_(o.date) === month).reduce((s, o) => s + o.n, 0);
   const out = [];
@@ -514,11 +529,19 @@ function me_(code) {
     streak: st.cur, owlsMonth: sum(ledger.filter(o => monthKey_(o.date) === month), o => o.n),
     owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(mine, st.best),
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
+    week: weekAttempts_(mine, week), limits: WEEK_LIMITS,
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
     }
   };
+}
+
+/* attempts this week by group (aborted ones too): the app blocks the test at the limit */
+function weekAttempts_(mine, week) {
+  const used = { recipes: 0, theory: 0 };
+  mine.forEach(r => { const g = limitGroup_(r.kind); if (g && weekKey_(r.date) === week) used[g]++; });
+  return used;
 }
 
 function dayKey_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }

@@ -32,6 +32,7 @@ const server = http.createServer((req, res) => {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
   /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
+  let mockOver = false;  /* the sheet says the result was over the weekly limit */
   const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
     badges: ['first', 'perfect', 'exam100'], exam: null,
     board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
@@ -41,7 +42,7 @@ const server = http.createServer((req, res) => {
     let body;
     if (req.method() === 'POST') {
       const d = JSON.parse(req.postData()); posted.push(d);
-      body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : { ok: true, xp: 90, owls: [] };
+      body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : { ok: true, xp: mockOver ? 0 : 90, owls: [], over: mockOver };
     }
     else if (url.searchParams.get('action') === 'me') body = ME;
     else if (url.searchParams.get('action') === 'whoami') {
@@ -329,8 +330,9 @@ const server = http.createServer((req, res) => {
   await opt('Йемен').click(); await nextBtn();
   await page.waitForTimeout(300);
   check(await page.locator('#learnroot .mist').count() === 4 && await page.locator('#learnroot .mist [data-openitem]').count() === 0, 'theory: four mistakes listed, none offers a recipe');
+  const attBefore = await page.evaluate(() => LS.att.length);
   await page.click('#learnroot [data-l="retry"]');
-  check(await page.evaluate(() => L.qz.qs.length === 4 && L.qz.kind === 'theory' && L.qz.qs.some(q => q.tt === 'num')), 'theory: «Повторить ошибки» repeats them, number question included');
+  check(await page.evaluate(n => L.qz.qs.length === 4 && L.qz.kind === 'mix' && LS.att.length === n && L.qz.qs.some(q => q.tt === 'num'), attBefore), 'theory: «Повторить ошибки» repeats them (number question included) and is not an attempt');
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exit"]');
   await page.waitForTimeout(300);
@@ -391,6 +393,45 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { LS.box = {}; saveLearn(); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
   await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
+
+  /* weekly limit of attempts: the sheet's script says how many; aborted tests count, retries and the exam do not */
+  const refreshStats = async () => { await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); }); await page.waitForTimeout(500); };
+  const tile = () => page.locator('#learnroot [data-l="quiz"]');
+  ME.limits = { recipes: 3, theory: 2 }; ME.week = { recipes: 0, theory: 0 };
+  await page.evaluate(() => { LS.att = []; L.scope = 'drinks'; L.cat = 'all'; });
+  await refreshStats();
+  check((await tile().innerText()).includes('Попыток на неделе: 0 / 3') && await tile().isEnabled(), 'limit: the test tile shows the attempts of the week');
+  for (let i = 0; i < 3; i++) {
+    await tile().click();
+    page.once('dialog', d => d.accept());
+    await page.click('#learnroot [data-l="exit"]');
+    await page.waitForTimeout(250);
+  }
+  check(await tile().isDisabled() && (await page.locator('#learnroot .att-full').innerText()).includes('3 / 3'), 'limit: three attempts (aborted ones too) use the week up; the tile locks and says why');
+  check(await page.evaluate(() => { startQuiz(); return L.view !== 'quiz'; }), 'limit: a start at the limit does nothing');
+  check(await page.locator('#learnroot [data-l="mat"]').isEnabled(), 'limit: materials and cards stay open');
+  await page.click('#learnroot [data-l="scope"][data-v="preps"]');
+  check(await tile().isDisabled(), 'limit: preps share the limit of the recipe tests');
+  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
+  check((await tile().innerText()).includes('Попыток на неделе: 0 / 2') && await tile().isEnabled(), 'limit: theory has its own limit of two');
+  check((await page.locator('#learnroot .rules').textContent()).includes('3 по рецептам и 2 по теории'), 'limit: the rules list says the limits');
+  await page.evaluate(() => { LS.att = []; L.scope = 'drinks'; renderLearn(); });
+  ME.week = { recipes: 3, theory: 0 }; await refreshStats();
+  check(await tile().isDisabled(), 'limit: the sheet’s count blocks the test even if the phone forgot its own');
+  ME.week = { recipes: 0, theory: 0 }; await refreshStats();
+  await page.evaluate(() => { LS.att = [1, 2, 3].map(() => ({ g: 'recipes', ts: weekStartTs() - 60000 })); renderLearn(); });
+  check(await tile().isEnabled() && (await tile().innerText()).includes('0 / 3'), 'limit: attempts of the previous week do not count');
+  mockOver = true;
+  await tile().click();
+  for (let i = 0; i < 15 && await page.locator('#learnroot [data-l="ans"]').count(); i++) { await page.locator('#learnroot [data-l="ans"]').first().click(); await page.click('#learnroot [data-l="next"]'); }
+  await page.waitForSelector('#learnroot #sendstat .badn', { timeout: 5000 }).catch(() => {});
+  check((await page.locator('#learnroot #sendstat').innerText()).includes('сверх недельного лимита'), 'limit: the result says when the sheet counted it over the limit');
+  mockOver = false;
+  await page.click('#learnroot [data-l="home"]');
+  delete ME.limits; delete ME.week;
+  await page.evaluate(() => { LS.att = []; });
+  await refreshStats();
+  check(!(await tile().innerText()).includes('Попыток на неделе') && await tile().isEnabled(), 'limit: a sheet script without limits (older) means no limit');
 
   /* the game: level, owls, board and badges come from the sheet; the monthly exam */
   await page.click('nav.tabs button[data-tab="more"]');
