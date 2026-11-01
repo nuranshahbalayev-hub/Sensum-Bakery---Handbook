@@ -93,10 +93,16 @@ fetch('./index.html').then(r=>r.text()).then(src=>{
     <div class="note">Заметка: сироп хранится 7 дней при +2…+5 °C.</div><p class="hint">Вспомогательный текст — серый, 12 px.</p>
     <div class="label"><code>.chchip</code> / <code>.uchip</code> — ссылки на позиции</div><div class="usedin"><span class="chchip">☕ Lotus Latte</span><span class="uchip"><b>6 г</b> Signature Bliss</span></div></section>
 
-  <section id="s-quiz"><h2>Тест</h2><p class="why">Варианты ответа <code>.opt</code> в четырёх состояниях.</p>
+  <section id="s-quiz"><h2>Тест</h2><p class="why">Варианты ответа <code>.opt</code> в четырёх состояниях. В теории есть вопросы с несколькими ответами и на порядок: отмеченный вариант <code>.sel</code> и номер <code>.pos</code>.</p>
     <div class="qcard" style="margin-bottom:var(--sp-3)"><div class="qtext">Что входит в состав «Iced Cappuccino»?</div></div>
     <div class="qtrow" style="margin-top:0"><span class="qtimer"><i style="width:60%"></i></span><b>9</b></div>
-    <div class="opts"><button class="opt">Обычный вариант</button><button class="opt right">Верный ответ</button><button class="opt wrong">Неверный ответ</button><button class="opt dim" disabled>Остальные — приглушены</button></div></section>
+    <div class="opts"><button class="opt">Обычный вариант</button><button class="opt right">Верный ответ</button><button class="opt wrong">Неверный ответ</button><button class="opt dim" disabled>Остальные — приглушены</button></div>
+    <div class="label" style="margin-top:var(--sp-4)"><code>.opt.sel</code> + <code>.pos</code> — отмечено, ещё не проверено</div>
+    <div class="opts"><button class="opt sel"><b class="pos">✓</b>Отмеченный вариант</button><button class="opt sel"><b class="pos">2</b>Второй по порядку</button></div>
+    <div class="label" style="margin-top:var(--sp-4)">После проверки порядка: верная и неверная позиция</div>
+    <div class="opts"><button class="opt right" disabled><b class="pos">1</b>Стоит на своём месте</button><button class="opt wrong" disabled><b class="pos">2</b>Должен быть вторым</button></div>
+    <div class="label" style="margin-top:var(--sp-4)"><code>.linput</code> — ответ числом</div>
+    <div class="qnum"><input class="linput" type="text" inputmode="decimal" placeholder="Число" value="70"><input class="linput right" type="text" value="70" disabled><input class="linput wrong" type="text" value="71" disabled></div></section>
   `;
   const root=document.getElementById('sg'); root.innerHTML=html;
   const sw=document.getElementById('sw');
