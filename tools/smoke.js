@@ -717,7 +717,7 @@ const server = http.createServer((req, res) => {
   /* older versions kept everything under one key: it moves to the code that was logged in */
   await page.evaluate(() => {
     localStorage.removeItem('sensum_learn_u_5678');
-    localStorage.setItem('sensum_learn', JSON.stringify({ me: { code: '5678', name: 'Second Person', branch: 'Test', level: 'barista' }, outbox: [], box: { 'd:legacy': 3 }, read: { 'cf-milk': 1 }, quiz: [], att: [] }));
+    localStorage.setItem('sensum_learn', JSON.stringify({ epoch: RESET_EPOCH, me: { code: '5678', name: 'Second Person', branch: 'Test', level: 'barista' }, outbox: [], box: { 'd:legacy': 3 }, read: { 'cf-milk': 1 }, quiz: [], att: [] }));
   });
   await page.reload();
   await page.waitForTimeout(300);
@@ -725,6 +725,26 @@ const server = http.createServer((req, res) => {
     dev: JSON.parse(localStorage.getItem('sensum_learn')), usr: JSON.parse(localStorage.getItem('sensum_learn_u_5678') || 'null') }));
   check(mig.me === '5678' && mig.box === 3 && mig.read === 1 && !('box' in mig.dev) && !('read' in mig.dev) && mig.usr && mig.usr.box['d:legacy'] === 3,
     'progress: data kept by an older version moves under the code that was logged in, the device key keeps only who is logged in');
+  /* a reset epoch (end of the test period): everything personal is wiped once, the login stays, a second start keeps what is made after it */
+  const keep1234 = await page.evaluate(() => { saveLearn(); return localStorage.getItem('sensum_learn_u_1234'); });
+  await page.evaluate(() => {
+    localStorage.setItem('sensum_learn', JSON.stringify({ epoch: RESET_EPOCH - 1, me: { code: '5678', name: 'Second Person', branch: 'Test', level: 'barista' },
+      outbox: [{ id: 'old1', code: '5678', scope: 'x', kind: 'drinks', score: 1, total: 1, mistakes: [], lang: 'ru', ver: '1', ts: 1 }], live: { id: 'old2' }, box: { 'd:old': 2 }, read: { 'cf-milk': 1 }, quiz: [{ x: 1 }], att: [{ x: 1 }] }));
+    localStorage.setItem('sensum_learn_u_5678', JSON.stringify({ box: { 'd:old': 2 }, read: { 'cf-milk': 1 }, quiz: [{ x: 1 }], att: [{ x: 1 }] }));
+    localStorage.setItem('sensum_learn_u__guest', JSON.stringify({ box: { 'd:g': 1 }, read: {}, quiz: [], att: [] }));
+    localStorage.setItem('sensum_lang', 'ru');
+  });
+  await page.reload();
+  await page.waitForTimeout(300);
+  const rs = await page.evaluate(() => ({ me: LS.me && LS.me.code, box: Object.keys(LS.box).length, read: Object.keys(LS.read).length, quiz: LS.quiz.length, att: LS.att.length, out: LS.outbox.length, live: LS.live,
+    ep: JSON.parse(localStorage.getItem('sensum_learn')).epoch, buckets: Object.keys(localStorage).filter(k => k.indexOf('sensum_learn_u_') === 0), lang: localStorage.getItem('sensum_lang') }));
+  check(rs.me === '5678' && !rs.box && !rs.read && !rs.quiz && !rs.att && !rs.out && !rs.live && rs.ep === 1 && !rs.buckets.some(k => k !== 'sensum_learn_u_5678') && rs.lang === 'ru',
+    'reset epoch: progress, history, queue and the other buckets are gone once, the login and the settings stay (' + JSON.stringify(rs) + ')');
+  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:new'] = 1; saveLearn(); });
+  await page.reload();
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => LS.read['cf-milk'] === 1 && LS.box['d:new'] === 1), 'reset epoch: the next start keeps what was made after it');
+  await page.evaluate(v => { if (v) localStorage.setItem('sensum_learn_u_1234', v); }, keep1234);  /* the other tests go on with the first code's progress */
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');
   await page.evaluate(lv => { switchUser({ code: '1234', name: 'Smoke Test', branch: 'Test', level: lv }); renderLearn(); }, ME.level);
