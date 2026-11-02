@@ -22,8 +22,12 @@
  * С v5.3 скрипт отдаёт уровень сотрудника (trainee / barista / senior) из столбца D листа
  * «Сотрудники»: справочник показывает вопросы «Теории» до этого уровня включительно.
  *
- * С v5.4 попыток в неделю: 3 рецептурных теста и 2 по теории (WEEK_LIMITS). Сверх лимита результат
- * сохраняется, но без XP и сов; ?action=me отдаёт использованное (week) и лимиты (limits).
+ * С v5.4 попыток в неделю (WEEK_LIMITS). Сверх лимита результат сохраняется, но без XP и сов;
+ * ?action=me отдаёт использованное (week) и лимиты (limits).
+ *
+ * С v5.5 лимит 4 рецептурных теста (напитки, заготовки, витрина) и 2 по теории; тренировки из «Материалов»
+ * в таблицу не приходят вовсе. Прогресс сотрудника (прочитанные уроки и ящики карточек) хранится на листе
+ * «Прогресс»: приложение отправляет его действием progress, ?action=me отдаёт обратно (progress).
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -31,19 +35,21 @@ const SHEET_STAFF = 'Сотрудники';
 const TZ = 'Asia/Baku';
 const MAX_QUESTIONS = 50;
 const SHEET_OWLS = 'Совы';
+const SHEET_PROGRESS = 'Прогресс';
+const PROGRESS_MAX = { read: 300, box: 800 };  // ids of lessons and of cards kept per employee
 const RESULT_COLS = 18;  // A–R
 const ID_COL = 13;        // M: attempt id, used to drop repeats
 const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван', 'Тип'];  // N–R
-const KINDS = ['drinks', 'preps', 'exam', 'mix', 'theory'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
+const KINDS = ['drinks', 'preps', 'vitrina', 'exam', 'mix', 'theory'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
 const OWLS_MONTH_CAP = 50;
 // Уровень сотрудника: столбец D листа «Сотрудники». Приложение получает его кодом и показывает вопросы «Теории» до этого уровня включительно.
 const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бариста': 'barista', 'старший': 'senior' };
-// Попыток в неделю (пн–вс, время Баку): рецептурные тесты (напитки и заготовки вместе) и тесты по теории.
+// Попыток в неделю (пн–вс, время Баку): рецептурные тесты (напитки, заготовки и витрина вместе) и тесты по теории.
 // Прерванный тест — попытка. «Экзамен месяца» и «Повторить ошибки» (mix) не считаются. Сверх лимита результат
 // сохраняется, но без XP, сов и зачёта в «учебную неделю». Приложение читает лимит отсюда (?action=me).
-const WEEK_LIMITS = { recipes: 3, theory: 2 };
+const WEEK_LIMITS = { recipes: 4, theory: 2 };
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.4';
+const SCRIPT_VERSION = 'v5.5';
 
 /* ---------- меню в таблице ---------- */
 
@@ -87,6 +93,7 @@ function doPost(e) {
   try { d = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad_json' }); }
   const staff = findStaff_(d.code);
   if (!staff) return json_({ ok: false, error: 'unknown_code' });
+  if (d.action === 'progress') return json_(saveProgress_(staff, d));
   const score = Number(d.score), total = Number(d.total);
   if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= MAX_QUESTIONS && score >= 0 && score <= total)) {
     return json_({ ok: false, error: 'bad_score' });
@@ -383,7 +390,7 @@ function topMistakes_(rows, n) {
 
 /* XP per test: 10 per right answer (15 in the exam), +50 for a flawless test of 10+ questions,
    nothing for an aborted one; only the first 5 tests of a day count, so grinding doesn't win the board */
-function limitGroup_(kind) { return kind === 'drinks' || kind === 'preps' ? 'recipes' : kind === 'theory' ? 'theory' : ''; }
+function limitGroup_(kind) { return kind === 'drinks' || kind === 'preps' || kind === 'vitrina' ? 'recipes' : kind === 'theory' ? 'theory' : ''; }
 
 function withXp_(rows) {
   const perDay = {}, perWeek = {};
@@ -529,12 +536,72 @@ function me_(code) {
     streak: st.cur, owlsMonth: sum(ledger.filter(o => monthKey_(o.date) === month), o => o.n),
     owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(mine, st.best),
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
-    week: weekAttempts_(mine, week), limits: WEEK_LIMITS,
+    week: weekAttempts_(mine, week), limits: WEEK_LIMITS, progress: progressOf_(s.code),
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
     }
   };
+}
+
+/* ---------- прогресс сотрудника: прочитанные уроки и ящики карточек ---------- */
+
+function progressSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_PROGRESS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_PROGRESS);
+    sh.getRange(1, 1, 1, 5).setValues([['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/* the stored progress of one code and the row it lives in (0 = none yet) */
+function progressRow_(sh, code) {
+  const last = sh.getLastRow();
+  if (last < 2) return { row: 0, read: [], box: {}, ts: 0 };
+  const rows = sh.getRange(2, 1, last - 1, 5).getValues();
+  const i = rows.findIndex(r => String(r[0]).trim() === code);
+  if (i < 0) return { row: 0, read: [], box: {}, ts: 0 };
+  const parse = (v, def) => { try { const x = JSON.parse(String(v || '')); return x && typeof x === 'object' ? x : def; } catch (err) { return def; } };
+  const read = parse(rows[i][3], []), box = parse(rows[i][4], {});
+  return { row: i + 2, read: Array.isArray(read) ? read : [], box: Array.isArray(box) ? {} : box, ts: Number(rows[i][2]) || 0 };
+}
+
+function progressOf_(code) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_PROGRESS);
+  if (!sh) return { read: [], box: {}, ts: 0 };
+  const p = progressRow_(sh, code);
+  return { read: p.read, box: p.box, ts: p.ts };
+}
+
+/* lesson ids only grow (union); the card boxes of the newer write replace the older ones whole */
+function saveProgress_(staff, d) {
+  const read = (Array.isArray(d.read) ? d.read : []).map(x => String(x)).filter(x => /^[a-z0-9-]{1,40}$/.test(x)).slice(0, PROGRESS_MAX.read);
+  const box = {};
+  let n = 0;
+  Object.keys(d.box && typeof d.box === 'object' && !Array.isArray(d.box) ? d.box : {}).forEach(k => {
+    const v = Number(d.box[k]);
+    if (n < PROGRESS_MAX.box && /^[dpvt]:[A-Za-z0-9_-]{1,60}$/.test(k) && Number.isInteger(v) && v >= 1 && v <= 5) { box[k] = v; n++; }
+  });
+  const now = Date.now(), t = Number(d.ts);
+  const ts = isFinite(t) && t > 0 && t <= now + 5 * 6e4 ? Math.round(t) : now;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = progressSheet_();
+    const old = progressRow_(sh, staff.code);
+    const mergedRead = Array.from(new Set(old.read.concat(read))).slice(0, PROGRESS_MAX.read);
+    const newer = ts >= old.ts;
+    const out = { read: mergedRead, box: newer ? box : old.box, ts: newer ? ts : old.ts };
+    const row = old.row || Math.max(2, sh.getLastRow() + 1);
+    sh.getRange(row, 1).setNumberFormat('@');
+    sh.getRange(row, 1, 1, 5).setValues([[staff.code, staff.name, out.ts, JSON.stringify(out.read), JSON.stringify(out.box)]]);
+    return { ok: true, progress: out };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* attempts this week by group (aborted ones too): the app blocks the test at the limit */
