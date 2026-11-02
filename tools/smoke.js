@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const page = await ctx.newPage();
-  const errors = [], posted = [];
+  const errors = [], posted = [], progPosts = [], progressDb = {};
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
@@ -41,12 +41,20 @@ const server = http.createServer((req, res) => {
     const req = route.request(), url = new URL(req.url());
     let body;
     if (req.method() === 'POST') {
-      const d = JSON.parse(req.postData()); posted.push(d);
+      const d = JSON.parse(req.postData());
+      if (d.action === 'progress') {  /* the sheet «Прогресс»: lessons are merged, the newer boxes win whole */
+        progPosts.push(d);
+        const old = progressDb[d.code] || { read: [], box: {}, ts: 0 }, newer = d.ts >= old.ts;
+        progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box: newer ? d.box : old.box, ts: newer ? d.ts : old.ts };
+        route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, progress: progressDb[d.code] }) });
+        return;
+      }
+      posted.push(d);
       body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : { ok: true, xp: mockOver ? 0 : 90, owls: [], over: mockOver };
     }
-    else if (url.searchParams.get('action') === 'me') body = ME;
+    else if (url.searchParams.get('action') === 'me') body = Object.assign({}, ME, { progress: progressDb[url.searchParams.get('code')] || { read: [], box: {}, ts: 0 } });
     else if (url.searchParams.get('action') === 'whoami') {
-      body = url.searchParams.get('code') === '1234' ? { ok: true, name: 'Smoke Test', branch: 'Test', level: ME.level } : { ok: false, error: 'unknown_code' };
+      body = ['1234', '5678'].includes(url.searchParams.get('code')) ? { ok: true, name: url.searchParams.get('code') === '1234' ? 'Smoke Test' : 'Second Person', branch: 'Test', level: ME.level } : { ok: false, error: 'unknown_code' };
     } else body = { ok: true, service: 'sensum-learn', version: 'mock' };
     route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(body) });
   });
@@ -186,7 +194,7 @@ const server = http.createServer((req, res) => {
 
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');
-  await page.evaluate(() => { LS.me = null; LS.outbox = []; renderLearn(); });
+  await page.evaluate(() => { switchUser(null); LS.outbox = []; renderLearn(); });
   await page.fill('#lcode', '9999');
   await page.click('#learnroot [data-l="login"]');
   await page.waitForTimeout(300);
@@ -264,6 +272,18 @@ const server = http.createServer((req, res) => {
   await page.click('nav.tabs button[data-tab="more"]');
   await page.click('#morehub [data-gotab="learn"]');
   await page.click('#learnroot [data-l="scope"][data-v="theory"]');
+  /* the theory test takes only the topics whose lessons were all read; a topic without lessons (the brand) is open */
+  await page.evaluate(() => { LS.read = {}; saveLearn(); L.lvlAll = true; renderLearn(); });
+  const openTopics = () => page.evaluate(() => [...passedTopics()].sort());
+  const noRead = await openTopics();
+  check(noRead.length > 0 && noRead.every(k => k.startsWith('BR-')) && await page.locator('#learnroot [data-l="dir"]').count() === 2 && (await page.locator('#learnroot').innerText()).includes('Открыто тем'),
+    'theory: nothing read, only the brand (no lessons yet) is open, and the screen says how many topics are open');
+  await page.evaluate(() => { LS.read['cf-origin'] = 1; });
+  check(!(await openTopics()).includes('CF-1'), 'theory: one of the two lessons of a topic does not open it');
+  await page.evaluate(() => { LS.read['cf-farm'] = 1; });
+  check((await openTopics()).includes('CF-1') && !(await openTopics()).includes('CF-2'), 'theory: all lessons of a topic read: that topic opens, the others stay closed');
+  check(await page.evaluate(() => theoryItems().every(t => passedTopics().has(t.topic))), 'theory: the test takes questions only from open topics');
+  await page.evaluate(() => { LES.forEach(l => { LS.read[l.id] = 1; }); L.lvlAll = false; saveLearn(); renderLearn(); });
   check(await page.locator('#learnroot [data-l="dir"]').count() === 5 && await page.locator('#learnroot [data-l="cards"]').count() === 0
     && await page.locator('#learnroot [data-l="quiz"]').count() === 1, 'theory: a chip per direction, a test, no flashcards');
   await page.click('#learnroot [data-l="dir"][data-v="CF"]');
@@ -414,7 +434,7 @@ const server = http.createServer((req, res) => {
   check(await tile().isDisabled(), 'limit: preps share the limit of the recipe tests');
   await page.click('#learnroot [data-l="scope"][data-v="theory"]');
   check((await tile().innerText()).includes('Попыток на неделе: 0 / 2') && await tile().isEnabled(), 'limit: theory has its own limit of two');
-  check((await page.locator('#learnroot .rules').textContent()).includes('3 по рецептам и 2 по теории'), 'limit: the rules list says the limits');
+  check((await page.locator('#learnroot .rules').textContent()).includes('3 по рецептам (напитки, заготовки, витрина) и 2 по теории') && (await page.locator('#learnroot .rules').textContent()).includes('Тренировки из «Материалов»'), 'limit: the rules list says the limits and that practice does not count');
   await page.evaluate(() => { LS.att = []; L.scope = 'drinks'; renderLearn(); });
   ME.week = { recipes: 3, theory: 0 }; await refreshStats();
   check(await tile().isDisabled(), 'limit: the sheet’s count blocks the test even if the phone forgot its own');
@@ -473,6 +493,7 @@ const server = http.createServer((req, res) => {
   check((await backTxt0()).includes('Обучение') && await page.locator('#learnroot [data-l="home"]').count() === 0 && (await page.locator('#learnroot').innerText()).indexOf('К обучению') < 0, 'back: materials returns to «Обучение» (the button names it) and has no extra link');
 
   /* lessons: a category tile, a list, a lesson, «прочитано», and a theory test on the lesson's topic */
+  await page.evaluate(() => { LS.read = {}; saveLearn(); renderLearn(); });
   const lcatTxt = async k => page.locator(`#learnroot [data-l="lcat"][data-v="${k}"]`).innerText();
   check(await page.locator('#learnroot [data-l="lcat"]').count() === 3 && (await lcatTxt('CF')).includes('0 / 17') && (await lcatTxt('SV')).includes('0 / 12') && (await lcatTxt('SN')).includes('0 / 3'),
     'lessons: three category tiles (coffee 0 / 17, service and sales 0 / 12, sanitation 0 / 3)');
@@ -504,13 +525,16 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; });
   await page.click('#learnroot [data-l="lcat"][data-v="CF"]');
   await page.click('#learnroot [data-l="lesson"][data-v="cf-milk"]');
+  const nPosted = posted.length, nAtt = await page.evaluate(() => LS.att.length);
   await page.click('#learnroot [data-l="ltest"]');
-  const lq = await page.evaluate(() => ({ view: L.view, kind: L.qz && L.qz.kind, topic: L.qz && [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))], n: L.qz && L.qz.qs.length, scope: L.qz && L.qz.scope }));
-  check(lq.view === 'quiz' && lq.kind === 'theory' && lq.topic.length === 1 && lq.topic[0] === 'CF-8' && lq.n >= 3 && lq.scope.includes('Молоко'), 'lesson test: a theory test of this lesson’s topic only (CF-8, ' + lq.n + ' questions)');
-  page.once('dialog', d => d.accept());
+  const lq = await page.evaluate(() => ({ view: L.view, kind: L.qz && L.qz.kind, practice: L.qz && L.qz.practice, rec: L.qz && !!L.qz.rec, topic: L.qz && [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))], n: L.qz && L.qz.qs.length, scope: L.qz && L.qz.scope }));
+  check(lq.view === 'quiz' && lq.practice === true && lq.rec === false && lq.topic.length === 1 && lq.topic[0] === 'CF-8' && lq.n >= 3 && lq.scope.includes('Молоко'), 'lesson test: a theory test of this lesson’s topic only (CF-8, ' + lq.n + ' questions)');
+  check((await page.locator('#learnroot').innerText()).includes('Тренировка') || await page.locator('#learnBack').count() === 1, 'practice: the quiz screen is titled «Тренировка»');
+  page.once('dialog', d => { if (!d.message().includes('не отправляется')) fails.push('practice exit asked the wrong question: ' + d.message()); d.accept(); });
   await page.click('#learnBack');
   await page.waitForTimeout(250);
   check(await page.evaluate(() => L.view === 'lesson' && L.lid === 'cf-milk' && !L.qz), 'back: leaving a test started from a lesson returns to that lesson');
+  check(posted.length === nPosted && await page.evaluate(() => LS.att.length) === nAtt && await page.evaluate(() => !LS.live && LS.outbox.length === 0), 'practice: leaving it sends nothing, uses no attempt and leaves nothing waiting');
   /* a lesson of «Сервис и продажи»: its test takes only SV-3 questions */
   await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; L.nav = []; L.view = 'materials'; renderLearn(); });
   await page.click('#learnroot [data-l="lcat"][data-v="SV"]');
@@ -583,6 +607,78 @@ const server = http.createServer((req, res) => {
   await page.click('#langbtn');
   check(await page.evaluate(() => L.view === 'materials'), 'language switch: the materials screen stays');
   await page.click('#learnBack');
+  /* practice after a card deck: also outside the limit, nothing is sent */
+  await page.evaluate(() => { L.nav = []; L.view = 'materials'; renderLearn(); });
+  await page.click('#learnroot [data-l="matcat"][data-v="p"]');
+  await page.click('#learnroot [data-l="cards"]');
+  await runCards();
+  const pBefore = await page.evaluate(() => ({ att: LS.att.length, quiz: LS.quiz.length }));
+  const nPost0 = posted.length;
+  await page.click('#learnroot [data-l="cardsquiz"]');
+  check(await page.evaluate(() => L.view === 'quiz' && L.qz.practice === true && !L.qz.rec && L.qz.qs.every(q => q.isPrep)), 'practice: the quiz after a prep deck is practice, about preps, with nothing to send');
+  for (let i = 0; i < 30 && await page.locator('#learnroot [data-l="ans"]').count(); i++) {
+    await page.locator('#learnroot [data-l="ans"]').first().click();
+    await page.click('#learnroot [data-l="next"]');
+  }
+  await page.waitForTimeout(300);
+  const pTxt = await page.locator('#learnroot').innerText();
+  check(await page.locator('#learnroot .score').count() === 1 && pTxt.includes('Это тренировка') && await page.locator('#learnroot #sendstat').count() === 0 && await page.locator('#learnroot [data-l="quiz"]').count() === 0,
+    'practice: the result says so, shows no send status and offers no new counted test');
+  check(posted.length === nPost0 && await page.evaluate(() => LS.att.length) === pBefore.att && await page.evaluate(() => LS.quiz.length) === pBefore.quiz && await page.evaluate(() => LS.outbox.length === 0 && !LS.live),
+    'practice: a finished practice test is not sent, not an attempt, not in the last-tests history');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'matdeck'), 'practice: «назад» from the result returns to the deck');
+  await page.evaluate(() => { L.nav = []; L.view = 'home'; renderLearn(); });
+
+  /* every code has its own progress on one phone, and the sheet keeps a copy */
+  await page.evaluate(() => { LS.read['cf-milk'] = 1; touchProgress(); });
+  const snap = () => page.evaluate(() => ({ read: Object.keys(LS.read), box: Object.values(LS.box).filter(v => v > 0).length, quiz: LS.quiz.length }));
+  const mine = await snap();
+  check(mine.read.length > 0 && mine.box > 0 && mine.quiz > 0, 'progress: the first code has lessons read, cards learned and a test history');
+  await page.click('#learnroot [data-l="logout"]');
+  check(await page.evaluate(() => !LS.me && Object.keys(LS.read).length === 0 && Object.keys(LS.box).length === 0), 'progress: logged out, nothing of the previous person is shown');
+  await page.fill('#lcode', '5678');
+  await page.click('#learnroot [data-l="login"]');
+  await page.waitForSelector('#learnroot .idrow', { timeout: 5000 }).catch(() => {});
+  check(await page.evaluate(() => LS.me && LS.me.code === '5678' && Object.keys(LS.read).length === 0 && Object.keys(LS.box).length === 0 && LS.quiz.length === 0 && LS.att.length === 0 && !passedTopics().has('CF-8')),
+    'progress: the second code starts clean: nothing read, nothing learned, no history, the coffee topics closed');
+  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:latte'] = 2; touchProgress(); pushProgress(); });
+  await page.waitForTimeout(500);
+  check(progPosts.some(d => d.code === '5678' && d.read.join() === 'cf-milk' && d.box['d:latte'] === 2), 'progress: the second code’s progress goes to the sheet under its own code');
+  await page.click('#learnroot [data-l="logout"]');
+  await page.fill('#lcode', '1234');
+  await page.click('#learnroot [data-l="login"]');
+  await page.waitForSelector('#learnroot .idrow', { timeout: 5000 }).catch(() => {});
+  const back = await snap();
+  check(mine.read.every(id => back.read.includes(id)) && back.box === mine.box && back.quiz === mine.quiz, 'progress: back on the first code, its lessons, cards and history are as they were (' + JSON.stringify([back.read.length, back.box, back.quiz]) + ' vs ' + JSON.stringify([mine.read.length, mine.box, mine.quiz]) + ')');
+  /* a new or cleaned phone: the progress comes back from the sheet */
+  await page.evaluate(() => { LS.progDirty = 1; pushProgress(); });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { localStorage.removeItem('sensum_learn_u_1234'); });
+  await page.reload();
+  await page.waitForTimeout(500);
+  await page.click('nav.tabs button[data-tab="more"]');
+  await page.click('#morehub [data-gotab="learn"]');
+  await page.waitForTimeout(800);
+  const restored = Object.assign(await snap(), { me: await page.evaluate(() => LS.me && LS.me.code) });
+  check(restored.me === '1234' && mine.read.every(id => restored.read.includes(id)) && restored.box === mine.box && restored.quiz === 0, 'progress: after the phone’s data is gone, lessons read and cards learned come back from the sheet (' + JSON.stringify(restored) + ')');
+
+  /* older versions kept everything under one key: it moves to the code that was logged in */
+  await page.evaluate(() => {
+    localStorage.removeItem('sensum_learn_u_5678');
+    localStorage.setItem('sensum_learn', JSON.stringify({ me: { code: '5678', name: 'Second Person', branch: 'Test', level: 'barista' }, outbox: [], box: { 'd:legacy': 3 }, read: { 'cf-milk': 1 }, quiz: [], att: [] }));
+  });
+  await page.reload();
+  await page.waitForTimeout(300);
+  const mig = await page.evaluate(() => ({ me: LS.me.code, box: LS.box['d:legacy'], read: LS.read['cf-milk'],
+    dev: JSON.parse(localStorage.getItem('sensum_learn')), usr: JSON.parse(localStorage.getItem('sensum_learn_u_5678') || 'null') }));
+  check(mig.me === '5678' && mig.box === 3 && mig.read === 1 && !('box' in mig.dev) && !('read' in mig.dev) && mig.usr && mig.usr.box['d:legacy'] === 3,
+    'progress: data kept by an older version moves under the code that was logged in, the device key keeps only who is logged in');
+  await page.click('nav.tabs button[data-tab="more"]');
+  await page.click('#morehub [data-gotab="learn"]');
+  await page.evaluate(lv => { switchUser({ code: '1234', name: 'Smoke Test', branch: 'Test', level: lv }); renderLearn(); }, ME.level);
+  await page.waitForTimeout(400);
+
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exam"]');
   const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));

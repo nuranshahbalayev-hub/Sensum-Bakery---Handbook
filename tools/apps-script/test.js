@@ -159,9 +159,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.4'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.5'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.4');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.5');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -253,13 +253,14 @@ lv.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажер', true], ['90
 const lvl = code => JSON.parse(lv.api.doGet({ parameter: { action: 'whoami', code } }).text).level;
 assert.deepStrictEqual(['9001', '9004', '9005', '9006', '9007'].map(lvl), ['barista', 'trainee', 'senior', '', ''], 'level from the role column; unknown text = no level');
 assert.strictEqual(lv.me('9004').level, 'trainee', '?action=me carries the level too');
-// weekly limit (v5.4): 3 recipe tests (drinks and preps together) and 2 theory tests a week
+// weekly limit (v5.4, 4 since v5.5): 4 recipe tests (drinks, preps and the vitrina together) and 2 theory tests a week
 const lim = env({ notifyAll: true, now: NOW });
 const lp = (id, kind, h, o) => lim.post(Object.assign({ id, code: '9002', scope: 'Тест', kind, score: 10, total: 10, ts: at(0, h) }, o));
-const r1 = lp('l1', 'drinks', 7), r2 = lp('l2', 'preps', 8), r3 = lp('l3', 'drinks', 9);
-assert.ok([r1, r2, r3].every(r => r.xp > 0 && r.over === false), 'the first three recipe tests of the week count (drinks and preps together)');
-const r4 = lp('l4', 'drinks', 10);
-assert.deepStrictEqual([r4.ok, r4.xp, r4.over, r4.owls], [true, 0, true, []], 'the fourth is saved, but without XP and owls');
+const r1 = lp('l1', 'drinks', 7), r2 = lp('l2', 'preps', 8), r3 = lp('l3', 'vitrina', 9), r3b = lp('l3b', 'drinks', 10);
+assert.ok([r1, r2, r3, r3b].every(r => r.xp > 0 && r.over === false), 'the first four recipe tests of the week count (drinks, preps and the vitrina together)');
+assert.strictEqual(lim.results.data.find(x => x[12] === 'l3')[17], 'vitrina', 'the vitrina test type is stored');
+const r4 = lp('l4', 'drinks', 11);
+assert.deepStrictEqual([r4.ok, r4.xp, r4.over, r4.owls], [true, 0, true, []], 'the fifth is saved, but without XP and owls');
 assert.ok(lim.results.data.some(x => x[12] === 'l4'), 'the result over the limit is not lost');
 assert.ok(lim.sent[lim.sent.length - 1].includes('Сверх недельного лимита'), 'the trainer\u2019s message says it was over the limit');
 /* another day, so the daily cap of 5 does not get in the way */
@@ -267,18 +268,46 @@ const tq1 = lp('t1', 'theory', 11, { ts: at(1, 11) }), tq2 = lp('t2', 'theory', 
 assert.ok(tq1.xp > 0 && tq2.xp > 0 && tq1.over === false && tq2.over === false && tq3.over === true && tq3.xp === 0, 'theory has its own limit of 2');
 assert.ok(lp('m1', 'mix', 14, { ts: at(2, 14) }).over === false && lp('m2', 'exam', 15, { total: 20, score: 20, ts: at(2, 15) }).over === false, 'retries and the monthly exam are not attempts');
 const lme = lim.me('9002');
-assert.deepStrictEqual([lme.week, lme.limits], [{ recipes: 4, theory: 3 }, { recipes: 3, theory: 2 }], '?action=me reports the attempts and the limits');
+assert.deepStrictEqual([lme.week, lme.limits], [{ recipes: 5, theory: 3 }, { recipes: 4, theory: 2 }], '?action=me reports the attempts and the limits');
 // an aborted test is an attempt
 const ab = env({ notifyAll: false, now: NOW });
 ['a1', 'a2'].forEach((id, i) => ab.post({ id, code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 7 + i) }));
 ab.post({ id: 'a3', code: '9002', scope: 'x', kind: 'drinks', score: 2, total: 10, ts: at(0, 9), aborted: true });
-assert.strictEqual(ab.post({ id: 'a4', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 10) }).over, true, 'two tests and an aborted one use the three attempts');
+['a3b'].forEach(id => ab.post({ id, code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 9, 30) }));
+assert.strictEqual(ab.post({ id: 'a4', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 10) }).over, true, 'three tests and an aborted one use the four attempts');
 // last week's attempts do not count
 const wk = env({ notifyAll: false, now: NOW });
-for (const d of [8, 9, 10]) wk.results.data.push([new Date(at(d)), '9002', 'Тест-2', 'White City', 'x', 10, 10, '', '', '', 'ru', '1.9', 'w' + d, '', '', '', '', 'drinks']);
+for (const d of [8, 9, 10, 11]) wk.results.data.push([new Date(at(d)), '9002', 'Тест-2', 'White City', 'x', 10, 10, '', '', '', 'ru', '1.9', 'w' + d, '', '', '', '', 'drinks']);
 assert.strictEqual(wk.me('9002').week.recipes, 0, 'attempts of the previous week are not counted');
 const wr1 = wk.post({ id: 'w1', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 8) });
 assert.ok(wr1.over === false && wr1.xp > 0 && wk.me('9002').week.recipes === 1, 'a new week starts from zero');
+// progress (v5.5): read lessons and card boxes live on the sheet «Прогресс», per code
+const pg = env({ notifyAll: false, now: NOW });
+assert.deepStrictEqual(pg.me('9001').progress, { read: [], box: {}, ts: 0 }, 'nothing stored yet: an empty progress, no sheet needed');
+let pr = pg.post({ action: 'progress', code: '9001', read: ['cf-origin', 'cf-farm'], box: { 'd:latte': 2, 'v:minituna': 1, 't:CF-01': 3 }, ts: 1000 });
+assert.deepStrictEqual([pr.ok, pr.progress.read, pr.progress.box, pr.progress.ts], [true, ['cf-origin', 'cf-farm'], { 'd:latte': 2, 'v:minituna': 1, 't:CF-01': 3 }, 1000], 'first write is stored');
+assert.deepStrictEqual(pg.sheets['Прогресс'].data[0], ['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек'], 'the sheet is created with its header');
+assert.strictEqual(pg.sheets['Прогресс'].data[1][0], '9001');
+// another employee never sees it
+pg.post({ action: 'progress', code: '9002', read: ['sv-first'], box: { 'p:syrup': 4 }, ts: 1500 });
+assert.deepStrictEqual(pg.me('9001').progress.read, ['cf-origin', 'cf-farm']); assert.deepStrictEqual(pg.me('9002').progress.read, ['sv-first']);
+assert.strictEqual(pg.sheets['Прогресс'].data.length, 3, 'one row per employee');
+// lessons only grow; the newer box write wins whole, an older one is ignored
+pr = pg.post({ action: 'progress', code: '9001', read: ['cf-milk'], box: { 'd:latte': 0, 'd:flatwhite': 1 }, ts: 2000 });
+assert.deepStrictEqual(pr.progress.read, ['cf-origin', 'cf-farm', 'cf-milk'], 'read lessons are merged');
+assert.deepStrictEqual(pr.progress.box, { 'd:flatwhite': 1 }, 'the newer boxes replace the older ones (a reset card is gone)');
+pr = pg.post({ action: 'progress', code: '9001', read: ['cf-brew'], box: { 'd:old': 5 }, ts: 1200 });
+assert.deepStrictEqual([pr.progress.read.includes('cf-brew'), pr.progress.box, pr.progress.ts], [true, { 'd:flatwhite': 1 }, 2000], 'a stale phone adds lessons but cannot overwrite the boxes');
+assert.deepStrictEqual(pg.me('9001').progress, pr.progress, '?action=me returns the stored progress');
+// bad input is dropped, not stored
+pr = pg.post({ action: 'progress', code: '9003', read: ['ok-id', '<b>x</b>', 'A B', 5], box: { 'x:bad': 1, 'd:fine': 9, 'd:ok': 2, 'v:..': 1 }, ts: 3000 });
+assert.deepStrictEqual([pr.progress.read, pr.progress.box], [['ok-id', '5'], { 'd:ok': 2 }], 'ids and boxes that do not look right are ignored');
+assert.strictEqual(pg.post({ action: 'progress', code: '9999', read: ['x'], box: {}, ts: 1 }).error, 'unknown_code', 'an unknown code stores nothing');
+assert.strictEqual(pg.sheets['Прогресс'].data.length, 4, 'and adds no row');
+pr = pg.post({ action: 'progress', code: '9003', read: Array.from({ length: 400 }, (_, i) => 'l' + i), box: {}, ts: 4000 });
+assert.ok(pr.progress.read.length <= 300, 'the number of lessons is capped');
+// a progress write is not a test: no result row, no XP, no message
+assert.strictEqual(pg.results.getLastRow(), 1, 'the results sheet is untouched'); assert.strictEqual(pg.sent.length, 0);
 // monthly cap
 const cap = env({ notifyAll: false, now: NOW });
 cap.post({ id: 'c1', code: '9003', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(2) });  // +1, creates «Совы»
