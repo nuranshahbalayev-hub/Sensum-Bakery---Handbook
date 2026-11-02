@@ -275,9 +275,17 @@ const server = http.createServer((req, res) => {
   /* the theory test takes only the topics whose lessons were all read; a topic without lessons (the brand) is open */
   await page.evaluate(() => { LS.read = {}; saveLearn(); L.lvlAll = true; renderLearn(); });
   const openTopics = () => page.evaluate(() => [...passedTopics()].sort());
+  const LESSON_TOPICS = new Set(await page.evaluate(() => LES.map(l => l.topic)));
   const noRead = await openTopics();
-  check(noRead.length > 0 && noRead.every(k => k.startsWith('BR-')) && await page.locator('#learnroot [data-l="dir"]').count() === 2 && (await page.locator('#learnroot').innerText()).includes('Открыто тем'),
-    'theory: nothing read, only the brand (no lessons yet) is open, and the screen says how many topics are open');
+  /* every topic with questions has lessons now: until something is read, only the topics without any lesson (here MN-1: the recipes are generated) are open */
+  check(noRead.every(k => !LESSON_TOPICS.has(k)) && await page.locator('#learnroot [data-l="dir"]').count() === 1 && (await page.locator('#learnroot').innerText()).includes('Открыто тем: 0')
+    && (await page.locator('#learnroot').innerText()).includes('Прочитай уроки'), 'theory: nothing read, no theory topic is open, and the screen says so');
+  /* the brand needs its lessons like every other topic */
+  await page.evaluate(() => { LES.filter(l => l.topic === 'BR-1').slice(0, 5).forEach(l => { LS.read[l.id] = 1; }); });
+  check(!(await openTopics()).includes('BR-1'), 'theory: five of the six brand lessons do not open BR-1');
+  await page.evaluate(() => { LES.filter(l => l.topic === 'BR-1').forEach(l => { LS.read[l.id] = 1; }); });
+  check((await openTopics()).includes('BR-1') && !(await openTopics()).includes('BR-2'), 'theory: all six lessons of BR-1: it opens, BR-2 stays closed');
+  await page.evaluate(() => { LS.read = {}; });
   await page.evaluate(() => { LS.read['cf-origin'] = 1; });
   check(!(await openTopics()).includes('CF-1'), 'theory: one of the two lessons of a topic does not open it');
   await page.evaluate(() => { LS.read['cf-farm'] = 1; });
@@ -495,8 +503,8 @@ const server = http.createServer((req, res) => {
   /* lessons: a category tile, a list, a lesson, «прочитано», and a theory test on the lesson's topic */
   await page.evaluate(() => { LS.read = {}; saveLearn(); renderLearn(); });
   const lcatTxt = async k => page.locator(`#learnroot [data-l="lcat"][data-v="${k}"]`).innerText();
-  check(await page.locator('#learnroot [data-l="lcat"]').count() === 3 && (await lcatTxt('CF')).includes('0 / 17') && (await lcatTxt('SV')).includes('0 / 12') && (await lcatTxt('SN')).includes('0 / 3'),
-    'lessons: three category tiles (coffee 0 / 17, service and sales 0 / 12, sanitation 0 / 3)');
+  check(await page.locator('#learnroot [data-l="lcat"]').count() === 4 && (await lcatTxt('CF')).includes('0 / 17') && (await lcatTxt('SV')).includes('0 / 12') && (await lcatTxt('SN')).includes('0 / 3') && (await lcatTxt('BR')).includes('0 / 14'),
+    'lessons: four category tiles (coffee 0 / 17, service and sales 0 / 12, sanitation 0 / 3, brand 0 / 14)');
   await page.click('#learnroot [data-l="lcat"][data-v="CF"]');
   check(await page.locator('#learnroot [data-l="lesson"]').count() === 17, 'lessons: the list has the 17 coffee lessons');
   check((await backTxt0()).includes('Материалы') && await ttl() === 'Кофе', 'back: the lesson list returns to «Материалы», its title is «Кофе»');
@@ -543,6 +551,17 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot ol.ll li').count() === 6 && (await page.locator('#learnroot').innerText()).includes('Подтверждение заказа'), 'lesson: the order steps are a six-step list');
   await page.click('#learnroot [data-l="ltest"]');
   check(await page.evaluate(() => L.view === 'quiz' && L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'SV-3')), 'lesson test: «Приём заказа» tests only the topic SV-3');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnBack');
+  await page.waitForTimeout(250);
+  /* a lesson of «Бренд»: its test takes only BR-1 questions */
+  await page.evaluate(() => { L.nav = []; L.view = 'materials'; renderLearn(); });
+  await page.click('#learnroot [data-l="lcat"][data-v="BR"]');
+  check(await page.locator('#learnroot [data-l="lesson"]').count() === 14 && await ttl() === 'Бренд SENSUM', 'lessons: «Бренд SENSUM» lists 14 lessons');
+  await page.click('#learnroot [data-l="lesson"][data-v="br-mission"]');
+  check((await page.locator('#learnroot').innerText()).includes('Кредо компании') && (await page.locator('#learnroot').innerText()).includes('Талант'), 'lesson: the mission lesson carries the credo');
+  await page.click('#learnroot [data-l="ltest"]');
+  check(await page.evaluate(() => L.view === 'quiz' && L.qz.practice && L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'BR-1')), 'lesson test: «Миссия» tests only the topic BR-1');
   page.once('dialog', d => d.accept());
   await page.click('#learnBack');
   await page.waitForTimeout(250);
