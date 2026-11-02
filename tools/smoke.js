@@ -189,6 +189,32 @@ const server = http.createServer((req, res) => {
   });
   const exTotal = Object.values(exs.n).reduce((a, b) => a + b, 0);
   check(exs.bad.length === 0 && exTotal > 0, `exam-style recipe questions: ${exTotal} checked against the recipes, ${exs.bad.length} with a wrong or doubtful answer${exs.bad.length ? ' (' + exs.bad.slice(0, 3).join(', ') + ')' : ''}`);
+  /* the vitrina: every generated question is checked against the data, in both languages */
+  const vq = await page.evaluate(() => {
+    const out = { n: {}, bad: [] };
+    const has = (x, k) => { const t = x.desc.toLowerCase(), a = k.toLowerCase(), w = (a.match(/[a-zа-яёəıöüçşğ]+/i) || [''])[0]; return t.includes(a) || (w.length > 3 && t.includes(w)); };
+    for (const lang of ['ru', 'az']) {
+      setLang(lang);
+      for (const x of vit) for (let rep = 0; rep < 8; rep++) for (const g of ['vcomp', 'vhas', 'vnot', 'valg', 'vstor', 'vlife']) {
+        const q = GEN[g](x); if (!q) continue;
+        out.n[lang + g] = (out.n[lang + g] || 0) + 1;
+        const right = q.correct, wrong = q.opts.filter(o => o !== right), tag = lang + ' ' + g + ' ' + x.id;
+        if (q.opts.length !== 4 || new Set(q.opts.map(o => o.toLowerCase())).size !== 4 || wrong.length !== 3) { out.bad.push(tag + ': options'); continue; }
+        if (g === 'vcomp' && (!has(x, right) || wrong.some(o => has(x, o)))) out.bad.push(tag + ': composition');
+        if (g === 'vhas') { const k = q.meta.k; if (!has(x, k) || vit.filter(d => wrong.includes(d.name)).some(d => has(d, k)) || q.correct !== x.name) out.bad.push(tag + ': has'); }
+        if (g === 'vnot' && (has(x, right) || wrong.some(o => !has(x, o)))) out.bad.push(tag + ': not');
+        if (g === 'valg') { const a = x.alg, fam = k => k.split('_')[0], lab = k => ALG[k], own = [...a.has, ...a.may].map(fam);
+          if (!a.has.some(k => lab(k) === right) || wrong.some(o => Object.keys(ALG).some(k => lab(k) === o && own.includes(fam(k))))) out.bad.push(tag + ': allergen'); }
+        if (g === 'vstor') { const [lo, hi] = x.stor; if (right !== storTxt(x.stor) || wrong.some(o => o === right)) out.bad.push(tag + ': storage'); }
+        if (g === 'vlife' && (right !== lifeTxt(x.life) || wrong.includes(right))) out.bad.push(tag + ': life');
+      }
+    }
+    setLang('ru');
+    return out;
+  });
+  const vqTotal = Object.values(vq.n).reduce((a, b) => a + b, 0);
+  check(vq.bad.length === 0 && vqTotal > 0 && ['vcomp', 'vhas', 'vnot', 'valg', 'vstor', 'vlife'].every(g => vq.n['ru' + g] && vq.n['az' + g]),
+    `vitrina questions: ${vqTotal} checked against the data in both languages, ${vq.bad.length} wrong or doubtful${vq.bad.length ? ' (' + vq.bad.slice(0, 3).join(', ') + ')' : ''}`);
   check(['has', 'without', 'both', 'same'].every(k => exs.n['ru' + k] && exs.n['az' + k]) && (exs.n.rumost || 0) + (exs.n.ruleast || 0) > 0 && (exs.n.azmost || 0) + (exs.n.azleast || 0) > 0,
     'exam-style recipe questions: every kind appears in both languages');
 
@@ -605,9 +631,15 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="know"]');
   check(await page.evaluate(id => LS.box['v:' + id] === 1, await page.evaluate(() => L.fc.deck[0])), 'vitrina card: «Знаю» raises the card’s box (v:<id>)');
   await runCards();
-  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 0 && (await backTxt0()).includes('Витрина'), 'vitrina cards done: no recipe test offered, «назад» returns to the deck');
-  await page.click('#learnBack'); await page.click('#learnBack');
-  check(await page.evaluate(() => L.view === 'materials'), 'back: cards → deck → materials');
+  check(await page.locator('#learnroot [data-l="cardsquiz"]').count() === 1 && (await backTxt0()).includes('Витрина'), 'vitrina cards done: a practice test is offered, «назад» returns to the deck');
+  await page.click('#learnroot [data-l="cardsquiz"]');
+  check(await page.evaluate(() => L.view === 'quiz' && L.qz.practice && !L.qz.rec && L.qz.qs.length > 0 && L.qz.qs.every(q => q.isVit)), 'practice: the test after vitrina cards is about the vitrina and nothing is sent');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnBack');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(() => L.view === 'matdeck'), 'back: leaving the practice test returns to the deck it started from');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'materials'), 'back: deck → materials');
   await page.click('#learnroot [data-l="matcat"][data-v="d"]');
   await page.click('#learnroot [data-l="cards"]');
   await page.click('#learnroot [data-l="flip"]');
@@ -701,10 +733,19 @@ const server = http.createServer((req, res) => {
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exam"]');
   const ex = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, preps: L.qz.qs.filter(q => q.isPrep).length }));
-  check(ex.n === 20 && ex.kind === 'exam' && ex.preps === 8, 'the monthly exam: 20 questions, drinks and preps together');
-  check(await page.evaluate(() => L.qz.qs.every(q => ['dose', 'comp', 'photo', 'vessel', 'shelf', 'used', 'storage'].includes(q.type))), 'the monthly exam keeps its plain question set');
-  for (let i = 0; i < 25 && await page.locator('#learnroot [data-l="ans"]').count(); i++) {
-    await page.locator('#learnroot [data-l="ans"]').first().click();
+  /* nothing read in this state is not the case here: everything is read, so the theory part is full */
+  const exParts = await page.evaluate(() => { const qs = L.qz.qs; return { n: qs.length, kind: L.qz.kind, th: qs.filter(q => q.isTheory).length, vit: qs.filter(q => q.isVit).length,
+    preps: qs.filter(q => q.isPrep).length, drinks: qs.filter(q => !q.isTheory && !q.isPrep && !q.isVit).length,
+    openOnly: qs.filter(q => q.isTheory).every(q => passedTopics().has(TH.find(t => t.id === q.id).topic)),
+    plain: qs.filter(q => !q.isTheory).every(q => ['dose', 'comp', 'photo', 'vessel', 'shelf', 'used', 'storage', 'vcomp', 'vhas', 'vnot', 'valg', 'vstor', 'vlife'].includes(q.type)) }; });
+  check(exParts.n === 20 && exParts.kind === 'exam' && exParts.drinks === 6 && exParts.preps === 4 && exParts.vit === 4 && exParts.th === 6 && exParts.openOnly && exParts.plain,
+    'the monthly exam: 20 questions, 6 drinks, 4 preps, 4 vitrina, 6 theory from the open topics (' + JSON.stringify(exParts) + ')');
+  /* the exam has theory questions of every kind: pick, order or type something for each, then go on */
+  for (let i = 0; i < 25 && await page.evaluate(() => L.view === 'quiz'); i++) {
+    if (await page.locator('#learnroot [data-l="ans"]').count()) await page.locator('#learnroot [data-l="ans"]').first().click();
+    else if (await page.locator('#learnroot #qnum').count()) { await page.fill('#qnum', '1'); await page.click('#qsubmit'); }
+    else { const n = await page.locator('#learnroot [data-l="pick"]').count(); for (let k = 0; k < Math.min(n, 4); k++) await page.locator('#learnroot [data-l="pick"]').nth(k).click().catch(() => {});
+      await page.click('#learnroot [data-l="submit"]'); }
     await page.click('#learnroot [data-l="next"]');
   }
   await page.waitForTimeout(500);
@@ -714,6 +755,27 @@ const server = http.createServer((req, res) => {
   check(await page.evaluate(() => L.view === 'home' && !L.qz && L.nav.length === 0), 'language switch: a finished test’s result gives way to the screen before the test');
   await page.click('#langbtn');
   check(await page.locator('#learnroot [data-l="exam"][disabled]').count() === 1, 'one exam a month: the tile locks after it');
+  /* the exam when little is read: the theory share is made up from the recipes, still 20 */
+  const lowExam = await page.evaluate(() => { const keep = LS.read; const out = {};
+    LS.read = {}; let qs = examQuestions(); out.none = { n: qs.length, th: qs.filter(q => q.isTheory).length, d: qs.filter(q => !q.isTheory && !q.isPrep && !q.isVit).length, p: qs.filter(q => q.isPrep).length, v: qs.filter(q => q.isVit).length };
+    LS.read = {}; LES.filter(l => l.topic === 'CF-8').forEach(l => { LS.read[l.id] = 1; }); qs = examQuestions();
+    out.one = { n: qs.length, th: qs.filter(q => q.isTheory).length, topics: [...new Set(qs.filter(q => q.isTheory).map(q => TH.find(t => t.id === q.id).topic))] };
+    LS.read = keep; return out; });
+  check(lowExam.none.n === 20 && lowExam.none.th === 0 && lowExam.none.d === 8 && lowExam.none.p === 6 && lowExam.none.v === 6, 'exam: nothing read, no theory, the recipes make up the 20 (8 drinks, 6 preps, 6 vitrina)');
+  check(lowExam.one.n === 20 && lowExam.one.th === 4 && lowExam.one.topics.join() === 'CF-8', 'exam: one topic read: its four questions are taken, the rest comes from the recipes (' + JSON.stringify(lowExam.one) + ')');
+  /* the vitrina test of the training home counts as a recipe attempt */
+  await page.evaluate(() => { LS.att = []; if (LS.stats) { LS.stats.week = { recipes: 0, theory: 0 }; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.at = Date.now(); } L.nav = []; L.view = 'home'; L.scope = 'drinks'; renderLearn(); });
+  await page.click('#learnroot [data-l="scope"][data-v="vitrina"]');
+  check(await page.locator('#learnroot [data-l="vcat"]').count() === 4 && (await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе: 0 / 4'), 'vitrina test: the chip has its categories and the tile shows the recipe attempts of the week');
+  await page.click('#learnroot [data-l="vcat"][data-v="sandwich"]');
+  await page.click('#learnroot [data-l="quiz"]');
+  const vt = await page.evaluate(() => ({ kind: L.qz.kind, rec: L.qz.rec && L.qz.rec.kind, scope: L.qz.scope, n: L.qz.qs.length, att: LS.att.map(a => a.g), cats: [...new Set(L.qz.qs.map(q => vitById[q.id].cat))] }));
+  check(vt.kind === 'vitrina' && vt.rec === 'vitrina' && vt.scope.includes('Витрина') && vt.att.join() === 'recipes' && vt.cats.join() === 'sandwich' && vt.n > 0, 'vitrina test: a counted test of the chosen category, one recipe attempt used (' + JSON.stringify(vt) + ')');
+  ME.limits = { recipes: 4, theory: 2 }; ME.week = { recipes: 1, theory: 0 };  /* what the sheet answers after the aborted vitrina test */
+  page.once('dialog', d => d.accept());
+  await page.click('#learnBack');
+  await page.waitForTimeout(500);
+  check((await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе: 1 / 4'), 'vitrina test: after it the tile shows 1 / 4');
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));
