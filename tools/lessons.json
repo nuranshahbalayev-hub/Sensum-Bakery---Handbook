@@ -32,6 +32,17 @@
     "t": "Sanitariya və barda iş",
     "d": "Gigiyena, barda nizam, FIFO, qonaqlarla işləmək"
    }
+  },
+  "BR": {
+   "icon": "⭐",
+   "ru": {
+    "t": "Бренд SENSUM",
+    "d": "Миссия, принципы, направления и стратегия SENSUM"
+   },
+   "az": {
+    "t": "SENSUM brendi",
+    "d": "SENSUM-un missiyası, prinsipləri, istiqamətləri və strategiyası"
+   }
   }
  },
  "lessons": [
@@ -4034,6 +4045,1334 @@
        "Qonağa vəziyyəti düzəltmək üçün nə edəcəyinizi deyin.",
        "Vəziyyəti düzəltmək üçün müvafiq tədbirlər görün.",
        "Qonağın razı qaldığına əmin olun və iş yerindəki prosedurları nəzərdən keçirin (lazım olduqda addımları qeyd edin)."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-about",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "Что такое SENSUM",
+    "blocks": [
+     {
+      "p": "SENSUM — это бренд, сочетающий несколько направлений, каждое из которых взаимодействует с другими. В основе бренда лежат качество, индивидуальный подход, системность и внедрение новых тенденций, создающих незабываемые эмоции и настроение."
+     },
+     {
+      "h": "Что значит название"
+     },
+     {
+      "p": "Смысл (лат.), чувство (фр.), ощущение (англ.). Основная миссия бренда — дарить смысл и ощущения."
+     },
+     {
+      "h": "Шесть направлений"
+     },
+     {
+      "ul": [
+       {
+        "b": "Significant Coffee",
+        "t": " — кофе как философия тонких нюансов индивидуального вкуса: от обжарки зёрен до готового продукта, готовые решения и продажа профессионального кофейного оборудования."
+       },
+       {
+        "b": "Evolution Academy",
+        "t": " — курсы повышения квалификации по искусству, кофейной индустрии, флористике, туризму и организации мероприятий."
+       },
+       {
+        "b": "Nostalgia Tour-Concierge",
+        "t": " — путешествия, которые создают новые воспоминания; учитываются индивидуальные предпочтения каждого гостя."
+       },
+       {
+        "b": "Satisfaction Floristry",
+        "t": " — живые эксклюзивные композиции и гербарий с учётом характера клиента, оформление пространства, ландшафтное проектирование."
+       },
+       {
+        "b": "Universal Event",
+        "t": " — организация значимых мероприятий: фестивали, костюмированные представления, мастер-классы."
+       },
+       {
+        "b": "Memory Photo-Art",
+        "t": " — арт-студия: тематические фотопроекты и незабываемые образы."
+       }
+      ]
+     },
+     {
+      "note": "Первые буквы названий направлений складываются в слово SENSUM."
+     }
+    ]
+   },
+   "az": {
+    "title": "SENSUM nədir",
+    "blocks": [
+     {
+      "p": "SENSUM özündə bir neçə istiqaməti cəmləşdirən brenddir. Bu istiqamətlərin hər biri bir-birinə xidmət edir. Brendin əsasında keyfiyyət, fərdi yanaşma, sistemlilik və unudulmaz hisslər və əhval-ruhiyyə bəxş edən yeni meyllərin tətbiqi durur."
+     },
+     {
+      "h": "Adın mənası"
+     },
+     {
+      "p": "Məna (lat.), duyğu (fr.), hiss (eng.). Brendin əsas missiyası — məna və hisslər bəxş etməkdir."
+     },
+     {
+      "h": "Altı istiqamət"
+     },
+     {
+      "ul": [
+       {
+        "b": "Significant Coffee",
+        "t": " — qəhvə fərdi zövqün incə nüanslarının fəlsəfəsi kimi: dənələrin qovrulmasından hazır məhsula qədər, hazır həllər və peşəkar qəhvə avadanlıqlarının satışı."
+       },
+       {
+        "b": "Evolution Akademiya",
+        "t": " — incəsənət, qəhvə sənayesi, floristika, turizm və tədbirlərin təşkili sahəsində ixtisasartırma kursları."
+       },
+       {
+        "b": "Nostalgia Tur-Konsyerj",
+        "t": " — yeni xatirələr yaradan səyahətlər; hər qonağın fərdi istəkləri nəzərə alınır."
+       },
+       {
+        "b": "Satisfaction Floristika",
+        "t": " — müştərinin xarakterini nəzərə alan canlı eksklüziv kompozisiyalar və herbari, məkanın tərtibatı, landşaft layihələndirməsi."
+       },
+       {
+        "b": "Universal Tədbirlərin təşkili",
+        "t": " — əhəmiyyətli tədbirlərin təşkili: festivallar, kostyumlu tamaşalar, master-klaslar."
+       },
+       {
+        "b": "Memory Foto-Art",
+        "t": " — art-studiya: tematik foto layihələr və unudulmaz obrazlar."
+       }
+      ]
+     },
+     {
+      "note": "İstiqamətlərin adlarının ilk hərfləri SENSUM sözünü əmələ gətirir."
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-mission",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "Миссия, политика и кредо",
+    "blocks": [
+     {
+      "h": "Миссия"
+     },
+     {
+      "p": "Создать точное понимание, что бренд основан на осознании «намерение первично»: обучать и рассказывать о продукте, чтобы заказчик был полностью осведомлён и стал хозяином своего выбора. Качество — основной двигатель успеха, а многогранность услуг и разный спектр товаров позволяют оптимизировать время заказчика."
+     },
+     {
+      "note": "Основная миссия — дарить смысл и ощущения! Эмоции, настроение, подход, постоянные инновации."
+     },
+     {
+      "h": "Политика"
+     },
+     {
+      "note": "Ни при каких обстоятельствах не изменять миссию бренда!"
+     },
+     {
+      "h": "Три кита, на которых держится бренд"
+     },
+     {
+      "ul": [
+       {
+        "b": "Анализ",
+        "t": " — только постоянный анализ позволит быть вооружёнными для новых предложений."
+       },
+       {
+        "b": "Сеть и коммуникации",
+        "t": " — чем больше сеть, тем больше возможностей передать политику и новшества бренда; профессиональные коммуникации между сотрудниками увеличивают продуктивность результата."
+       },
+       {
+        "b": "Уникальность",
+        "t": " — только уникальность продукта и услуги может вывести бренд на эксклюзивность."
+       }
+      ]
+     },
+     {
+      "h": "Кредо компании"
+     },
+     {
+      "p": "Только синергия таланта, знаний и успеха ведёт к получению результата!"
+     },
+     {
+      "ul": [
+       {
+        "b": "Талант",
+        "t": " — долго на нём не продержишься и далеко не уедешь."
+       },
+       {
+        "b": "Знание",
+        "t": " — изучение новых тенденций, постоянная работа над собой."
+       },
+       {
+        "b": "Успех",
+        "t": " — порядок действий и учёт времени."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Missiya, siyasət və kredo",
+    "blocks": [
+     {
+      "h": "Missiya"
+     },
+     {
+      "p": "Brendin “əvvəlcə niyyət” şüuruna söykəndiyi barədə dəqiq anlayış yaratmaq, məhsul haqqında maarifləndirmək və məlumat vermək ki, müştəri tam məlumatlı və öz seçiminin sahibi olsun. Keyfiyyət uğurun əsas mühərrikidir, xidmətlərin çoxşaxəliliyi və müxtəlif çeşidli məhsullar isə müştərinin vaxtını optimallaşdırmağa imkan verir."
+     },
+     {
+      "note": "Əsas missiya — məna və hisslər verməkdir! Emosiyalar, əhval-ruhiyyə, yanaşma, daimi innovasiya."
+     },
+     {
+      "h": "Siyasət"
+     },
+     {
+      "note": "Heç bir şərt altında brendin missiyasına xəyanət etməmək!"
+     },
+     {
+      "h": "Brendin dayandığı üç əsas sütun"
+     },
+     {
+      "ul": [
+       {
+        "b": "Təhlil",
+        "t": " — yalnız daimi təhlil yeni təkliflər üçün bizə silahlanmağa imkan verəcək."
+       },
+       {
+        "b": "Şəbəkə və kommunikasiya",
+        "t": " — şəbəkə nə qədər böyükdürsə, brendin siyasət və yeniliklərini çatdırmaq üçün imkanlar bir o qədər çoxdur; işçilər arasında peşəkar kommunikasiya nəticənin məhsuldarlığını artırır."
+       },
+       {
+        "b": "Unikallıq",
+        "t": " — yalnız məhsul və xidmətin unikallığı brendi eksklüzivliyə çatdıra bilər."
+       }
+      ]
+     },
+     {
+      "h": "Şirkətin kredosu"
+     },
+     {
+      "p": "Yalnız istedad, bilik və uğur sinerjisi nəticələrin alınmasına gətirib çıxarır!"
+     },
+     {
+      "ul": [
+       {
+        "b": "İstedad",
+        "t": " — üzərində çox dayanmayacaqsan və uzağa getməyəcəksən."
+       },
+       {
+        "b": "Bilik",
+        "t": " — yeni tendensiyaların öyrənilməsi, öz üzərində daimi işləmək."
+       },
+       {
+        "b": "Uğur",
+        "t": " — hərəkətin gedişatı və vaxtı."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-principles",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "Семь принципов SENSUM",
+    "blocks": [
+     {
+      "p": "Следуя этим принципам, мы стремимся создавать неповторимые и значимые впечатления, которые оставляют долговременное влияние на клиентов и помогают им почувствовать себя особенными и уникальными."
+     },
+     {
+      "ol": [
+       {
+        "b": "Невозможного не существует!",
+        "t": " Мы верим, что нет ничего невозможного, и стремимся преодолевать границы и ограничения."
+       },
+       {
+        "b": "Только в коммуникации рождается истина!",
+        "t": " Мы придаём большое значение коммуникации и сотрудничеству: только через открытый и честный диалог можно достичь истинного понимания и успеха."
+       },
+       {
+        "b": "Следуя за светом, ты выбираешь свой цвет!",
+        "t": " Мы поощряем индивидуальность и самовыражение, помогаем клиентам найти свой уникальный путь и определить собственную идентичность."
+       },
+       {
+        "b": "Стакан полон всегда: наполовину жидкостью, а наполовину воздухом!",
+        "t": " Мы стремимся поддерживать баланс и гармонию во всём, что делаем: когда все элементы в гармонии, возникают положительные эмоции и настроение."
+       },
+       {
+        "b": "Время каждого ценно!",
+        "t": " Мы ценим время наших клиентов и стараемся обеспечить эффективность и точность во всех аспектах работы."
+       },
+       {
+        "b": "Ответы есть во всём!",
+        "t": " Мы исследуем и изучаем все возможности, чтобы находить ответы и решения для клиентов."
+       },
+       {
+        "b": "Вместе мы — сила!",
+        "t": " Мы признаём силу коллективного усилия и стремимся строить партнёрские отношения со всеми клиентами и поставщиками."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "SENSUM-un yeddi prinsipi",
+    "blocks": [
+     {
+      "p": "Prinsiplərə riayət edərək, biz müştərilərimizdə qalıcı təsir buraxan və onlara xüsusi və bənzərsiz hiss etmələrinə kömək edən unikal və mənalı təəssüratlar yaratmağa çalışırıq."
+     },
+     {
+      "ol": [
+       {
+        "b": "Mümkünsüz heç nə yoxdur!",
+        "t": " Biz inanırıq ki, mümkünsüz heç nə yoxdur və sərhədləri və məhdudiyyətləri aşmağa yönəlmişik."
+       },
+       {
+        "b": "Həqiqət yalnız ünsiyyətdən doğur!",
+        "t": " Biz ünsiyyətə və əməkdaşlığa böyük əhəmiyyət veririk, çünki yalnız açıq və dürüst dialoq vasitəsilə həqiqi anlaşma və uğur əldə etmək olar."
+       },
+       {
+        "b": "İşığı izləyərək öz rəngini seçirsən!",
+        "t": " Biz fərdiliyi və özünü ifadə etməyi təşviq edirik, müştərilərimizə öz unikal yollarını və kimliklərini müəyyən etməyə kömək edirik."
+       },
+       {
+        "b": "Stəkan hər zaman doludur: yarısı maye, yarısı isə hava ilə!",
+        "t": " Biz etdiyimiz hər şeydə tarazlığı və harmoniyanı qorumağa çalışırıq: bütün elementlər harmoniyada olanda müsbət emosiya və əhval-ruhiyyə yaranır."
+       },
+       {
+        "b": "Hər kəsin zamanı qiymətlidir!",
+        "t": " Müştərilərimizin vaxtını dəyərləndiririk və işimizin bütün aspektlərində səmərəliliyi və dəqiqliyi təmin etməyə çalışırıq."
+       },
+       {
+        "b": "Hər şeyin bir cavabı var!",
+        "t": " Müştərilərimiz üçün cavablar və həll yolları tapmaq üçün bütün imkanları araşdırırıq."
+       },
+       {
+        "b": "Güc birlikdədir!",
+        "t": " Biz komanda səyinin gücünü qəbul edirik və bütün müştərilərimiz, təchizatçılarımız və partnyorlarımızla tərəfdaşlıq əlaqələri qurmağa çalışırıq."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-service",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "Качественный сервис",
+    "blocks": [
+     {
+      "p": "Каждый сотрудник должен пройти тренинг по программе, составленной сегмент-менеджером. В ней описаны главные характеристики сервиса: от дресс-кода и разговорной речи до полной осведомлённости о бренде и о продукте или услуге, за которые он отвечает. Только сервис и креативные новшества отличают бренд от конкурентов."
+     },
+     {
+      "ul": [
+       {
+        "b": "Навыки",
+        "t": " — сотрудник, который напрямую общается с потребителем, должен обладать ораторскими способностями."
+       },
+       {
+        "b": "Информация",
+        "t": " — каждый сотрудник должен владеть полной информацией о политике, целях и ценностях компании и о концепции бренда."
+       },
+       {
+        "b": "Ответственность",
+        "t": " — полное понимание зоны своей ответственности. Фраза «это не моя зона ответственности» не принимается: каждая ошибка стоит компании денег. Полная вовлечённость в работу и кооперация с коллегами в командной работе."
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Keyfiyyətli xidmət",
+    "blocks": [
+     {
+      "p": "Hər bir işçi xidmətin əsas xüsusiyyətlərini təsvir edən seqment meneceri tərəfindən tərtib edilmiş proqrama uyğun olaraq təlim keçməlidir. Dress kod, danışıq nitqindən başlayaraq, məsuliyyət daşıdığı brend və məhsul və ya xidmət haqqında tam məlumatlılıqla bitir. Yalnız xidmət və kreativ yeniliklər brendi rəqiblərdən fərqləndirir."
+     },
+     {
+      "ul": [
+       {
+        "b": "Bacarıqlar",
+        "t": " — istehlakçı ilə birbaşa təmasda olan işçi natiqlik bacarığına malik olmalıdır."
+       },
+       {
+        "b": "Məlumat",
+        "t": " — hər bir işçi şirkətin siyasəti, məqsədləri və dəyərləri, brendin konsepsiyası haqqında tam məlumata malik olmalıdır."
+       },
+       {
+        "b": "Məsuliyyət",
+        "t": " — öz məsuliyyət sahəsinin tam başa düşülməsi. “Bu mənim məsuliyyət sahəmdə deyil” ifadəsi qəbul edilmir: hər səhv şirkət üçün pul itkisi deməkdir. İşdə tam iştirak və komanda işində həmkarlarla əməkdaşlıq."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-customer",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "Запросы покупателей и выбор поставщиков",
+    "blocks": [
+     {
+      "note": "Честность — залог долгосрочных отношений! Красное должно быть красным, а 35 см — не меньше, не больше!"
+     },
+     {
+      "h": "Как удовлетворять запросы покупателей"
+     },
+     {
+      "ol": [
+       "Постоянно анализировать потребителя (целевую аудиторию) и заполнять базу данных: эти действия помогают приблизиться и завоевать доверие.",
+       "Чётко прописанные прейскуранты, без возможности адаптироваться на ходу, заранее прописанные на все случаи «блюда».",
+       "Составлять анкеты и опросники для клиентов, чтобы оптимизировать получение нужной информации."
+      ]
+     },
+     {
+      "h": "Что прописывает каждый сегмент"
+     },
+     {
+      "ul": [
+       {
+        "b": "Цель",
+        "t": " — какую цель преследует сегмент на отдельный отрезок времени; чётко прописать вместе с командой."
+       },
+       {
+        "b": "Эмоции",
+        "t": " — какие эмоции вы ожидаете от клиента или заказчика."
+       },
+       {
+        "b": "Предложение",
+        "t": " — перечень услуг, который отличает нас от конкурентов."
+       },
+       {
+        "b": "Отзывы",
+        "t": " — отмечать все отзывы и все негативные — для последующего исправления."
+       }
+      ]
+     },
+     {
+      "h": "Тонкий подход к выбору поставщиков и партнёров"
+     },
+     {
+      "p": "Если мы пропагандируем высокое качество и эксклюзивность, мы не вправе говорить: «мы не нашли», «поставщик подвёл», «стоит дорого» и т. п. Каждый сегмент должен выявить приоритеты для выбора и предоставить их отделу закупок или кооперироваться с ним при необходимости."
+     },
+     {
+      "ul": [
+       "Критерии выбора: предложение, альтернатива, база."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Alıcıların tələbatları və təchizatçıların seçimi",
+    "blocks": [
+     {
+      "note": "Dürüstlük uzunmüddətli əlaqənin açarıdır! Qırmızı qırmızı olmalıdır və 35 sm — nə az, nə çox!"
+     },
+     {
+      "h": "Alıcıların tələbatları necə ödənilir"
+     },
+     {
+      "ol": [
+       "İstehlakçının (hədəf auditoriyasının) daimi təhlilini aparmaq və verilənlər bazasını doldurmaq: bu hərəkətlər yaxınlaşmağa və etibar qazanmağa kömək edir.",
+       "Aydın şəkildə yazılmış qiymət siyahıları, yolüstü adaptasiya olmadan, bütün hallar üçün əvvəlcədən yazılmış “yeməklər”.",
+       "Müştərilərdən lazımi məlumatları optimallaşdırılmış şəkildə əldə etmək üçün anketlər və sorğu formaları hazırlamaq."
+      ]
+     },
+     {
+      "h": "Hər seqment nəyi müəyyən edir"
+     },
+     {
+      "ul": [
+       {
+        "b": "Məqsəd",
+        "t": " — seqmentin müəyyən bir müddət üçün məqsədi nədir; komanda ilə dəqiq şəkildə yazmaq."
+       },
+       {
+        "b": "Emosiyalar",
+        "t": " — müştəridən və ya sifarişçidən hansı emosiyaları gözləyirsiniz."
+       },
+       {
+        "b": "Təklif",
+        "t": " — bizi rəqiblərdən fərqləndirən xidmətlərin siyahısı."
+       },
+       {
+        "b": "Rəylər",
+        "t": " — bütün rəyləri qeyd etmək və sonradan düzəliş üçün bütün mənfi olanları qeyd etmək."
+       }
+      ]
+     },
+     {
+      "h": "Təchizatçı və tərəfdaşların seçiminə incə yanaşma"
+     },
+     {
+      "p": "Əgər yüksək keyfiyyəti, eksklüzivliyi təbliğ ediriksə, “tapmadıq”, “təchizatçı yanıldı”, “çox bahalıdır” kimi ifadələrdən istifadə etmək haqqımız yoxdur. Hər bir seqment seçim üçün prioritetləri müəyyən etməli və lazım gəldikdə satınalma şöbəsinə məlumat verməli və ya onunla əməkdaşlıq etməlidir."
+     },
+     {
+      "ul": [
+       "Seçim meyarları: təklif, alternativ, baza."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-kpi",
+   "cat": "BR",
+   "topic": "BR-1",
+   "ru": {
+    "title": "KPI и стратегический план",
+    "blocks": [
+     {
+      "p": "В ноябре каждого года обязательно составляется стратегический план на следующий год. Он строится по принципу: цели, предложения, действия и результат. Обязательно монетизируются как ожидаемые приходы, исходя из объёмов, поставленных в целях, так и расходы, необходимые для продвижения предложений."
+     },
+     {
+      "h": "Приоритеты плана"
+     },
+     {
+      "ul": [
+       {
+        "b": "Анализ",
+        "t": " — тщательный анализ во всех направлениях во благо потребителя."
+       },
+       "Стратегия роста и распределение прибыли.",
+       {
+        "b": "Системный подход к работе",
+        "t": " — создание протоколов рабочего процесса, рабочих планов действий, структуры передвижения и делегирования работы, как внутри сегментов, так и между ними."
+       },
+       {
+        "b": "Корпоративная этика",
+        "t": " — методы общения с коллегами; этика внешнего вида (бизнес-смарт); этика и знания отправки корпоративных писем; оптимизация времени, своего и коллег."
+       },
+       {
+        "b": "Стабильность и ответственность",
+        "t": " во всём процессе."
+       },
+       {
+        "b": "SMART",
+        "t": " — руководство сотрудников по понятиям SMART: специфичность, взвешенность, согласованность, реалистичность, пунктуальность (чёткие дедлайны)."
+       },
+       {
+        "b": "Инновации",
+        "t": " — не повторяться ни в чём и расти с каждым новым потребителем, с каждым новым продуктом и услугой."
+       }
+      ]
+     },
+     {
+      "h": "Как мы работаем с покупателем"
+     },
+     {
+      "ol": [
+       "Создать чёткий баланс между ожиданиями покупателя и предоставляемым продуктом.",
+       "Просветить каждого покупателя о концепции продукта.",
+       "Объяснить, в чём заключается качество продукта и какой труд предшествует результату.",
+       "Показать, что каждый потребитель особенный, с исключительными качествами, которые делают его индивидуальным.",
+       "Экономить время и средства покупателя.",
+       "Помочь покупателю раскрыть свою индивидуальность и подсказать, как именно это сделать.",
+       "Предоставлять готовое и комплексное решение.",
+       "Предлагать новый подход, устраняя нерешительность и недоверие потребителя к новшествам.",
+       "Не повторяться ни в чём и расти с каждым новым потребителем, продуктом и услугой."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "KPI və strateji plan",
+    "blocks": [
+     {
+      "p": "Hər ilin noyabr ayında mütləq növbəti il üçün strateji plan tərtib edilməlidir. Planın prinsipi bunun üzərində qurulur: məqsədlər, təkliflər, hərəkətlər və nəticələr. Həm hədəflər üçün müəyyən edilmiş həcmlər baxımından gözlənilən gəlirin, həm də təklifin təşviqi üçün zəruri xərclərin pullaşdırılması məcburidir."
+     },
+     {
+      "h": "Planın prioritetləri"
+     },
+     {
+      "ul": [
+       {
+        "b": "Təhlil",
+        "t": " — istehlakçının xeyrinə bütün istiqamətlərdə hərtərəfli təhlil aparmaq."
+       },
+       "İnkişaf strategiyası və mənfəət bölgüsü.",
+       {
+        "b": "İşə sistemli yanaşma",
+        "t": " — həm seqmentlər daxilində, həm də seqmentlər arasında iş axını protokollarını, fəaliyyət iş planlarını, iş axınının hərəkətini və nümayəndəlik strukturlarını yaratmaq."
+       },
+       {
+        "b": "Korporativ etika",
+        "t": " — həmkarları ilə ünsiyyət üsulları; görünüş etikası (biznes smart); korporativ məktubların göndərilməsi etikası və biliyi; vaxtın optimallaşdırılması, özünüzün və həmkarlarınızın."
+       },
+       {
+        "b": "Sabitlik və məsuliyyət",
+        "t": " bütün proses boyunca."
+       },
+       {
+        "b": "SMART",
+        "t": " — işçi təlimatı SMART konsepsiyaları üzrə: spesifiklik, tarazlıq, ardıcıllıq, reallıq, dəqiqlik (aydın deadline)."
+       },
+       {
+        "b": "İnnovasiyalar",
+        "t": " — heç bir şeydə təkrarlanmamaq və hər yeni istehlakçı, hər yeni məhsul və xidmətlə inkişaf etmək."
+       }
+      ]
+     },
+     {
+      "h": "Alıcı ilə necə işləyirik"
+     },
+     {
+      "ol": [
+       "Alıcının gözləntiləri və təqdim olunan məhsul arasında dəqiq balans yaratmaq.",
+       "Hər bir alıcını təqdim olunan məhsulun konsepsiyası barədə məlumatlandırmaq.",
+       "Məhsulun keyfiyyətinin nədə olduğunu və nəticəyə qədər hansı əməyin sərf olunduğunu izah etmək.",
+       "Hər istehlakçının onu unikal edən müstəsna keyfiyyətlərə malik xüsusi biri olduğunu göstərmək.",
+       "Alıcının vaxtına və vəsaitinə qənaət etmək.",
+       "Alıcılarımıza fərdiliyini üzə çıxarmaqda kömək etmək və bunun yollarını izah etmək.",
+       "Hazır kompleks həll təqdim etmək.",
+       "İstehlakçının qərarsızlığını və yeniliklərə qarşı etimadsızlığını aradan qaldırmaqla, yeni yanaşma təklif etmək.",
+       "Heç bir şeydə təkrarlanmamaq və hər yeni istehlakçı, məhsul və xidmətlə inkişaf etmək."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-complex",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "Комплексный конечный продукт",
+    "blocks": [
+     {
+      "p": "Политика и структура бренда выстроены на комплексном подходе, как внутри сегмента, так и в совокупности сегментов. Создание комплексных продуктов, услуг и бизнес-решений выведет бренд на вершину успеха."
+     },
+     {
+      "h": "Программы комплексного подхода"
+     },
+     {
+      "ul": [
+       "Кофейное заведение под ключ.",
+       "Обучение с последующим трудоустройством, включая компанию SENSUM.",
+       "Флористический консьерж для юридического и физического лица (букет на день рождения, оформление этого же дня рождения, оформление к праздникам и т. д.).",
+       "Комплекс услуг для бренд-групп: список бренд-групп и их обработка на предмет услуг в комплексе с последующим ведением их бренда (цветы, кофе-брейки, ивенты, тимбилдинги, все возможные виды съёмок и т. д.).",
+       "Экспорт.",
+       "Изучение дизайнерского ландшафта.",
+       "Проведение тимбилдингов в стенах мастерской SENSUM для сторонних компаний (потенциальных клиентов).",
+       "Контент-съёмка для бренд-групп."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Kompleks son məhsul",
+    "blocks": [
+     {
+      "p": "Brendin siyasəti və strukturu həm seqment daxilində, həm də seqmentlərin məcmusunda inteqrasiya olunmuş yanaşma üzərində qurulub. Mürəkkəb məhsulların, xidmətlərin və biznes həllərinin yaradılması brendi uğurun zirvəsinə çatdıracaq."
+     },
+     {
+      "h": "Kompleks yanaşma proqramları"
+     },
+     {
+      "ul": [
+       "Tam təşkil olunmuş kofe müəssisəsi.",
+       "Təlimdən sonra işlə təmin olunma, SENSUM şirkəti daxil olmaqla.",
+       "Fiziki şəxslər (ad günü buketi, ad gününün tərtibatı, bayram tərtibatı və s.) və hüquqi şəxslər üçün floristik konsyerj.",
+       "Brend qrupları üçün xidmətlər kompleksi: brend qruplarının siyahısı və onların xidmətlər üzrə emalı, daha sonra brendin aparılması (güllər, kofe fasilələri, tədbirlər, timbildinq, bütün mümkün çəkiliş növləri və s.).",
+       "İxrac.",
+       "Landşaft dizaynının öyrənilməsi.",
+       "Emalatxana daxilində digər şirkətlər (potensial müştərilərimiz) üçün timbildinq təşkili.",
+       "Brend qrupları üçün kontent çəkilişi."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-coffee",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "SENSUM Specialty Coffee",
+    "blocks": [
+     {
+      "p": "Мы предлагаем сильный бренд: работаем со всемирно известными поставщиками и опираемся на качественную продукцию местного производства на привлекательных условиях, специально разработанных для каждого канала сбыта. Наш ассортимент будет постоянно расти и оптимизироваться под изменения рынка с учётом потребностей конечных потребителей и интересов клиентов."
+     },
+     {
+      "h": "Уникальное достоинство услуг"
+     },
+     {
+      "ul": [
+       "Мы предоставляем кофе класса Specialty.",
+       "Мы проводим тренинги международного класса по программе SCA.",
+       "Мы можем показать партнёрам производство и отвести их в сервис, где они увидят, как обращаются с их оборудованием."
+      ]
+     },
+     {
+      "h": "Гурманы"
+     },
+     {
+      "p": "С быстрым ростом кофейной отрасли появилась категория покупателей — ценители и истинные гурманы этого напитка."
+     },
+     {
+      "h": "На одной волне"
+     },
+     {
+      "p": "Бариста и обслуживающий персонал всё чаще становятся главным «продающим» звеном в компании. Они не просто варят кофе и подносят его, но и поддерживают разговор с гостями: обсуждают не только кофе, но и погоду за окном, чувствуют клиента и «подходят» к нему сугубо индивидуально."
+     },
+     {
+      "h": "Каналы"
+     },
+     {
+      "ul": [
+       "Бизнес-кафе",
+       "Шоу-рум",
+       "Дистрибуция брендов",
+       "Цех обжарки кофе"
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "SENSUM Specialty Coffee",
+    "blocks": [
+     {
+      "p": "Biz dünyaca məşhur təchizatçılarla işləyərək yerli istehsalın keyfiyyətli məhsullarından istifadə edən güclü bir brend təklif edirik. Məhsul portfelimiz daimi olaraq artacaq və bazarın dəyişikliklərini nəzərə alaraq son müştəri tələbləri və müştərilərimizin marağına uyğunlaşdırılacaq."
+     },
+     {
+      "h": "Xidmətlərin unikal üstünlüyü"
+     },
+     {
+      "ul": [
+       "Biz “Specialty” sinifinə aid kofe təqdim edirik.",
+       "Biz SCA proqramı çərçivəsində beynəlxalq səviyyəli təlimlər veririk.",
+       "Biz tərəfdaşlara istehsalatı göstərə və onları servisə apararaq, onların avadanlıqlarının necə istifadə olunduqlarını görmək imkanı yarada bilərik."
+      ]
+     },
+     {
+      "h": "Qurmanlar"
+     },
+     {
+      "p": "Kofe sənayesinin sürətli inkişafı ilə əlaqədar olaraq, bu içkiyə qiymət verən və əsl qurmanlar kateqoriyası meydana çıxdı."
+     },
+     {
+      "h": "Bir dalğada"
+     },
+     {
+      "p": "Barista və xidmət personalı daha çox şirkətin əsas “satış” bəndinə çevrilirlər. Onlar sadəcə kofe hazırlamır və çatdırmır, həm də qonaqlarla söhbətlər apararaq yalnız kofe haqqında deyil, həm də pəncərədən kənarda havanı müzakirə edirlər, müştərini tamamilə hiss edir və “tək-tək” yanaşırlar."
+     },
+     {
+      "h": "Kanallar"
+     },
+     {
+      "ul": [
+       "Biznes kafe",
+       "Şou-rum",
+       "Brendlərin distribyutorluğu",
+       "Kofe qovurma sexi"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-roast",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "Цех обжарки и техническое обслуживание",
+    "blocks": [
+     {
+      "h": "Обжаренное зерно"
+     },
+     {
+      "ul": [
+       "Обжаренный кофе для вашего дома и офиса.",
+       "Подбор индивидуальных профилей обжарки для вашего бизнеса.",
+       "Возможность индивидуального пакетирования под вашим брендом.",
+       "Большой выбор упаковок, включая пакеты из перерабатываемого материала.",
+       "Молотый кофе в любых объёмах для дома, офиса или бизнеса."
+      ]
+     },
+     {
+      "h": "Зелёное зерно"
+     },
+     {
+      "table": {
+       "head": [
+        "Категория",
+        "Оценка"
+       ],
+       "rows": [
+        [
+         "Регулярное зерно",
+         "80–85"
+        ],
+        [
+         "Микролоты",
+         "85–89"
+        ],
+        [
+         "Уникальный и экспериментальный кофе",
+         "90+"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Техническое обслуживание"
+     },
+     {
+      "ul": [
+       "Установка и отладка оборудования",
+       "Диагностика оборудования",
+       "Ремонт профессионального оборудования",
+       "Ремонт суперавтоматических и автоматических кофемашин",
+       "Профессиональная очистка кофемашин и кофемолок",
+       "Декальцинация"
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Qovurma sexi və texniki dəstək",
+    "blocks": [
+     {
+      "h": "Qovrulmuş dənə"
+     },
+     {
+      "ul": [
+       "Eviniz və ofisiniz üçün qovrulmuş qəhvə.",
+       "Biznesiniz üçün fərdi kofe qovurma profillərinin seçilməsi.",
+       "Brendiniz altında fərdi qablaşdırma imkanı.",
+       "Təkrar emal edilə bilən paketlər də daxil olmaqla geniş qablaşdırma seçimi.",
+       "Eviniz, ofisiniz və ya biznesiniz üçün istənilən həcmdə üyüdülmüş kofe."
+      ]
+     },
+     {
+      "h": "Yaşıl dənə"
+     },
+     {
+      "table": {
+       "head": [
+        "Kateqoriya",
+        "Qiymət"
+       ],
+       "rows": [
+        [
+         "Sadə dənə",
+         "80–85"
+        ],
+        [
+         "Mikrolotlar",
+         "85–89"
+        ],
+        [
+         "Unikal və eksperimental kofe",
+         "90+"
+        ]
+       ]
+      }
+     },
+     {
+      "h": "Texniki dəstək"
+     },
+     {
+      "ul": [
+       "Avadanlıqların quraşdırılması və tənzimlənməsi",
+       "Avadanlıqların diaqnostikası",
+       "Professional avadanlıqların təmiri",
+       "Superavtomat və avtomatik kofe maşınlarının təmiri",
+       "Kofe maşınlarının və üyüdücülərin peşəkar təmizlənməsi",
+       "Dekalsifikasiya"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-academy",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "Академия SENSUM Education",
+    "blocks": [
+     {
+      "p": "Мы проводим курсы повышения квалификации и профессиональных навыков для специалистов в области искусства, кофейной индустрии, флористики, туризма и организации мероприятий. Признанные эксперты и наставники разных отраслей делятся знаниями и учат тонкостям работы, необходимым для хороших результатов."
+     },
+     {
+      "h": "Три направления обучения"
+     },
+     {
+      "ul": [
+       {
+        "b": "Кофе",
+        "t": " — обучение персонала по внутренним курсам и по модулям Specialty Coffee Association, регулярные семинары и лекции. Специалисты научат всему: от тонкостей обжарки зёрен до навыков технической поддержки оборудования."
+       },
+       {
+        "b": "Флористика",
+        "t": " — признанные эксперты станут проводником в мир красоты и гармонии: композиции воспринимаются не только как произведение искусства, но и как коммерческий продукт для флористического бизнеса."
+       },
+       {
+        "b": "Фото-арт",
+        "t": " — узкопрофильные специалисты арт-студии помогут познакомиться с новыми возможностями технической визуализации идей. Двери открыты для всех, кто готов учиться и реализовывать свой потенциал."
+       }
+      ]
+     },
+     {
+      "h": "Знания, энергия, эмоции"
+     },
+     {
+      "p": "Знания (IQ), энергия (VQ) и эмоции (EQ) — значимые составляющие успеха. Путь к нему начинается с желания открыться переменам и познать себя заново."
+     }
+    ]
+   },
+   "az": {
+    "title": "SENSUM Education Akademiyası",
+    "blocks": [
+     {
+      "p": "Biz incəsənət, qəhvə sənayesi, floristika, turizm və tədbirlərin təşkili sahəsində mütəxəssislər üçün ixtisasartırma və peşəkar bacarıq kursları təklif edirik. Müxtəlif sahələrin tanınmış ekspertləri və səriştəli mentorları biliklərini bölüşür və yaxşı nəticələr üçün lazım olan işin incəliklərini öyrədirlər."
+     },
+     {
+      "h": "Üç tədris istiqaməti"
+     },
+     {
+      "ul": [
+       {
+        "b": "Kofe",
+        "t": " — işçilərin daxili kurslar və Specialty Coffee Association modulları üzrə təlimi, müntəzəm seminarlar və mühazirələr. Mütəxəssislər sizə dənələrin qovrulmasının incəliklərindən avadanlıqlara texniki dəstək bacarıqlarına qədər hər şeyi öyrədəcəklər."
+       },
+       {
+        "b": "Floristika",
+        "t": " — tanınmış ekspertlər gözəllik və harmoniya dünyasına bələdçi olacaqlar: kompozisiyalar təkcə sənət əsəri kimi deyil, həm də floristik biznes üçün kommersiya məhsulu kimi qəbul edilir."
+       },
+       {
+        "b": "Foto-art",
+        "t": " — art-studiyanın yüksək ixtisaslı mütəxəssisləri ideyaların texniki vizuallaşdırılmasının yeni imkanları ilə tanış olmaqda kömək edəcəklər. Qapılar öyrənməyə və potensialını həyata keçirməyə hazır olan hər kəs üçün açıqdır."
+       }
+      ]
+     },
+     {
+      "h": "Bilik, enerji, emosiyalar"
+     },
+     {
+      "p": "Bilik (IQ), enerji (VQ) və emosiyalar (EQ) uğurun ən mühüm amilləridir. Uğura aparan yol dəyişikliklərə hazır olmaq və özünü yenidən kəşf etmək istəyindən başlayır."
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-floristry",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "SENSUM Floristry",
+    "blocks": [
+     {
+      "p": "Мы открываем двери в новый флористический мир, создав полную энциклопедию характеристик всех цветов и их значений. Живые эксклюзивные композиции и гербарий с учётом характера клиента, оформление пространства срезанными, горшечными и искусственными растениями, ландшафтное проектирование."
+     },
+     {
+      "h": "Почему мы"
+     },
+     {
+      "ul": [
+       "Персональный подход к каждому клиенту: цветочные композиции с учётом намерений клиента и особенностей характера получателя.",
+       "Нестандартный подход: композиции и букеты на основе авторских историй, стереотипов и философии, которые прилагаются к букету в виде печатной продукции.",
+       "Креативное решение с помощью гербария (сухоцветов): он не требует особого ухода и прослужит долгие годы.",
+       "Итоговый продукт в упаковочном сете: знак качества, вкладыш по уходу, Кризал (жидкая подкормка) и транспортировочная сумка.",
+       "Проверенные и надёжные поставщики.",
+       "Личный куратор, который берёт на себя ответственность за организацию и ведение значимых дат в установленный период."
+      ]
+     },
+     {
+      "note": "Всё, что остаётся вам, — свободно распоряжаться своим временем."
+     },
+     {
+      "h": "Услуги"
+     },
+     {
+      "ul": [
+       "Оформление частных мероприятий",
+       "Свадебные букеты",
+       "Упаковка подарков",
+       "Индивидуальная сборка гербарных композиций",
+       "Оформление бутиков"
+      ]
+     },
+     {
+      "h": "Флористический консьерж"
+     },
+     {
+      "ul": [
+       "Ведение базы значимых дат клиента в установленный период по контракту.",
+       "Индивидуальный подбор цветов будущих композиций по Энциклопедии характеристик.",
+       "Разработка стилевого построения будущих концептуальных композиций.",
+       "Подготовка тем индивидуальных историй и писем на выбор клиента.",
+       "Концепция и стилистика оформления мероприятий с учётом пожеланий клиента: площадки, техническое обеспечение, интертеймент, видеосъёмка и монтаж, дизайн.",
+       "Сборка корпоративного пакета и его составляющих.",
+       "Презентация озеленения помещений (тематически, сезонно, событийно) с последующим уходом.",
+       "Разработка идей и концепции масштабных мероприятий.",
+       "Бесплатная консультация по компетентным вопросам."
+      ]
+     },
+     {
+      "h": "Цветовые гаммы"
+     },
+     {
+      "ul": [
+       {
+        "b": "Красная",
+        "t": " — алый, коралловый, марсала"
+       },
+       {
+        "b": "Оранжевая",
+        "t": " — морковный, терракотовый, янтарный"
+       },
+       {
+        "b": "Жёлтая",
+        "t": " — бледно-жёлтый, лимонный, масляный"
+       },
+       {
+        "b": "Зелёная",
+        "t": " — лесной зелёный, мята, оливковый"
+       },
+       {
+        "b": "Синяя",
+        "t": " — королевский синий, морская волна, голубой"
+       },
+       {
+        "b": "Фиолетовая",
+        "t": " — индиго, сиреневый, сливовый"
+       },
+       {
+        "b": "Белая",
+        "t": " — бриллиантовый, белый дым, кокос"
+       },
+       {
+        "b": "Чёрная",
+        "t": " — серый, фантомный, чёрный"
+       }
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "SENSUM Floristry",
+    "blocks": [
+     {
+      "p": "Biz bütün çiçəklərin xüsusiyyətlərini və mənalarını özündə əks etdirən ensiklopediyanı yaradaraq yeni floristik dünyaya qapılar açırıq. Müştərinin xarakterini nəzərə alan canlı eksklüziv kompozisiyalar və herbari, məkanın kəsilmiş, qablı və süni bitkilərlə tərtibatı, landşaft layihələndirməsi."
+     },
+     {
+      "h": "Niyə biz"
+     },
+     {
+      "ul": [
+       "Hər bir müştəriyə fərdi yanaşma: müştərinin niyyətini və qəbul edənin xarakterini nəzərə alaraq gül kompozisiyalarının yaradılması.",
+       "Qeyri-standart yanaşma: çap materialları şəklində buketə əlavə olunan müəllif hekayələri, stereotipləri və fəlsəfəsi əsasında kompozisiya və buketlərin yaradılması.",
+       "Herbari (quru çiçəklər) ilə yaradıcı həll: xüsusi qulluq tələb etmir və uzun illər qoruna bilər.",
+       "Son məhsulun qablaşdırma dəsti ilə təqdim edilməsi: keyfiyyət nişanı, qulluq vərəqəsi, Krizal (qida mayəsi) və daşınma çantası.",
+       "Təsdiq edilmiş və etibarlı təchizatçıların seçimi.",
+       "Müəyyən etdiyiniz müddətdə əlamətdar tarixlərin təşkili və aparılması üçün tam məsuliyyət daşıyacaq şəxsi kurator."
+      ]
+     },
+     {
+      "note": "Sizə qalan tək şey vaxtınızı sərbəst idarə etməkdir."
+     },
+     {
+      "h": "Xidmətlər"
+     },
+     {
+      "ul": [
+       "Fərdi tədbirlərin tərtibatı",
+       "Toy buketləri",
+       "Hədiyyələrin bağlanması",
+       "Fərdi herbari kompozisiyalarının yaradılması",
+       "Butiklərin tərtib edilməsi"
+      ]
+     },
+     {
+      "h": "Floristik konsyerj"
+     },
+     {
+      "ul": [
+       "Müqaviləyə uyğun olaraq müəyyən edilmiş müddətdə müştəri üçün əlamətdar tarixlərin məlumat bazasının aparılması.",
+       "Xüsusiyyətlər Ensiklopediyasına əsasən gələcək kompozisiyalar üçün rənglərin fərdi seçimi.",
+       "Gələcək konseptual kompozisiyaların stilistik quruluşunun hazırlanması.",
+       "Müştərinin seçimi ilə fərdi hekayələr və məktublar üçün mövzuların hazırlanması.",
+       "Müştərinin istəkləri nəzərə alınmaqla tədbirlərin dizaynının konsepsiyası və üslubu: məkanlar, texniki dəstək, əyləncə, video çəkiliş və montaj, dizayn.",
+       "Korporativ paketin və onun komponentlərinin yığılması.",
+       "Binaların yaşıllaşdırılmasının (tematik, mövsümi, əlamətdar) təqdimatı və sonradan qulluq.",
+       "Genişmiqyaslı tədbirlər üçün ideya və konsepsiyaların hazırlanması.",
+       "Səlahiyyətli məsələlər üzrə ödənişsiz məsləhət."
+      ]
+     },
+     {
+      "h": "Rəng qammaları"
+     },
+     {
+      "ul": [
+       {
+        "b": "Qırmızı",
+        "t": " — al-qırmızı, mərcan, marsala"
+       },
+       {
+        "b": "Narıncı",
+        "t": " — kök, terrakota, kəhrəba"
+       },
+       {
+        "b": "Sarı",
+        "t": " — solğun sarı, limon, yağ"
+       },
+       {
+        "b": "Yaşıl",
+        "t": " — meşə, nanə, zeytun"
+       },
+       {
+        "b": "Göy",
+        "t": " — kral göy, dəniz dalğası, mavi"
+       },
+       {
+        "b": "Bənövşəyi",
+        "t": " — indiqo, yasəmən, gavalı"
+       },
+       {
+        "b": "Ağ",
+        "t": " — brilyant ağ, tüstü, kokos"
+       },
+       {
+        "b": "Qara",
+        "t": " — boz, fantom, qara"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-tour-event-photo",
+   "cat": "BR",
+   "topic": "BR-2",
+   "ru": {
+    "title": "Тур-консьерж, Events и Photo Art",
+    "blocks": [
+     {
+      "h": "Nostalgia Tour-Concierge"
+     },
+     {
+      "p": "Путешествия создают новые воспоминания и меняют наше представление о мире. Мы учитываем индивидуальные предпочтения каждого, чтобы сделать путешествие незабываемой историей, уходим от привычного маршрута и открываем мир заново. Твой отдых начинается со звонка в SENSUM!"
+     },
+     {
+      "h": "Universal Event"
+     },
+     {
+      "p": "Индивидуальный подход к организации значимых мероприятий — задача не из простых, но наша команда не сторонится сложностей. Мы воплощаем невероятные идеи и превосходим ожидания, опираясь на знания и опыт, совмещённые с безграничным воображением: фестивали, костюмированные представления, мастер-классы."
+     },
+     {
+      "ul": [
+       {
+        "b": "Государственные проекты",
+        "t": " — большая ответственность, оправданная высоким уровнем подготовки каждого этапа по грамотно составленному плану работ. Задачи любой сложности и масштаба выполняются в кратчайшие сроки профессиональной командой SENSUM."
+       }
+      ]
+     },
+     {
+      "h": "Memory Photo-Art"
+     },
+     {
+      "p": "Арт-студия помогает реализовать смелые фантазии и создать незабываемые воспоминания. Тематические фотопроекты позволяют соприкоснуться с искусством перевоплощения: поразительные образы, дополненные значимыми деталями."
+     },
+     {
+      "ul": [
+       "Контент-съёмка для корпораций и торговых групп нужна, чтобы привлечь внимание целевой аудитории и поддерживать имидж бренда клиента."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Tur-konsyerj, Events və Photo Art",
+    "blocks": [
+     {
+      "h": "Nostalgia Tur-Konsyerj"
+     },
+     {
+      "p": "Səyahətlər yeni xatirələr yaradır və dünya haqqında təsəvvürümüzü dəyişir. Biz hər kəsin fərdi istəklərini nəzərə alırıq ki, səyahət unudulmaz hekayəyə çevrilsin: ənənəvi istiqamətlərdən uzaqlaşaraq dünyanı yenidən kəşf edirik. İstirahətiniz SENSUM-a zəngdən başlayır!"
+     },
+     {
+      "h": "Universal Tədbirlərin təşkili"
+     },
+     {
+      "p": "Əhəmiyyətli tədbirlərin təşkilinə fərdi yanaşma asan məsələ deyil, lakin komandamız çətinliklərdən çəkinmir. Biz inanılmaz ideyaları həyata keçirir və biliyə, təcrübəyə və sərhədsiz təxəyyülə əsaslanaraq gözləntiləri aşırıq: festivallar, kostyumlu tamaşalar, master-klaslar."
+     },
+     {
+      "ul": [
+       {
+        "b": "Dövlət layihələri",
+        "t": " — tədbirin hər bir mərhələsinin yaxşı hazırlanmış iş planına uyğun yüksək səviyyədə hazırlanması böyük məsuliyyətdir. İstənilən mürəkkəb və miqyaslı tapşırıqlar SENSUM mütəxəssislərinin peşəkar komandası tərəfindən ən qısa zamanda yerinə yetirilir."
+       }
+      ]
+     },
+     {
+      "h": "Memory Foto-Art"
+     },
+     {
+      "p": "Art-studiya ən cəsarətli fantaziyaları həyata keçirməyə və unudulmaz xatirələr yaratmağa kömək edir. Tematik foto layihələrdə iştirak təsirli obrazların yaradılmasında ifadə olunan obrazın canlandırılması sənətinə yaxınlaşmağa imkan verir."
+     },
+     {
+      "ul": [
+       "Korporasiyalar və ticarət qrupları üçün kontent çəkilişi hədəf auditoriyanın diqqətini cəlb etmək və müştərinin brend imicini dəstəkləmək üçündür."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-priorities",
+   "cat": "BR",
+   "topic": "BR-3",
+   "ru": {
+    "title": "Три приоритета: комплексное, долгосрочное, уникальное",
+    "blocks": [
+     {
+      "h": "Комплексное"
+     },
+     {
+      "p": "Использование всех или большей части услуг и товаров сегмента."
+     },
+     {
+      "ol": [
+       "Заведение под ключ и оборудование для кофе.",
+       "Привлечение посредством продукта (кофе, цветы, фото).",
+       "Цветочное оформление на ивентах, витринистика, корпоративный интерьер и декор.",
+       "Готовый фотообзор для корпоративов.",
+       "Государственные мероприятия, открытия, форумы."
+      ]
+     },
+     {
+      "h": "Долгосрочное"
+     },
+     {
+      "p": "Годовые контракты на товары и услуги сегмента."
+     },
+     {
+      "ol": [
+       "Экспорт, тендеры на кофе, сервис.",
+       "Многоуровневые академические курсы.",
+       "Консьерж и торговые группы.",
+       "Контент для корпораций и торговых групп для поддержания имиджа.",
+       "Подарки и ежегодные фестивали."
+      ]
+     },
+     {
+      "h": "Уникальное"
+     },
+     {
+      "p": "Использование ноу-хау каждого сегмента."
+     },
+     {
+      "ol": [
+       "Возможность индивидуального рецепта кофе.",
+       "Возможность создать букет на основании совокупности отличительных черт характера получателя.",
+       "Флористический консьерж: оптимизация времени и уникальность букета независимо от периода получения.",
+       "Возможность создавать уникальные образы с уникальным реквизитом: одни предметы собраны по всему миру, другие созданы руками мастеров."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "Üç prioritet: kompleks, uzunmüddətli, unikal",
+    "blocks": [
+     {
+      "h": "Kompleks"
+     },
+     {
+      "p": "Seqmentin bütün və ya əksər xidmət və məhsullarından istifadə etməklə."
+     },
+     {
+      "ol": [
+       "Tam təşkil olunmuş müəssisə və kofeyə aid avadanlıqlar.",
+       "Məhsul vasitəsilə cəlbetmə (kofe, güllər, şəkillər).",
+       "Tədbirlərdə floristik tərtibat, vitrin dizaynı, korporativ interyer dekor.",
+       "Korporativlər üçün hazır fotoicmal.",
+       "Dövlət tədbirləri, açılışlar, forumlar."
+      ]
+     },
+     {
+      "h": "Uzunmüddətli"
+     },
+     {
+      "p": "Seqmentin məhsul və xidmətləri üçün illik müqavilələr."
+     },
+     {
+      "ol": [
+       "Eksport, kofe üzrə tenderlər, xidmət.",
+       "Çoxpilləli akademik kurslar.",
+       "Konsyerj və ticarət qrupları.",
+       "Korporasiyalar və ticarət qrupları üçün imicin dəstəyi məqsədilə kontent.",
+       "Hədiyyələr və illik festivallar."
+      ]
+     },
+     {
+      "h": "Unikal"
+     },
+     {
+      "p": "Hər bir seqment üzrə nou-haudan istifadə."
+     },
+     {
+      "ol": [
+       "Fərdi kofe resepti imkanı.",
+       "Qəbul edənin xarakterinin fərqləndirici xüsusiyyətlərinin məcmusuna əsaslanan buket yaratmaq imkanı.",
+       "Floristik konsyerj: vaxtın optimallaşdırılması və buketin alınma müddətindən asılı olmayaraq unikallığı.",
+       "Unikal rekvizitlərlə unikal obrazlar yaratmaq imkanı: bəzi əşyalar dünyanın hər yerindən toplanıb, digərləri ustaların əlləri ilə hazırlanıb."
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "br-growth",
+   "cat": "BR",
+   "topic": "BR-3",
+   "ru": {
+    "title": "Стратегия роста",
+    "blocks": [
+     {
+      "p": "Цели стратегии роста бренда: от непрерывного развития до вклада в развитие страны."
+     },
+     {
+      "ul": [
+       "Непрерывное развитие.",
+       "Представление страны на разнообразных платформах.",
+       "Создание ассоциаций во всех сегментах на государственном уровне.",
+       "Мировой знак качества.",
+       "Расширение географии бренда.",
+       "Выявление новых стандартов качества как эталона.",
+       "Создание новых сегментов, связанных с философией бренда.",
+       "Экономическое и социальное развитие страны."
+      ]
+     }
+    ]
+   },
+   "az": {
+    "title": "İnkişaf strategiyası",
+    "blocks": [
+     {
+      "p": "Brendin inkişaf strategiyasının məqsədləri: davamlı inkişafdan ölkənin inkişafına töhfəyə qədər."
+     },
+     {
+      "ul": [
+       "Davamlı inkişaf.",
+       "Ölkənin müxtəlif platformalarda təmsili.",
+       "Dövlət səviyyəsində bütün seqmentlərdə assosiasiyaların yaradılması.",
+       "Dünya keyfiyyət nişanı.",
+       "Brend coğrafiyasının genişləndirilməsi.",
+       "Yeni keyfiyyət standartlarının etalon kimi müəyyən edilməsi.",
+       "Brend fəlsəfəsi ilə bağlı yeni seqmentlərin yaradılması.",
+       "Ölkənin iqtisadi və sosial inkişafı."
       ]
      }
     ]
