@@ -20,6 +20,7 @@ function makeSheet(rows, maxRows) {
         setValues(v) { v.forEach((row, i) => { while (data.length < r + i) data.push([]); row.forEach((x, j) => { data[r - 1 + i][c - 1 + j] = x; }); }); },
         setNumberFormat(f) { sh.formats[r + ':' + c] = f; return this; },
         copyFormatToRange() {},
+        clearContent() { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) if (data[r - 1 + i]) data[r - 1 + i][c - 1 + j] = ''; return this; },
         getValue() { return this.getValues()[0][0]; }
       };
     }
@@ -74,7 +75,7 @@ function env(opts = {}) {
       newTrigger(h) { const b = { timeBased: () => b, everyDays: () => b, onWeekDay: () => b, atHour: x => { b.h = x; return b; }, inTimezone: () => b, create: () => triggers.push(h + '@' + b.h) }; return b; } }
   };
   vm.createContext(ctx);
-  vm.runInContext(SRC + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify};', ctx);
+  vm.runInContext(SRC + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions};', ctx);
   const api = ctx.__api;
   const post = d => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(d) } }).text);
   const me = code => JSON.parse(api.doGet({ parameter: { action: 'me', code } }).text);
@@ -159,9 +160,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.5'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.6'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.5');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.6');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -335,6 +336,54 @@ g.api.monthlyReport_(new Date('2026-11-01T17:00:00Z'));
 const mr = g.sent[g.sent.length - 1];
 console.log('--- monthly ---\n' + mr);
 assert.ok(mr.startsWith('📝 Экзамен месяца, 10.2026') && mr.includes('Тест-1: 20 из 20, 100%') && mr.includes('Тест-2: не сдавал') && mr.includes('Тест-1: 18'));
+
+// 8f. «Вопрос дня» (v5.6): its own sheet, XP once a day, no limit, no owls, no message; a run of days; the hard questions
+const dq = env({ notifyAll: true, now: NOW });
+const d1 = dq.post({ id: 'q1', code: '9001', kind: 'daily', scope: 'Вопрос дня', score: 3, total: 3, mistakes: [], ts: at(0, 9) });
+assert.strictEqual(d1.ok, true); assert.strictEqual(d1.xp, 50, 'three right: 30 + 20'); assert.deepStrictEqual(d1.owls, []);
+assert.deepStrictEqual(d1.daily, { done: true, streak: 1 });
+assert.strictEqual(dq.results.getLastRow(), 1, 'not written to «Результаты»'); assert.strictEqual(dq.sheets['Вопрос дня'].getLastRow(), 2);
+assert.strictEqual(dq.sheets['Вопрос дня'].formats['2:2'], '@');
+assert.strictEqual(dq.sent.length, 0, 'no instant message, even with «Уведомлять о каждом тесте»');
+assert.deepStrictEqual(dq.post({ id: 'q1', code: '9001', kind: 'daily', score: 3, total: 3 }), { ok: true, duplicate: true });
+assert.strictEqual(dq.post({ id: 'q2', code: '9001', kind: 'daily', score: 2, total: 3, mistakes: M, ts: at(0, 10) }).xp, 0, 'the second of a day: no XP');
+assert.strictEqual(dq.post({ id: 'q3', code: '9001', kind: 'daily', score: 9, total: 10 }).error, 'bad_score', 'at most 5 questions');
+assert.strictEqual(dq.post({ id: 'q3', code: '9999', kind: 'daily', score: 1, total: 3 }).error, 'unknown_code');
+dq.post({ id: 'q4', code: '9001', kind: 'daily', score: 1, total: 3, ts: at(1) });
+dq.post({ id: 'q5', code: '9001', kind: 'daily', score: 0, total: 3, ts: at(2), aborted: true });
+dq.post({ id: 'q6', code: '9001', kind: 'daily', score: 3, total: 3, ts: at(3) });
+const dm = dq.me('9001');
+assert.deepStrictEqual(dm.daily, { done: true, streak: 2 }, 'today and yesterday; the aborted day breaks the run');
+assert.strictEqual(dm.xp, 50 + 10 + 0 + 50, 'XP of the first of each day, none for an aborted one');
+assert.deepStrictEqual(dm.week, { recipes: 0, theory: 0 }, 'not a weekly attempt');
+assert.strictEqual(dm.weekTests, 0, 'not a test of the study week'); assert.strictEqual(dm.streak, 0);
+assert.ok(!dm.badges.includes('first'), '«Вопрос дня» is not a first test');
+assert.strictEqual(dm.board.people[0].xp, 110, 'its XP counts on the weekly board');
+assert.deepStrictEqual(dq.me('9002').daily, { done: false, streak: 0 });
+for (let i = 1; i <= 7; i++) dq.post({ id: 'w' + i, code: '9002', kind: 'daily', score: 3, total: 3, ts: at(i - 1, 8) });
+const d7 = dq.me('9002');
+assert.strictEqual(d7.daily.streak, 7); assert.ok(d7.badges.includes('days7'), 'seven days in a row: the badge');
+// tests count six attempts a day for XP; «Вопрос дня» does not take one of the five XP tests of a day
+for (let i = 1; i <= 5; i++) dq.post({ id: 'x' + i, code: '9003', scope: 'Напитки', kind: i < 5 ? 'drinks' : 'theory', score: 10, total: 10, ts: at(0, 11) });
+dq.post({ id: 'qx', code: '9003', kind: 'daily', score: 3, total: 3, ts: at(0, 12) });
+assert.strictEqual(dq.me('9003').xp, 5 * 150 + 50, 'five tests and the daily all get XP');
+// the hard questions: tests and «Вопрос дня» of 7 days, without the trainer's account; the sheet is rebuilt, not appended
+dq.post({ id: 'r1', code: '9002', scope: 'Напитки · Эспрессо-бар', kind: 'drinks', score: 9, total: 10, mistakes: M, ts: at(1) });
+dq.post({ id: 'r2', code: '9003', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, mistakes: M, ts: at(1) });
+dq.post({ id: 'r3', code: '9009', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, mistakes: M, ts: at(1) });
+dq.post({ id: 'r4', code: '9002', scope: 'Теория · Кофе', kind: 'theory', score: 9, total: 10, mistakes: [{ q: 'Где родина кофе?', a: 'Бразилия', c: 'Эфиопия' }], ts: at(1) });
+dq.api.weeklyReport();
+const hs = dq.sheets['Сложные вопросы'].data;
+console.log('--- hard questions ---\n' + hs.map(r => r.join(' | ')).join('\n'));
+assert.ok(String(hs[0][0]).startsWith('Вопрос (7 дней до 30.10.2026)'));
+assert.deepStrictEqual(hs[1], [M[0].q, 3, 3, 'White City, Port II, Central Park', 'Напитки, Вопрос дня', '220 мл'], 'two tests + one «Вопрос дня», the trainer left out');
+assert.deepStrictEqual(hs[2].slice(0, 3), ['Где родина кофе?', 1, 1]);
+const dwk = dq.sent[dq.sent.length - 1];
+console.log("--- weekly with «Вопрос дня» ---\n" + dwk);
+assert.ok(dwk.includes("📅 Вопрос дня: ") && dwk.includes("❓ Сложные вопросы недели") && dwk.includes(M[0].q + " — ошибок: 3, сотрудников: 3") && !dwk.includes('Где родина кофе?'), 'the report lists repeated mistakes only');
+dq.api.hardQuestions();
+assert.strictEqual(dq.sheets['Сложные вопросы'].getLastRow(), 3, 'rebuilt, not appended'); assert.ok(dq.alerts[dq.alerts.length - 1].includes('обновлён: 2 вопроса'));
+const noHard = env({ now: NOW }); noHard.api.hardQuestions(); assert.ok(noHard.alerts[0].includes('ошибок не было'));
 
 // 9. menu flows
 const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });
