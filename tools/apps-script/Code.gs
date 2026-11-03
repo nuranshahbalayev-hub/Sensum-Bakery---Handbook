@@ -28,6 +28,11 @@
  * С v5.5 лимит 4 рецептурных теста (напитки, заготовки, витрина) и 2 по теории; тренировки из «Материалов»
  * в таблицу не приходят вовсе. Прогресс сотрудника (прочитанные уроки и ящики карточек) хранится на листе
  * «Прогресс»: приложение отправляет его действием progress, ?action=me отдаёт обратно (progress).
+ *
+ * С v5.6 «Вопрос дня»: 3 вопроса раз в день (тип daily). Они пишутся на свой лист «Вопрос дня», а не в «Результаты»,
+ * поэтому не попадают в «Сводку», KPI, лимиты и мгновенные уведомления; XP (10 за верный, +20 за все верные) только
+ * за первый за день, сов не дают; ?action=me отдаёт daily: {done, streak}. Каждый понедельник (и из меню) скрипт
+ * пересобирает лист «Сложные вопросы»: на чём чаще всего ошибались за 7 дней.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -36,6 +41,11 @@ const TZ = 'Asia/Baku';
 const MAX_QUESTIONS = 50;
 const SHEET_OWLS = 'Совы';
 const SHEET_PROGRESS = 'Прогресс';
+const SHEET_DAILY = 'Вопрос дня';
+const SHEET_HARD = 'Сложные вопросы';
+const DAILY_MAX = 5;                         // questions in one «Вопрос дня» (the app sends 3)
+const DAILY_XP = { right: 10, all: 20 };     // per right answer, and for all of them right; only the first one of a day
+const HARD_TOP = 20;                         // rows of «Сложные вопросы»
 const PROGRESS_MAX = { read: 300, box: 800 };  // ids of lessons and of cards kept per employee
 const RESULT_COLS = 18;  // A–R
 const ID_COL = 13;        // M: attempt id, used to drop repeats
@@ -49,7 +59,7 @@ const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бари
 // сохраняется, но без XP, сов и зачёта в «учебную неделю». Приложение читает лимит отсюда (?action=me).
 const WEEK_LIMITS = { recipes: 4, theory: 2 };
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.5';
+const SCRIPT_VERSION = 'v5.6';
 
 /* ---------- меню в таблице ---------- */
 
@@ -61,6 +71,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Отправить тестовое уведомление', 'testNotify')
     .addItem('Отправить сводку за сутки сейчас', 'dailyDigest')
+    .addItem('Обновить «Сложные вопросы»', 'hardQuestions')
     .addToUi();
 }
 
@@ -94,6 +105,7 @@ function doPost(e) {
   const staff = findStaff_(d.code);
   if (!staff) return json_({ ok: false, error: 'unknown_code' });
   if (d.action === 'progress') return json_(saveProgress_(staff, d));
+  if (d.kind === 'daily') return json_(saveDaily_(staff, d));
   const score = Number(d.score), total = Number(d.total);
   if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= MAX_QUESTIONS && score >= 0 && score <= total)) {
     return json_({ ok: false, error: 'bad_score' });
@@ -229,7 +241,17 @@ function weeklyReport() {
   } else {
     lines.push('', 'Все сотрудники проходили тест на этой неделе.');
   }
-  const xpRows = withXp_(results_()).filter(r => r.date >= from && r.branch !== TEST_BRANCH);
+  const daily = dailies_(), dWeek = daily.filter(r => r.date >= from && r.branch !== TEST_BRANCH);
+  if (dWeek.length) {
+    lines.push('', `📅 Вопрос дня: ${dWeek.length} ${plural_(dWeek.length, 'ответ', 'ответа', 'ответов')}, ` +
+      `сотрудников: ${new Set(dWeek.map(r => r.code)).size}`);
+  }
+  const hard = rebuildHard_(now).filter(h => h.n > 1).slice(0, 5);
+  if (hard.length) {
+    lines.push('', '❓ Сложные вопросы недели (лист «Сложные вопросы»):');
+    hard.forEach(h => lines.push(`• ${h.q} — ошибок: ${h.n}, сотрудников: ${h.people}`));
+  }
+  const xpRows = withXp_(results_()).concat(dailyXp_(daily)).filter(r => r.date >= from && r.branch !== TEST_BRANCH);
   const top = [...groupBy_(xpRows, r => r.code).values()]
     .map(list => ({ name: list[0].name, branch: list[0].branch, xp: list.reduce((s, r) => s + r.xp, 0) }))
     .filter(p => p.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 5);
@@ -497,7 +519,7 @@ function streaks_(mine, now) {
   return { cur, best };
 }
 
-function badges_(mine, best) {
+function badges_(mine, best, dayBest) {
   const done = mine.filter(r => !r.aborted);
   const good = kind => done.filter(r => r.kind === kind && r.ratio >= 0.9).length >= 10;
   return [
@@ -506,7 +528,8 @@ function badges_(mine, best) {
     good('drinks') && 'drinks',
     good('preps') && 'preps',
     best >= 4 && 'streak4',
-    done.some(r => r.kind === 'exam' && r.score === r.total) && 'exam100'
+    done.some(r => r.kind === 'exam' && r.score === r.total) && 'exam100',
+    dayBest >= 7 && 'days7'
   ].filter(Boolean);
 }
 
@@ -515,9 +538,11 @@ function me_(code) {
   const s = findStaff_(code);
   if (!s) return { ok: false, error: 'unknown_code' };
   const now = new Date(), week = weekKey_(now), month = monthKey_(now);
-  const all = withXp_(results_()), mine = all.filter(r => r.code === s.code);
+  const tests = withXp_(results_()), daily = dailyXp_(dailies_());
+  const all = tests.concat(daily), mine = all.filter(r => r.code === s.code), myTests = tests.filter(r => r.code === s.code);
+  const myDaily = daily.filter(r => r.code === s.code), ds = dayStreak_(myDaily, now);
   const ledger = owls_().filter(o => o.code === s.code);
-  const st = streaks_(mine, now);
+  const st = streaks_(myTests, now);
   const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === month)[0];
   const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
   const thisWeek = all.filter(r => weekKey_(r.date) === week && r.branch !== TEST_BRANCH);
@@ -534,14 +559,130 @@ function me_(code) {
     xp: sum(mine, r => r.xp), weekXp: sum(mine.filter(r => weekKey_(r.date) === week), r => r.xp),
     weekTests: mine.filter(r => weekKey_(r.date) === week && counts_(r)).length,
     streak: st.cur, owlsMonth: sum(ledger.filter(o => monthKey_(o.date) === month), o => o.n),
-    owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(mine, st.best),
+    owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(myTests, st.best, ds.best),
+    daily: { done: myDaily.some(r => dayKey_(r.date) === dayKey_(now)), streak: ds.cur },
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
-    week: weekAttempts_(mine, week), limits: WEEK_LIMITS, progress: progressOf_(s.code),
+    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, progress: progressOf_(s.code),
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
     }
   };
+}
+
+/* ---------- «Вопрос дня» ---------- */
+
+function dailySheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_DAILY);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_DAILY);
+    sh.getRange(1, 1, 1, 9).setValues([['Дата', 'Код', 'Сотрудник', 'Филиал', 'Верных', 'Вопросов', 'Ошибки', 'ID', 'Прерван']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function dailies_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DAILY);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues()
+    .filter(r => r[0] instanceof Date && Number(r[5]) > 0)
+    .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), scope: SHEET_DAILY,
+      score: Number(r[4]), total: Number(r[5]), ratio: Number(r[4]) / Number(r[5]), mistakes: String(r[6] || ''),
+      id: String(r[7] || ''), away: 0, aborted: r[8] === 'да', kind: 'daily' }));
+}
+
+/* XP only for the first «Вопрос дня» of a person's day, and none for an aborted one */
+function dailyXp_(rows) {
+  const seen = {};
+  return rows.slice().sort((a, b) => a.date - b.date).map(r => {
+    const k = r.code + ' ' + dayKey_(r.date), first = !seen[k];
+    seen[k] = true;
+    const xp = !first || r.aborted ? 0 : r.score * DAILY_XP.right + (r.total >= 3 && r.score === r.total ? DAILY_XP.all : 0);
+    return Object.assign({}, r, { xp, over: false });
+  });
+}
+
+/* days in a row with a «Вопрос дня» up to today (today counts once it is done, until then the run ends yesterday), and the best run */
+function dayStreak_(mine, now) {
+  const days = new Set(mine.filter(r => !r.aborted).map(r => dayKey_(r.date)));
+  const step = (k, n) => new Date(Date.parse(k + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  let k = dayKey_(now);
+  if (!days.has(k)) k = step(k, -1);
+  let cur = 0;
+  while (days.has(k)) { cur++; k = step(k, -1); }
+  let best = 0;
+  days.forEach(d => {
+    if (days.has(step(d, -1))) return;
+    let n = 0, x = d;
+    while (days.has(x)) { n++; x = step(x, 1); }
+    best = Math.max(best, n);
+  });
+  return { cur, best };
+}
+
+function saveDaily_(staff, d) {
+  const score = Number(d.score), total = Number(d.total);
+  if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= DAILY_MAX && score >= 0 && score <= total)) {
+    return { ok: false, error: 'bad_score' };
+  }
+  const id = text_(d.id, 64), when = takenAt_(d.ts);
+  const mistakes = (Array.isArray(d.mistakes) ? d.mistakes : []).slice(0, DAILY_MAX)
+    .map(m => `${text_(m && m.q, 200)} → ${text_(m && m.a, 100)} (верно: ${text_(m && m.c, 100)})`);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = dailySheet_();
+    if (id && dailies_().some(r => r.id === id)) return { ok: true, duplicate: true };
+    const row = Math.max(2, sh.getLastRow() + 1);
+    if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+    sh.getRange(row, 2).setNumberFormat('@');
+    sh.getRange(row, 1, 1, 9).setValues([[when, staff.code, staff.name, staff.branch, score, total,
+      cell_(mistakes.join('\n')), cell_(id), d.aborted === true ? 'да' : '']]);
+  } finally {
+    lock.releaseLock();
+  }
+  const mine = dailyXp_(dailies_().filter(r => r.code === staff.code));
+  const self = mine.filter(r => id ? r.id === id : true).pop();
+  return { ok: true, xp: self ? self.xp : 0, owls: [], daily: { done: true, streak: dayStreak_(mine, new Date()).cur } };
+}
+
+/* ---------- «Сложные вопросы»: на чём ошибались за 7 дней ---------- */
+
+/* mistakes of the tests and of «Вопрос дня» in the 7 days before `now`, by question text (RU and AZ count apart) */
+function hardList_(now) {
+  const from = new Date(now.getTime() - 7 * 864e5);
+  const rows = results_().concat(dailies_()).filter(r => r.date >= from && r.date <= now && r.branch !== TEST_BRANCH);
+  const m = new Map();
+  rows.forEach(r => r.mistakes.split('\n').filter(Boolean).forEach(line => {
+    const i = line.indexOf(' → '), q = i > 0 ? line.slice(0, i) : line;
+    const c = (line.match(/\(верно: (.*)\)$/) || [])[1] || '';
+    if (!m.has(q)) m.set(q, { q, n: 0, codes: new Set(), branches: new Set(), scopes: new Set(), c });
+    const h = m.get(q);
+    h.n++; h.codes.add(r.code); h.branches.add(r.branch); h.scopes.add(r.scope.split(' · ')[0]);
+  }));
+  return [...m.values()].map(h => ({ q: h.q, n: h.n, people: h.codes.size, branches: [...h.branches].join(', '),
+    scope: [...h.scopes].join(', '), c: h.c }))
+    .sort((a, b) => b.n - a.n || b.people - a.people).slice(0, HARD_TOP);
+}
+
+function rebuildHard_(now) {
+  const list = hardList_(now);
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(SHEET_HARD) || ss.insertSheet(SHEET_HARD);
+  const last = sh.getLastRow();
+  if (last > 0) sh.getRange(1, 1, last, 6).clearContent();
+  sh.getRange(1, 1, 1, 6).setValues([[`Вопрос (7 дней до ${Utilities.formatDate(now, TZ, 'dd.MM.yyyy')})`, 'Ошибок', 'Сотрудников', 'Филиалы', 'Раздел', 'Верный ответ']]);
+  sh.setFrozenRows(1);
+  if (list.length) sh.getRange(2, 1, list.length, 6).setValues(list.map(h => [cell_(h.q), h.n, h.people, h.branches, cell_(h.scope), cell_(h.c)]));
+  return list;
+}
+
+/* menu item: rebuild the sheet now */
+function hardQuestions() {
+  const n = rebuildHard_(new Date()).length;
+  SpreadsheetApp.getUi().alert(n ? `Лист «${SHEET_HARD}» обновлён: ${n} ${plural_(n, 'вопрос', 'вопроса', 'вопросов')}.` : 'За 7 дней ошибок не было.');
 }
 
 /* ---------- прогресс сотрудника: прочитанные уроки и ящики карточек ---------- */

@@ -50,7 +50,7 @@ const server = http.createServer((req, res) => {
         return;
       }
       posted.push(d);
-      body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : { ok: true, xp: mockOver ? 0 : 90, owls: [], over: mockOver };
+      body = d.kind === 'exam' ? { ok: true, xp: 300, owls: [{ why: 'Экзамен месяца 100%', n: 15 }] } : d.kind === 'daily' ? { ok: true, xp: 50, owls: [], daily: { done: true, streak: 3 } } : { ok: true, xp: mockOver ? 0 : 90, owls: [], over: mockOver };
     }
     else if (url.searchParams.get('action') === 'me') body = Object.assign({}, ME, { progress: progressDb[url.searchParams.get('code')] || { read: [], box: {}, ts: 0 } });
     else if (url.searchParams.get('action') === 'whoami') {
@@ -807,6 +807,39 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(500);
   const pe = posted[posted.length - 1] || {};
   check(pe.kind === 'exam' && pe.total === 20 && (await page.locator('#learnroot #sendstat').innerText()).includes('🦉 +15'), 'the exam is sent as the exam and shows the owls it earned');
+
+  /* «Вопрос дня» (script v5.6): first row of the plan, 3 questions, sent as daily, not an attempt, not in the test history, once a day */
+  const nDaily = { posted: posted.length, att: await page.evaluate(() => (LS.att || []).length), quiz: await page.evaluate(() => LS.quiz.length) };
+  ME.daily = { done: false, streak: 2 };
+  await page.click('nav.tabs button[data-tab="learn"]');
+  await page.evaluate(() => { LS.dailyDay = ''; LS.today = null; });
+  await refreshStats();
+  let dp = await page.evaluate(() => [...document.querySelectorAll('#learnroot .plan .tile')].map(b => b.dataset.v));
+  check(dp[0] === 'daily' && (await page.locator('#learnroot .gstats.four').count()) === 1 && (await page.locator('#learnroot .gstats').innerText()).includes('📆 2'),
+    '«Вопрос дня»: the first row of the plan, the run of days in the rank card (' + JSON.stringify(dp) + ')');
+  await page.click('#learnroot .plan [data-v="daily"]');
+  const dq0 = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, th: L.qz.qs.filter(q => q.isTheory).length, title: document.getElementById('learnTitle').innerText }));
+  check(dq0.n === 3 && dq0.kind === 'daily' && dq0.th === 1 && dq0.title === 'Вопрос дня', '«Вопрос дня»: 3 questions, one of them theory of an open topic (' + JSON.stringify(dq0) + ')');
+  for (let i = 0; i < 5 && await page.evaluate(() => L.view === 'quiz'); i++) {
+    if (await page.locator('#learnroot [data-l="ans"]').count()) await page.locator('#learnroot [data-l="ans"]').first().click();
+    else if (await page.locator('#learnroot #qnum').count()) { await page.fill('#qnum', '1'); await page.click('#qsubmit'); }
+    else { const n = await page.locator('#learnroot [data-l="pick"]').count(); for (let k = 0; k < Math.min(n, 4); k++) await page.locator('#learnroot [data-l="pick"]').nth(k).click().catch(() => {});
+      await page.click('#learnroot [data-l="submit"]'); }
+    await page.click('#learnroot [data-l="next"]');
+  }
+  await page.waitForTimeout(500);
+  const pd = posted[posted.length - 1] || {};
+  const after = await page.evaluate(() => ({ att: (LS.att || []).length, quiz: LS.quiz.length, newBtn: !!document.querySelector('#learnroot [data-l="quiz"]') }));
+  check(posted.length === nDaily.posted + 1 && pd.kind === 'daily' && pd.total === 3 && after.att === nDaily.att && after.quiz === nDaily.quiz && !after.newBtn,
+    '«Вопрос дня»: sent as daily, not a weekly attempt, not in the test history, no «new test» button');
+  check((await page.locator('#learnroot #sendstat').innerText()).includes('+50 XP') && (await page.locator('#learnroot #sendstat').innerText()).includes('подряд: 3 дня'), '«Вопрос дня»: the result shows the XP and the run of days');
+  await page.click('nav.tabs button[data-tab="learn"]');
+  dp = await page.evaluate(() => [...document.querySelectorAll('#learnroot .plan .tile')].map(b => ({ v: b.dataset.v, done: b.classList.contains('read') })));
+  await page.evaluate(() => startDaily());
+  check(dp[0].done && await page.evaluate(() => L.view === 'home'), '«Вопрос дня»: done for today, a second one does not start');
+  /* without script v5.6 there is no «Вопрос дня» (an older script would file it as a test) */
+  delete ME.daily; await refreshStats();
+  check(await page.locator('#learnroot .plan [data-v="daily"]').count() === 0 && await page.evaluate(() => !dailyOpen()), '«Вопрос дня»: hidden with an older script');
   await page.click('#langbtn');  /* the finished test’s texts are in the old language: «язык» leaves the result for the screen the test started from */
   check(await page.evaluate(() => L.view === 'home' && !L.qz && L.nav.length === 0), 'language switch: a finished test’s result gives way to the screen before the test');
   await page.click('#langbtn');
