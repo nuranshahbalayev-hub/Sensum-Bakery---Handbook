@@ -64,10 +64,23 @@ const server = http.createServer((req, res) => {
   const counts = await page.evaluate(() => ({ drinks: drinks.length, preps: preps.length, vit: vit.length }));
   check(await page.locator('#grid .card').count() === counts.drinks, `drinks grid shows all ${counts.drinks} drinks`);
 
-  for (const t of ['preps', 'vitrina', 'fav', 'more', 'drinks']) {
+  for (const t of ['preps', 'vitrina', 'learn', 'more', 'drinks']) {
     await page.click(`nav.tabs button[data-tab="${t}"]`);
     check(await page.locator(`#v-${t}.on`).count() === 1, `tab «${t}» opens`);
   }
+  /* «Обучение» is a tab, «Избранное» moved under «Ещё» */
+  check(await page.locator('nav.tabs button[data-tab="fav"]').count() === 0 && (await page.locator('nav.tabs button[data-tab="learn"]').innerText()).includes('Обучение'),
+    'tab bar: «Обучение» instead of «Избранное»');
+  await page.locator('#grid .card .fav').first().click();
+  await page.click('nav.tabs button[data-tab="more"]');
+  check((await page.locator('#morehub [data-gotab="fav"]').innerText()).includes('Сохранено: 1') && await page.locator('#morehub [data-gotab="learn"]').count() === 0, '«Ещё»: a tile for the favorites with their count, no training tile');
+  await page.click('#morehub [data-gotab="fav"]');
+  check(await page.locator('#v-fav.on').count() === 1 && await page.locator('#favgrid .card').count() === 1 && await page.locator('nav.tabs button[data-tab="more"].on').count() === 1
+    && (await page.locator('#favTitle').innerText()) === 'Избранное', 'favorites open from «Ещё», with «Ещё» highlighted and their own title');
+  await page.click('#v-fav .back');
+  check(await page.locator('#v-more.on').count() === 1, 'favorites: back returns to «Ещё»');
+  await page.click('nav.tabs button[data-tab="drinks"]');
+  await page.locator('#grid .card .fav.on').first().click();
   await page.locator('#grid .card').first().click();
   check(await page.locator('#overlay.show').count() === 1, 'drink card opens');
   await page.keyboard.press('Escape');
@@ -218,8 +231,7 @@ const server = http.createServer((req, res) => {
   check(['has', 'without', 'both', 'same'].every(k => exs.n['ru' + k] && exs.n['az' + k]) && (exs.n.rumost || 0) + (exs.n.ruleast || 0) > 0 && (exs.n.azmost || 0) + (exs.n.azleast || 0) > 0,
     'exam-style recipe questions: every kind appears in both languages');
 
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.evaluate(() => { switchUser(null); LS.outbox = []; renderLearn(); });
   await page.fill('#lcode', '9999');
   await page.click('#learnroot [data-l="login"]');
@@ -265,8 +277,7 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(500);
   const ab = posted[1] || {};
   check(posted.length === 2 && ab.aborted === true && ab.timeouts === 1 && ab.away === 1 && ab.score === 0 && ab.total > 2, 'an aborted test is sent as aborted with its checks');
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.click('#learnroot [data-l="quiz"]');
   await page.locator('#learnroot [data-l="ans"]').first().click();
   await page.reload();
@@ -295,8 +306,7 @@ const server = http.createServer((req, res) => {
   check(th.total > 0 && th.bad.length === 0 && ['one', 'multi', 'order', 'num'].every(k => th.types[k]),
     `theory questions: ${th.total} built in both languages, ${th.bad.length} broken${th.bad.length ? ' (' + th.bad.slice(0, 3).join(', ') + ')' : ''}`);
 
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.click('#learnroot [data-l="scope"][data-v="theory"]');
   /* the theory test takes only the topics whose lessons were all read; a topic without lessons (the brand) is open */
   await page.evaluate(() => { LS.read = {}; saveLearn(); L.lvlAll = true; renderLearn(); });
@@ -488,8 +498,7 @@ const server = http.createServer((req, res) => {
   check(!(await tile().innerText()).includes('Попыток на неделе') && await tile().isEnabled(), 'limit: a sheet script without limits (older) means no limit');
 
   /* the game: level, owls, board and badges come from the sheet; the monthly exam */
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.waitForTimeout(400);
   const home = await page.locator('#learnroot').innerText();
   check(home.includes('1140 XP') && home.includes('🦉 18 / 50') && await page.locator('#learnroot .board li').count() === 2
@@ -503,15 +512,44 @@ const server = http.createServer((req, res) => {
     const r = document.getElementById('learnroot'), sa = document.getElementById('scrollArea'), y = el => el ? el.getBoundingClientRect().top - sa.getBoundingClientRect().top + sa.scrollTop : -1;
     const lp = txt => [...r.querySelectorAll('.lpanel')].find(e => e.innerText.includes(txt));
     const quiz = r.querySelector('[data-l="quiz"]'), big = r.querySelector('h4.lsect.big');
-    return { id: y(r.querySelector('.idrow')), level: y(lp('Твой уровень')), rank: y(r.querySelector('.lpanel.game')), progress: y(lp('Твой прогресс')),
-      mat: y(r.querySelector('[data-l="mat"]')), test: y(r.querySelector('h4.lsect')), quiz: y(quiz), rating: y(big), board: y(r.querySelector('.board')),
-      gap: big && quiz ? big.getBoundingClientRect().top - quiz.getBoundingClientRect().bottom : -1 };
+    return { id: y(r.querySelector('.idrow')), plan: y(r.querySelector('.lpanel.plan')), rank: y(r.querySelector('.lpanel.game')), level: y(r.querySelector('.lpanel.game .lvlbox')),
+      exam: y(r.querySelector('[data-l="exam"]')), mat: y(r.querySelector('.mode[data-l="mat"]')), test: y(r.querySelector('h4.lsect')), quiz: y(quiz), rating: y(big), board: y(r.querySelector('.board')),
+      progress: lp('Твой прогресс') ? 1 : 0, gap: big && quiz ? big.getBoundingClientRect().top - quiz.getBoundingClientRect().bottom : -1 };
   });
-  const seq = ['id', 'level', 'rank', 'progress', 'mat', 'test', 'quiz', 'rating', 'board'].map(k => tops[k]);
-  check(seq.every(v => v >= 0) && seq.every((v, i) => i === 0 || v > seq[i - 1]), 'training home order: employee, level, rank, progress, materials, test, rating' + (seq.every((v, i) => v >= 0 && (i === 0 || v > seq[i - 1])) ? '' : ' ' + JSON.stringify(tops)));
+  const seq = ['id', 'plan', 'rank', 'level', 'exam', 'mat', 'test', 'quiz', 'rating', 'board'].map(k => tops[k]);
+  check(seq.every(v => v >= 0) && seq.every((v, i) => i === 0 || v > seq[i - 1]) && !tops.progress, 'training home order: employee, plan for today, rank card with the level inside, exam, materials, test, rating; no «Твой прогресс»' + (seq.every((v, i) => v >= 0 && (i === 0 || v > seq[i - 1])) ? '' : ' ' + JSON.stringify(tops)));
   check(tops.gap >= 24, `training home: the weekly board starts ${Math.round(tops.gap)} px below the test`);
   const homeTxt = await page.locator('#learnroot').innerText();
   check(homeTxt.includes('Твой уровень: Бариста') && /ранг \d/.test(homeTxt) && !/уровень \d/.test(homeTxt), 'the level is the employee’s level, the XP level is called a rank');
+
+  /* «План на сегодня»: the next lesson of the level, a counted test, ticked when done today; the dot on the tab says nothing was done today */
+  const keepLim = await page.evaluate(() => JSON.stringify({ limits: LS.stats.limits, week: LS.stats.week }));
+  await page.evaluate(() => { LS.read = {}; LS.today = null; LS.att = []; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.week = { recipes: 1, theory: 0 }; LS.stats.at = Date.now(); saveLearn(); renderLearn(); });
+  const plan = async () => page.evaluate(() => [...document.querySelectorAll('#learnroot .plan .tile')].map(b => ({ v: b.dataset.v, done: b.classList.contains('read'), next: b.classList.contains('next'), t: b.innerText })));
+  let pl = await plan();
+  const dotOn = () => page.evaluate(() => getComputedStyle(document.getElementById('learndot')).display !== 'none');
+  check(pl.length === 2 && pl[0].v.startsWith('les:') && pl[0].next && pl[1].v.startsWith('test:') && /Осталось попыток: \d из \d/.test(pl[1].t) && await dotOn(),
+    'plan: a lesson to read first, then a counted test with the attempts left; the dot is on (' + JSON.stringify(pl) + ')');
+  const firstLes = pl[0].v.slice(4);
+  check(await page.evaluate(id => { const my = new Set(levelSet(myLvl()).map(t => t.topic)); return my.has(LES.find(l => l.id === id).topic); }, firstLes), 'plan: the lesson is of a topic of the person’s level');
+  await page.click('#learnroot .plan .tile.next');
+  check(await page.evaluate(id => L.view === 'lesson' && L.lid === id, firstLes), 'plan: the lesson row opens that lesson');
+  await page.click('#learnroot [data-l="lread"]');
+  await page.click('#learnBack');
+  pl = await plan();
+  check(pl[0].done && pl[0].t.includes('Дальше:') && pl[1].next && !(await dotOn()) && (await page.locator('#learnroot .plan .lph').innerText()).includes('1 / 2'),
+    'plan: a lesson read ticks the study row, the test row is next, the dot goes out');
+  await page.evaluate(() => { LS.today = { day: '2000-01-01', done: ['study', 'test'] }; renderLearn(); });
+  check(!(await plan())[0].done && await dotOn(), 'plan: yesterday’s ticks do not count today');
+  await page.evaluate(() => { LS.read = Object.fromEntries(LES.map(l => [l.id, 1])); LS.today = null; renderLearn(); });
+  pl = await plan();
+  check(pl[0].v.startsWith('cards:'), 'plan: with every lesson read, the weakest card deck is offered');
+  /* the week used up: the exam, or practice */
+  await page.evaluate(() => { LS.stats.week = { recipes: 4, theory: 2 }; renderLearn(); });
+  pl = await plan();
+  check(pl[1].v === 'exam' || pl[1].v === 'mat', 'plan: no attempts left, the exam or practice is offered (' + pl[1].v + ')');
+  check(await page.locator('#learnroot .att-full').count() === 0 || await page.locator('#learnroot [data-l="plan"][data-v="mat"].lbtn').count() === 1, 'limit: a used-up week offers practice in «Материалы»');
+  await page.evaluate(k => { const o = JSON.parse(k); LS.stats.limits = o.limits; LS.stats.week = o.week; LS.read = {}; LS.today = null; saveLearn(); renderLearn(); }, keepLim);
 
   /* materials: cards for drinks, preps and the vitrina */
   const runCards = async () => { for (let i = 0; i < 60 && await page.evaluate(() => L.view) === 'cards'; i++) {
@@ -602,10 +640,10 @@ const server = http.createServer((req, res) => {
   await page.click('#learnBack'); await page.click('#learnBack');
   check(await page.evaluate(() => L.view === 'materials'), 'back: lesson → list → materials');
   await page.click('#learnBack');
-  check(await page.evaluate(() => L.view === 'home' && L.nav.length === 0) && (await backTxt0()).includes('Ещё'), 'back: materials → «Обучение», whose button says «Ещё»');
-  await page.click('#learnBack');
-  check(await page.evaluate(() => state.tab === 'more'), 'back: the last step leaves «Обучение» for «Ещё»');
-  await page.click('#morehub [data-gotab="learn"]');
+  check(await page.evaluate(() => L.view === 'home' && L.nav.length === 0) && !(await page.locator('#learnBack').isVisible()), 'back: materials → «Обучение», a tab of its own with no back button');
+  await page.click('#learnroot [data-l="mat"]'); await page.click('#learnroot [data-l="lcat"][data-v="CF"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
+  check(await page.evaluate(() => L.view === 'home' && L.nav.length === 0), 'tab bar: tapping «Обучение» again goes back to its first screen');
   const lessonProblems = async () => page.evaluate(() => { const bad = [], sa = document.getElementById('scrollArea'); sa.scrollLeft = 0;
     for (const les of LES) { L.lid = les.id; L.view = 'lesson'; renderLearn(); const t = document.getElementById('learnroot').innerText;
       if (sa.scrollWidth > sa.clientWidth) bad.push(les.id + ': wider than the screen');
@@ -708,8 +746,7 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { localStorage.removeItem('sensum_learn_u_1234'); });
   await page.reload();
   await page.waitForTimeout(500);
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.waitForTimeout(800);
   const restored = Object.assign(await snap(), { me: await page.evaluate(() => LS.me && LS.me.code) });
   check(restored.me === '1234' && mine.read.every(id => restored.read.includes(id)) && restored.box === mine.box && restored.quiz === 0, 'progress: after the phone’s data is gone, lessons read and cards learned come back from the sheet (' + JSON.stringify(restored) + ')');
@@ -745,8 +782,7 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(300);
   check(await page.evaluate(() => LS.read['cf-milk'] === 1 && LS.box['d:new'] === 1), 'reset epoch: the next start keeps what was made after it');
   await page.evaluate(v => { if (v) localStorage.setItem('sensum_learn_u_1234', v); }, keep1234);  /* the other tests go on with the first code's progress */
-  await page.click('nav.tabs button[data-tab="more"]');
-  await page.click('#morehub [data-gotab="learn"]');
+  await page.click('nav.tabs button[data-tab="learn"]');
   await page.evaluate(lv => { switchUser({ code: '1234', name: 'Smoke Test', branch: 'Test', level: lv }); renderLearn(); }, ME.level);
   await page.waitForTimeout(400);
 
