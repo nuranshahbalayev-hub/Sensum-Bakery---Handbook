@@ -59,7 +59,7 @@ const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бари
 // сохраняется, но без XP, сов и зачёта в «учебную неделю». Приложение читает лимит отсюда (?action=me).
 const WEEK_LIMITS = { recipes: 4, theory: 2 };
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.6';
+const SCRIPT_VERSION = 'v5.7';
 
 /* ---------- меню в таблице ---------- */
 
@@ -119,44 +119,54 @@ function doPost(e) {
   const aborted = d.aborted === true;
   const kind = KINDS.indexOf(d.kind) >= 0 ? d.kind : '';
 
+  let duplicate = false;
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const sh = sheet_(SHEET_RESULTS);
-    if (id && isDuplicate_(sh, id)) return json_({ ok: true, duplicate: true });
-    if (kind === 'exam' && results_().some(r => r.code === staff.code && r.kind === 'exam' && monthKey_(r.date) === monthKey_(takenAt_(d.ts)))) {
+    duplicate = !!(id && isDuplicate_(sh, id));
+    if (!duplicate && kind === 'exam' && results_().some(r => r.code === staff.code && r.kind === 'exam' && monthKey_(r.date) === monthKey_(takenAt_(d.ts)))) {
       return json_({ ok: false, error: 'exam_done' });
     }
-    ensureHeaders_(sh);
-    const row = sh.getLastRow() + 1;
-    if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
-    sh.getRange(row, 2).setNumberFormat('@');
-    sh.getRange(row, 12).setNumberFormat('@');  // app version «1.80» stays text, not the number 1.8
-    sh.getRange(row, 14).setNumberFormat('@');  // «2:10» stays text, not a time of day
-    sh.getRange(row, 1, 1, RESULT_COLS).setValues([[
-      takenAt_(d.ts), staff.code, staff.name, staff.branch, cell_(scope), score, total,
-      `=IF(G${row}=0,0,F${row}/G${row})`, `=IF(Q${row}="да","нет",IF(H${row}>=PassThreshold,"да","нет"))`,
-      cell_(mistakes.join('\n')), text_(d.lang, 5), text_(d.ver, 12), cell_(id),
-      secs === '' ? '' : mmss_(secs), timeouts, away, aborted ? 'да' : '', kind
-    ]]);
+    if (!duplicate) {
+      ensureHeaders_(sh);
+      const row = sh.getLastRow() + 1;
+      if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+      sh.getRange(row, 2).setNumberFormat('@');
+      sh.getRange(row, 12).setNumberFormat('@');  // app version «1.80» stays text, not the number 1.8
+      sh.getRange(row, 14).setNumberFormat('@');  // «2:10» stays text, not a time of day
+      sh.getRange(row, 1, 1, RESULT_COLS).setValues([[
+        takenAt_(d.ts), staff.code, staff.name, staff.branch, cell_(scope), score, total,
+        `=IF(G${row}=0,0,F${row}/G${row})`, `=IF(Q${row}="да","нет",IF(H${row}>=PassThreshold,"да","нет"))`,
+        cell_(mistakes.join('\n')), text_(d.lang, 5), text_(d.ver, 12), cell_(id),
+        secs === '' ? '' : mmss_(secs), timeouts, away, aborted ? 'да' : '', kind
+      ]]);
+    }
   } finally {
     lock.releaseLock();
   }
 
   /* the game: XP of this test and owls it earned; a failure here never loses the saved result */
-  let xp = 0, owls = [], over = false;
+  let xp = 0, owls = [], over = false, rewardPending = false;
+  // Read eligibility, dedupe keys and month cap under the same lock as the award writes.
+  const gameLock = LockService.getScriptLock();
+  let gameLocked = false;
   try {
+    gameLock.waitLock(20000); gameLocked = true;
     const all = withXp_(results_()), mine = all.filter(r => r.code === staff.code);
     const self = mine.filter(r => id ? r.id === id : true).pop();  // a result sent late (offline) is not the newest row
     xp = self ? self.xp : 0;
     over = !!(self && self.over);
     owls = awardOwls_(staff, self, mine);
   } catch (err) {
+    rewardPending = true;
     console.warn('game: ' + err.message);
+  } finally {
+    if (gameLocked) gameLock.releaseLock();
   }
 
   const passed = !aborted && score / total >= setting_('PassThreshold', 0.7);
-  if (!passed || away || flag_('NotifyAll')) {
+  if (!duplicate && (!passed || away || flag_('NotifyAll'))) {
     const lines = [
       aborted ? `⛔ Тест прерван: ${pct_(score / total)}`
         : passed ? `✅ Тест сдан: ${pct_(score / total)}` : `⚠️ Тест не сдан: ${pct_(score / total)}`,
@@ -174,7 +184,9 @@ function doPost(e) {
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
   }
-  return json_({ ok: true, xp, owls, over });
+  // Keep the attempt in the phone's outbox until reward processing has completed.
+  if (rewardPending) return json_({ ok: false, error: 'reward_pending', saved: true });
+  return json_(Object.assign({ ok: true, xp, owls, over }, duplicate ? { duplicate: true } : {}));
 }
 
 /* ---------- сводки по расписанию ---------- */
@@ -452,23 +464,19 @@ function awardOwls_(staff, self, mine) {
     give('week:' + week, 'Учебная неделя', 2);
   }
   if (out.length) {
-    const lock = LockService.getScriptLock();
-    lock.waitLock(20000);
-    try {
-      const sh = owlsSheet_();
-      let row = nextRow_(sh);
-      out.forEach(o => {
-        if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
-        sh.getRange(row, 2).setNumberFormat('@');
-        sh.getRange(row, 1, 1, 8).setValues([[self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key]]);
-        sh.getRange(row, 7).insertCheckboxes();
-        row++;
-      });
-    } finally {
-      lock.releaseLock();
-    }
+    const sh = owlsSheet_();
+    let row = nextRow_(sh);
+    out.forEach(o => {
+      if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+      sh.getRange(row, 2).setNumberFormat('@');
+      sh.getRange(row, 9).setNumberFormat('@');
+      sh.getRange(row, 1, 1, 9).setValues([[self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key, self.id]]);
+      sh.getRange(row, 7).insertCheckboxes();
+      row++;
+    });
   }
-  return out.map(o => ({ why: o.why, n: o.n }));
+  // A lost response or partial write returns the same award on retry, without crediting it twice.
+  return ledger.filter(o => self.id && o.attemptId === self.id).concat(out).map(o => ({ why: o.why, n: o.n }));
 }
 
 /* the row under the last filled date: unticked checkboxes further down count as content for getLastRow() */
@@ -486,8 +494,10 @@ function owlsSheet_() {
   let sh = ss.getSheetByName(SHEET_OWLS);
   if (!sh) {
     sh = ss.insertSheet(SHEET_OWLS);
-    sh.getRange(1, 1, 1, 8).setValues([['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']]);
+    sh.getRange(1, 1, 1, 9).setValues([['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ', 'ID попытки']]);
     sh.setFrozenRows(1);
+  } else {
+    sh.getRange(1, 9).setValues([['ID попытки']]);
   }
   return sh;
 }
@@ -495,15 +505,17 @@ function owlsSheet_() {
 function owls_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_OWLS);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues()
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues()
     .filter(r => r[0] instanceof Date && Number(r[5]) > 0)
     .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), why: String(r[4]),
-      n: Number(r[5]), done: r[6] === true, key: String(r[7]) }));
+      n: Number(r[5]), done: r[6] === true, key: String(r[7]), attemptId: String(r[8] || '') }));
 }
 
 /* study weeks in a row up to now; the current week counts once it has 3 tests, until then the streak runs to last week */
 function streaks_(mine, now) {
-  const weeks = new Set(mine.filter(counts_).map(r => weekKey_(r.date)));
+  const totals = new Map();
+  mine.filter(counts_).forEach(r => { const k = weekKey_(r.date); totals.set(k, (totals.get(k) || 0) + 1); });
+  const weeks = new Set([...totals].filter(([, n]) => n >= 3).map(([k]) => k));
   const back = k => new Date(Date.parse(k + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
   let k = weekKey_(now);
   if (!weeks.has(k)) k = back(k);
@@ -562,7 +574,8 @@ function me_(code) {
     owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(myTests, st.best, ds.best),
     daily: { done: myDaily.some(r => dayKey_(r.date) === dayKey_(now)), streak: ds.cur },
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
-    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, progress: progressOf_(s.code),
+    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, passThreshold: setting_('PassThreshold', 0.7),
+    progressProtocol: 2, progress: progressOf_(s.code),
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
@@ -692,8 +705,10 @@ function progressSheet_() {
   let sh = ss.getSheetByName(SHEET_PROGRESS);
   if (!sh) {
     sh = ss.insertSheet(SHEET_PROGRESS);
-    sh.getRange(1, 1, 1, 5).setValues([['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек']]);
+    sh.getRange(1, 1, 1, 6).setValues([['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек', 'Версии карточек']]);
     sh.setFrozenRows(1);
+  } else {
+    sh.getRange(1, 6).setValues([['Версии карточек']]);
   }
   return sh;
 }
@@ -701,13 +716,15 @@ function progressSheet_() {
 /* the stored progress of one code and the row it lives in (0 = none yet) */
 function progressRow_(sh, code) {
   const last = sh.getLastRow();
-  if (last < 2) return { row: 0, read: [], box: {}, ts: 0 };
-  const rows = sh.getRange(2, 1, last - 1, 5).getValues();
+  if (last < 2) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, protocol: 0 };
+  const rows = sh.getRange(2, 1, last - 1, 6).getValues();
   const i = rows.findIndex(r => String(r[0]).trim() === code);
-  if (i < 0) return { row: 0, read: [], box: {}, ts: 0 };
+  if (i < 0) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, protocol: 0 };
   const parse = (v, def) => { try { const x = JSON.parse(String(v || '')); return x && typeof x === 'object' ? x : def; } catch (err) { return def; } };
-  const read = parse(rows[i][3], []), box = parse(rows[i][4], {});
-  return { row: i + 2, read: Array.isArray(read) ? read : [], box: Array.isArray(box) ? {} : box, ts: Number(rows[i][2]) || 0 };
+  const read = parse(rows[i][3], []), box = parse(rows[i][4], {}), meta = parse(rows[i][5], {});
+  return { row: i + 2, read: Array.isArray(read) ? read : [], box: Array.isArray(box) ? {} : box,
+    ts: Number(rows[i][2]) || 0, protocol: meta.v === 2 ? 2 : 0,
+    clocks: meta.clocks && typeof meta.clocks === 'object' && !Array.isArray(meta.clocks) ? meta.clocks : {} };
 }
 
 function progressOf_(code) {
@@ -717,7 +734,9 @@ function progressOf_(code) {
   return { read: p.read, box: p.box, ts: p.ts };
 }
 
-/* lesson ids only grow (union); the card boxes of the newer write replace the older ones whole */
+/* Lessons grow by union. Protocol 2 sends only changed cards, including explicit zero resets.
+   Old full snapshots remain supported until this employee migrates; afterwards they cannot
+   overwrite per-card changes. The old phone keeps its pending local state until updated. */
 function saveProgress_(staff, d) {
   const read = (Array.isArray(d.read) ? d.read : []).map(x => String(x)).filter(x => /^[a-z0-9-]{1,40}$/.test(x)).slice(0, PROGRESS_MAX.read);
   const box = {};
@@ -733,12 +752,35 @@ function saveProgress_(staff, d) {
   try {
     const sh = progressSheet_();
     const old = progressRow_(sh, staff.code);
+    const modern = d.protocol === 2;
+    if (old.protocol === 2 && !modern) return { ok: false, error: 'progress_update_required' };
     const mergedRead = Array.from(new Set(old.read.concat(read))).slice(0, PROGRESS_MAX.read);
     const newer = ts >= old.ts;
     const out = { read: mergedRead, box: newer ? box : old.box, ts: newer ? ts : old.ts };
+    let meta = '';
+    if (modern) {
+      out.ts = Math.max(now, old.ts + 1, out.ts);
+      out.box = Object.assign({}, old.box);
+      const clocks = Object.assign({}, old.clocks);
+      Object.keys(old.box).forEach(k => { if (!(k in clocks)) clocks[k] = old.ts; });
+      const changes = d.changes && typeof d.changes === 'object' && !Array.isArray(d.changes) ? d.changes : {};
+      Object.keys(changes).slice(0, PROGRESS_MAX.box).forEach(k => {
+        const c = changes[k], v = Number(c && c.v), at = Number(c && c.ts);
+        if (!/^[dpvt]:[A-Za-z0-9_-]{1,60}$/.test(k) || !c || !Number.isInteger(v) || v < 0 || v > 5 ||
+            !Number.isInteger(at) || at <= 0 || at > now + 5 * 6e4) return;
+        if (c.ifAbsent && (k in clocks || k in old.box)) return;
+        if (!(k in clocks) && Object.keys(clocks).length >= PROGRESS_MAX.box) return;
+        // A reset wins equal timestamps; replaying the same update is harmless.
+        if (at > (clocks[k] || 0) || (at === clocks[k] && v < out.box[k])) {
+          out.box[k] = v; clocks[k] = at;
+        }
+        out.ts = Math.max(out.ts, at);
+      });
+      meta = JSON.stringify({ v: 2, clocks });
+    }
     const row = old.row || Math.max(2, sh.getLastRow() + 1);
     sh.getRange(row, 1).setNumberFormat('@');
-    sh.getRange(row, 1, 1, 5).setValues([[staff.code, staff.name, out.ts, JSON.stringify(out.read), JSON.stringify(out.box)]]);
+    sh.getRange(row, 1, 1, 6).setValues([[staff.code, staff.name, out.ts, JSON.stringify(out.read), JSON.stringify(out.box), meta]]);
     return { ok: true, progress: out };
   } finally {
     lock.releaseLock();

@@ -2,13 +2,19 @@
    При обновлении приложения поднимите номер версии в CACHE, чтобы старый кэш очистился.
    Фото лежат в отдельном кэше IMG_CACHE: имя файла содержит хэш содержимого, поэтому
    кэш переживает обновления версий, а при замене фото появляется новый адрес. */
-const CACHE = 'sensum-v1.106';
+const CACHE = 'sensum-v1.107';
 const IMG_CACHE = 'sensum-img';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable.png', './apple-touch-icon.png'
 ];
 const isImage = url => new URL(url).pathname.includes('/images/');
+// Only this app's files belong in the offline cache. API replies must reach the network.
+const isAppAsset = url => {
+  const u = new URL(url), base = new URL(self.registration.scope);
+  return u.origin === base.origin && !u.search && (ASSETS.some(p => new URL(p, base).pathname === u.pathname) ||
+    (u.pathname.startsWith(base.pathname + 'images/') && /\.[0-9a-f]{8}\.webp$/.test(u.pathname)));
+};
 
 // Фото, которые сейчас использует index.html (берём из его же IMAGES-литерала)
 async function currentImages() {
@@ -43,15 +49,17 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== 'GET' || !isAppAsset(req.url)) return;
   const isDoc = req.mode === 'navigate' ||
                 (req.headers.get('accept') || '').includes('text/html');
   if (isDoc) {
     // сеть в приоритете: онлайн — свежая версия, офлайн — из кэша
     e.respondWith(
       fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put('./index.html', copy));
+        if (res.ok) {
+          const copy = res.clone();
+          e.waitUntil(caches.open(CACHE).then(c => c.put('./index.html', copy)));
+        }
         return res;
       }).catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
     );
@@ -60,7 +68,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {
       if (res.ok) {
         const copy = res.clone();
-        caches.open(isImage(req.url) ? IMG_CACHE : CACHE).then(c => c.put(req, copy));
+        e.waitUntil(caches.open(isImage(req.url) ? IMG_CACHE : CACHE).then(c => c.put(req, copy)));
       }
       return res;
     }).catch(() => r)));

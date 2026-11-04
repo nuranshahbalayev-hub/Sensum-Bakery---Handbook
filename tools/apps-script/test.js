@@ -39,6 +39,7 @@ function env(opts = {}) {
   if ('notifyAll' in opts) named.NotifyAll = opts.notifyAll;
   const props = Object.assign({}, opts.props || { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42' });
   const sent = [], alerts = [], triggers = [];
+  let lockHeld = false;
   const ui = { alerts, ButtonSet: { OK_CANCEL: 1 }, Button: { OK: 'OK' }, alert: m => alerts.push(m),
     prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => opts.promptText || '' }),
     createMenu() { return { addItem() { return this; }, addSeparator() { return this; }, addToUi() {} }; } };
@@ -53,7 +54,10 @@ function env(opts = {}) {
     console, Date: ClockDate, JSON, Math, Number, String, Map, Set, Array, Object, isFinite,
     SpreadsheetApp: { getActive: () => ({ getSheetByName: n => sheets[n], insertSheet: n => (sheets[n] = makeSheet([])),
       getRangeByName: n => (n in named ? { getValue: () => named[n] } : null) }), getUi: () => ui },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    LockService: { getScriptLock: () => ({
+      waitLock() { assert.strictEqual(lockHeld, false, 'script locks must not be nested'); lockHeld = true; },
+      releaseLock() { assert.strictEqual(lockHeld, true); lockHeld = false; }
+    }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
     UrlFetchApp: { fetch(url, o) {
       const method = url.split('/').pop(), body = JSON.parse(o.payload);
@@ -79,7 +83,7 @@ function env(opts = {}) {
   const api = ctx.__api;
   const post = d => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(d) } }).text);
   const me = code => JSON.parse(api.doGet({ parameter: { action: 'me', code } }).text);
-  return { api, post, me, results, staff, sheets, props, sent, alerts, triggers };
+  return { api, post, me, results, staff, sheets, props, sent, alerts, triggers, isLocked: () => lockHeld };
 }
 
 const M = [{ q: 'Café Latte: сколько «Молоко»?', a: '180 мл', c: '220 мл' }];
@@ -107,7 +111,7 @@ assert.strictEqual(r.ok, true);
 assert.strictEqual(t.sent.length, 1);
 console.log('--- fail notification ---\n' + t.sent[0]);
 assert.ok(t.sent[0].includes('60%') && t.sent[0].includes('Тест-1 · Central Park') && t.sent[0].includes('180 мл (верно: 220 мл)'));
-assert.deepStrictEqual(t.post({ id: 'a2', code: '9001', scope: 'x', score: 6, total: 10 }), { ok: true, duplicate: true });
+assert.deepStrictEqual(t.post({ id: 'a2', code: '9001', scope: 'x', score: 6, total: 10 }), { ok: true, xp: 60, owls: [], over: false, duplicate: true });
 assert.strictEqual(t.results.getLastRow(), 3, 'duplicate not appended');
 
 // 4. bad input
@@ -160,9 +164,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.6'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.7'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.6');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.7');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -224,7 +228,7 @@ gr = g.post({ id: 'g9', code: '9002', scope: 'Напитки', kind: 'mix', scor
 assert.strictEqual(gr.xp, 0, 'only the first 5 tests of a day give XP');
 assert.deepStrictEqual(gr.owls, [{ why: 'Тест на 90%+', n: 1 }], 'but the first clean 90%+ test of the day still earns its owl');
 const ledger = g.sheets['Совы'];
-assert.deepStrictEqual(ledger.data[0], ['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ']);
+assert.deepStrictEqual(ledger.data[0], ['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ', 'ID попытки']);
 assert.strictEqual(ledger.data.length, 1 + 4, 'four owl rows so far');
 assert.deepStrictEqual(ledger.checkboxes, ['2:7', '3:7', '4:7', '5:7'], 'a checkbox in each owl row');
 assert.strictEqual(ledger.formats['2:2'], '@', 'code kept as text');
@@ -287,7 +291,7 @@ const pg = env({ notifyAll: false, now: NOW });
 assert.deepStrictEqual(pg.me('9001').progress, { read: [], box: {}, ts: 0 }, 'nothing stored yet: an empty progress, no sheet needed');
 let pr = pg.post({ action: 'progress', code: '9001', read: ['cf-origin', 'cf-farm'], box: { 'd:latte': 2, 'v:minituna': 1, 't:CF-01': 3 }, ts: 1000 });
 assert.deepStrictEqual([pr.ok, pr.progress.read, pr.progress.box, pr.progress.ts], [true, ['cf-origin', 'cf-farm'], { 'd:latte': 2, 'v:minituna': 1, 't:CF-01': 3 }, 1000], 'first write is stored');
-assert.deepStrictEqual(pg.sheets['Прогресс'].data[0], ['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек'], 'the sheet is created with its header');
+assert.deepStrictEqual(pg.sheets['Прогресс'].data[0], ['Код', 'Сотрудник', 'Обновлено (мс)', 'Прочитанные уроки', 'Ящики карточек', 'Версии карточек'], 'the sheet is created with its header');
 assert.strictEqual(pg.sheets['Прогресс'].data[1][0], '9001');
 // another employee never sees it
 pg.post({ action: 'progress', code: '9002', read: ['sv-first'], box: { 'p:syrup': 4 }, ts: 1500 });
@@ -384,6 +388,85 @@ assert.ok(dwk.includes("📅 Вопрос дня: ") && dwk.includes("❓ Сло
 dq.api.hardQuestions();
 assert.strictEqual(dq.sheets['Сложные вопросы'].getLastRow(), 3, 'rebuilt, not appended'); assert.ok(dq.alerts[dq.alerts.length - 1].includes('обновлён: 2 вопроса'));
 const noHard = env({ now: NOW }); noHard.api.hardQuestions(); assert.ok(noHard.alerts[0].includes('ошибок не было'));
+
+// 8g. Reliability: a saved result stays retryable until its award is committed.
+const recover = env({ now: NOW, notifyAll: true });
+recover.sheets['Совы'] = { getLastRow() { throw new Error('simulated ledger outage'); } };
+const recoverEvent = { id: 'recover-1', code: '9001', kind: 'drinks', score: 10, total: 10, ts: NOW };
+assert.deepStrictEqual(recover.post(recoverEvent), { ok: false, error: 'reward_pending', saved: true });
+assert.strictEqual(recover.results.getLastRow(), 2, 'the result survives the award failure');
+assert.strictEqual(recover.isLocked(), false, 'the lock is released after failure');
+delete recover.sheets['Совы'];
+const recovered = recover.post(recoverEvent);
+assert.deepStrictEqual(recovered, { ok: true, xp: 150, owls: [{ why: 'Тест на 90%+', n: 1 }], over: false, duplicate: true });
+assert.strictEqual(recover.results.getLastRow(), 2, 'retry never duplicates the result');
+assert.strictEqual(recover.sent.length, 1, 'retry never duplicates the notification');
+recover.sheets['Совы'].data[1][6] = true; // already transferred by the manager
+assert.deepStrictEqual(recover.post(recoverEvent), recovered, 'lost responses replay the original award');
+assert.strictEqual(recover.sheets['Совы'].data[1][6], true, 'retry never resets a credited award');
+assert.strictEqual(recover.sheets['Совы'].getLastRow(), 2);
+
+// Two rules earned by one attempt: retry completes the missing row after a partial write.
+const partial = env({ now: NOW, notifyAll: true });
+for (let i = 0; i < 2; i++) partial.post({ id: 'qualify-' + i, code: '9001', kind: 'drinks', score: 7, total: 10, ts: at(0, 8 + i) });
+const partialLedger = makeSheet([ledger.data[0]]), nativeRange = partialLedger.getRange;
+partial.sheets['Совы'] = partialLedger;
+let awardWrites = 0, simulateFailure = true;
+partialLedger.getRange = function(r, c, nr = 1, nc = 1) {
+  const range = nativeRange.call(this, r, c, nr, nc);
+  const write = range.setValues, read = range.getValues;
+  range.getValues = function() { assert.strictEqual(partial.isLocked(), true, 'award eligibility and ledger reads share the write lock'); return read.call(this); };
+  range.setValues = function(values) {
+    if (r > 1 && c === 1 && nc === 9 && ++awardWrites === 2 && simulateFailure) throw new Error('simulated second award failure');
+    return write.call(this, values);
+  };
+  return range;
+};
+const partialEvent = { id: 'partial-1', code: '9001', kind: 'drinks', score: 10, total: 10, ts: at(0, 10) };
+assert.strictEqual(partial.post(partialEvent).error, 'reward_pending');
+assert.strictEqual(partialLedger.getLastRow(), 2, 'only the first award committed');
+simulateFailure = false;
+const completedAward = partial.post(partialEvent);
+assert.deepStrictEqual(completedAward.owls, [{ why: 'Тест на 90%+', n: 1 }, { why: 'Учебная неделя', n: 2 }]);
+assert.strictEqual(partialLedger.getLastRow(), 3, 'one row per rule, including after recovery');
+assert.ok(partialLedger.data.slice(1).every(r => r[8] === 'partial-1'), 'awards are linked to the attempt');
+assert.strictEqual(partial.isLocked(), false);
+
+// A study week is complete only after three qualifying tests; a partly complete week keeps last week's streak.
+const streak = env({ now: NOW, notifyAll: false });
+for (let i = 0; i < 2; i++) {
+  streak.post({ id: 'streak-' + i, code: '9001', kind: 'drinks', score: 8, total: 10, ts: at(0, 8 + i) });
+  assert.strictEqual(streak.me('9001').streak, 0, 'one or two tests are not a complete study week');
+}
+streak.post({ id: 'streak-2', code: '9001', kind: 'drinks', score: 8, total: 10, ts: at(0, 10) });
+assert.strictEqual(streak.me('9001').streak, 1);
+assert.strictEqual(streak.me('9001').progressProtocol, 2);
+assert.strictEqual(streak.me('9001').passThreshold, 0.7);
+const customPass = env({ now: NOW, threshold: 0.8 });
+assert.strictEqual(customPass.me('9001').passThreshold, 0.8);
+
+// Protocol 2: independent devices merge only edited cards; zero resets are not resurrected.
+const delta = env({ now: NOW, notifyAll: false });
+delta.post({ action: 'progress', code: '9001', read: ['cf-origin'], box: { 'd:latte': 1, 'd:cappuccino': 1 }, ts: 1000 });
+const change = (changes, extra = {}) => delta.post(Object.assign({ action: 'progress', protocol: 2, code: '9001', read: [], changes, ts: 1000 }, extra));
+assert.strictEqual(change({ 'd:latte': { v: 2, ts: 2000 } }).ok, true);
+change({ 'd:cappuccino': { v: 3, ts: 3000 } });
+change({ 'd:latte': { v: 3, ts: 4000 } }, { box: { 'd:cappuccino': 1 }, read: ['cf-milk'] });
+assert.deepStrictEqual(delta.me('9001').progress.box, { 'd:latte': 3, 'd:cappuccino': 3 }, 'a stale whole snapshot is ignored');
+change({ 'd:latte': { v: 5, ts: 2000 } });
+assert.strictEqual(delta.me('9001').progress.box['d:latte'], 3, 'late delivery of an old card edit cannot overwrite a new edit');
+change({ 'd:cappuccino': { v: 0, ts: 5000 }, 'd:latte': { v: 0, ts: 4000 } });
+change({ 'd:cappuccino': { v: 4, ts: 5000 }, 'd:latte': { v: 3, ts: 4000 } });
+assert.deepStrictEqual(delta.me('9001').progress.box, { 'd:latte': 0, 'd:cappuccino': 0 }, 'a zero reset wins tied timestamps and survives replay');
+change({ 'd:latte': { v: 5, ts: 6000, ifAbsent: true }, 'd:flatwhite': { v: 2, ts: 6000, ifAbsent: true } });
+assert.deepStrictEqual(delta.me('9001').progress.box, { 'd:latte': 0, 'd:cappuccino': 0, 'd:flatwhite': 2 }, 'unknown legacy baseline only fills missing cards');
+const beforeLegacy = delta.me('9001').progress;
+assert.deepStrictEqual(delta.post({ action: 'progress', code: '9001', read: [], box: { 'd:latte': 5 }, ts: NOW }), { ok: false, error: 'progress_update_required' });
+assert.deepStrictEqual(delta.me('9001').progress, beforeLegacy, 'an old client cannot replace migrated card progress');
+change({ 'bad:key': { v: 1, ts: 7000 }, 'd:bad': { v: 6, ts: 7000 }, 'd:future': { v: 2, ts: NOW + 3600000 } });
+assert.deepStrictEqual(delta.me('9001').progress.box, beforeLegacy.box);
+assert.deepStrictEqual(delta.me('9001').progress.read, ['cf-origin', 'cf-milk']);
+assert.deepStrictEqual(delta.me('9002').progress, { read: [], box: {}, ts: 0 }, 'changes remain scoped to the employee');
 
 // 9. menu flows
 const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });
