@@ -8,7 +8,7 @@ Sensum & Bakery — a single-page bilingual (RU/AZ) PWA barista handbook: drink 
 
 ## Commands
 
-There is no build step — it's plain HTML/CSS/JS. Three checks, no install needed (stdlib Python, Node; the smoke test also needs Playwright, preinstalled in Claude Code cloud sessions):
+There is no build step — it's plain HTML/CSS/JS. The checks use stdlib Python and Node; the browser smoke test also needs Playwright and Chromium (installed by GitHub Actions):
 
 ```bash
 python3 tools/audit.py          # recipe data, photos, versions
@@ -138,7 +138,7 @@ The tabs are `drinks · preps · vitrina · learn · more` (since v1.105 «Об�
 
 ### Service worker
 
-`sw.js` is network-first for document/navigation requests (so `index.html` is always fetched fresh when online, falling back to cache offline) and cache-first for everything else. Photos live in their own cache, `sensum-img`, which is **not** wiped when `CACHE` is bumped: on install the worker reads `index.html`, extracts every `images/*.webp` path, downloads the missing ones (so the whole handbook works offline) and deletes cached photos no longer referenced. Bumping `CACHE` therefore re-downloads only the small app shell, not the photos. Because this app is added-to-homescreen on real devices, the registration script also reloads the page once on `controllerchange` — otherwise an already-open/installed instance can sit on stale JS indefinitely even after a successful deploy, since `clients.claim()` alone doesn't refresh content already on screen.
+`sw.js` only intercepts GET requests for the explicit app-shell paths and hashed photos on this origin, without query strings. API calls and all other URLs go directly to the network; the client also requests API data with `cache: 'no-store'`. Within that allowlist the worker is network-first for documents (online fresh HTML, offline cached HTML) and cache-first for the other assets. Photos live in `sensum-img`, which survives a `CACHE` bump: installation reads the current image paths from `index.html`, downloads missing photos and removes obsolete ones. Activation clears older shell caches, including API responses cached by previous workers. Registration does not reload an already-open document on `controllerchange`; after deployment, close and reopen the installed app or reload the page to load the new frontend.
 
 ### Design tokens (UI)
 
@@ -168,3 +168,4 @@ The owner runs several Claude chats on this repo (training, design, menu). **Cha
 - Deploy Code.gs v5.7 first, then merge/release the frontend. The owner publishes Apps Script with a new version on the existing deployment URL. Confirm GET returns v5.7, then check a real test account before rollout. Do not clear results, owls or progress and do not bump RESET_EPOCH. Columns I in Owls and F in Progress are added automatically. New phones keep local progress queued until progressProtocol 2 is available; old snapshot clients cannot replace a migrated profile.
 - Run the data audit, Apps Script tests, service-worker tests and training-client tests. The GitHub Actions Application checks workflow also runs the full browser smoke suite with a mock results server on every PR to main. No test should send real results or Telegram messages.
 - Streaks are recalculated with the documented three-test rule; existing owl ledger amounts and transfer checkboxes are preserved. An old device with no known progress baseline can import missing cards but cannot overwrite existing server cards during migration.
+- PR #36 passed all GitHub Actions checks, including browser smoke checks. An additional isolated browser check used the real UI and Code.gs with in-memory services: a simulated award outage retained the result, automatic recovery left exactly one result row, and a 2/10 completion displayed “needs review.” No production data was written.
