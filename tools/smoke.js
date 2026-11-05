@@ -527,6 +527,16 @@ const server = http.createServer((req, res) => {
   const homeTxt = await page.locator('#learnroot').innerText();
   check(homeTxt.includes('Твой уровень: Бариста') && /ранг \d/.test(homeTxt) && !/уровень \d/.test(homeTxt), 'the level is the employee’s level, the XP level is called a rank');
 
+  /* answers the running quiz through the app's own functions: the first `right` questions right, the rest wrong; returns the view it ends on */
+  const playQuiz = right => page.evaluate(r => {
+    const n = L.qz.qs.length;
+    for (let k = 0; k < n; k++) {
+      const q = L.qz.qs[L.qz.i], good = k < r;
+      if (!q.tt || q.tt === 'one') answer(good ? q.opts.indexOf(q.correct) : q.opts.findIndex(o => o !== q.correct)); else answer(-3, { ok: good, your: 'x' });
+      nextQ();
+    }
+    return L.view;
+  }, right);
   /* «План на сегодня»: the next lesson of the level, a counted test, ticked when done today; the dot on the tab says nothing was done today */
   const keepLim = await page.evaluate(() => JSON.stringify({ limits: LS.stats.limits, week: LS.stats.week }));
   await page.evaluate(() => { LS.read = {}; LS.today = null; LS.att = []; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.week = { recipes: 1, theory: 0 }; LS.stats.at = Date.now(); saveLearn(); renderLearn(); });
@@ -539,7 +549,9 @@ const server = http.createServer((req, res) => {
   check(await page.evaluate(id => { const my = new Set(levelSet(myLvl()).map(t => t.topic)); return my.has(LES.find(l => l.id === id).topic); }, firstLes), 'plan: the lesson is of a topic of the person’s level');
   await page.click('#learnroot .plan .tile.next');
   check(await page.evaluate(id => L.view === 'lesson' && L.lid === id, firstLes), 'plan: the lesson row opens that lesson');
-  await page.click('#learnroot [data-l="lread"]');
+  await page.click('#learnroot [data-l="lcheck"]');
+  check(await playQuiz(3) === 'result' && await page.evaluate(id => !!LS.read[id], firstLes), 'plan: a lesson counts after its check (3 of 3), not by a button');
+  await page.click('#learnBack');
   await page.click('#learnBack');
   pl = await plan();
   check(pl[0].done && pl[0].t.includes('Дальше:') && pl[1].next && !(await dotOn()) && (await page.locator('#learnroot .plan .lph').innerText()).includes('1 / 2'),
@@ -582,9 +594,39 @@ const server = http.createServer((req, res) => {
   const les3 = await page.evaluate(() => ({ id: L.lid, title: LES.find(x => x.id === L.lid).title }));
   const lt = await page.locator('#learnroot').innerText();
   check(les3.id === 'cf-species' && lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: title, the arabica / robusta table and its numbers');
-  check(await page.locator('#learnroot [data-l="lread"]').count() === 1 && await page.locator('#learnroot [data-l="ltest"]').count() === 1, 'lesson: «mark read» and «test yourself» buttons');
+  check(await page.locator('#learnroot [data-l="lcheck"]').count() === 1 && await page.locator('#learnroot [data-l="lread"]').count() === 0 && await page.locator('#learnroot [data-l="ltest"]').count() === 0,
+    'lesson: an unread lesson offers only the check, no «mark read» button and no free test');
+  check((await page.locator('#learnroot .lbtns + .hint').innerText()).includes('2 из 3'), 'lesson: the hint says 2 of 3 are needed');
+  /* a failed check: nothing counts, no attempt, nothing sent; the missed theory questions link to the lessons of their topic */
+  const sent0 = posted.length, att0 = await page.evaluate(() => LS.att.length);
+  await page.click('#learnroot [data-l="lcheck"]');
+  const ck = await page.evaluate(() => ({ kind: L.qz.kind, practice: L.qz.practice, rec: !!L.qz.rec, n: L.qz.qs.length, topics: [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))] }));
+  check(ck.kind === 'check' && ck.practice && !ck.rec && ck.n === 3 && ck.topics.length === 1, 'lesson check: 3 questions of the lesson’s topic, a practice test (' + ck.topics + ')');
+  check(await ttl() === 'Проверка урока', 'lesson check: the top bar says «Проверка урока»');
+  check(await playQuiz(0) === 'result' && await page.evaluate(() => !LS.read['cf-species']), 'lesson check: 0 of 3 does not count the lesson');
+  check(await ttl() === 'Проверка урока', 'lesson check: the result is titled «Проверка урока», not «Тренировка»');
+  const failTxt = await page.locator('#learnroot').innerText();
+  check(failTxt.includes('нужно 2 верных из 3') && await page.locator('#learnroot [data-l="lcheck2"]').count() === 1 && await page.locator('#learnroot [data-l="retry"]').count() === 0 && await page.locator('#learnroot [data-l="quiz"]').count() === 0,
+    'lesson check: the result says why, offers «Ещё раз» and no counted test');
+  check(posted.length === sent0 && await page.evaluate(() => LS.att.length) === att0 && await page.evaluate(() => LS.outbox.length === 0 && !LS.live), 'lesson check: nothing is sent, no attempt is used');
+  const chipLes = await page.evaluate(() => [...document.querySelectorAll('#learnroot .mist [data-l="lesson"]')].map(b => b.dataset.v));
+  check(chipLes.length >= 3 && await page.evaluate(([ids, t]) => ids.every(id => LES.find(l => l.id === id).topic === t), [chipLes, ck.topics[0]]), 'theory mistakes: each links to the lessons of its topic (' + chipLes.length + ' links)');
+  await page.locator('#learnroot .mist [data-l="lesson"]').first().click();
+  check(await page.evaluate(() => L.view === 'lesson') && await page.locator('#learnroot [data-l="lcheck"], #learnroot [data-l="ltest"]').count() >= 1, 'theory mistakes: the link opens that lesson');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'lesson' && L.lid === 'cf-species'), 'back: from a linked lesson to the lesson the check was started from');
+  /* a passed check counts the lesson, dated in Baku */
+  await page.click('#learnroot [data-l="lcheck"]');
+  check(await playQuiz(2) === 'result' && await page.evaluate(() => /^\d{4}-\d\d-\d\d$/.test(LS.read['cf-species'])), 'lesson check: 2 of 3 counts the lesson, stored with its day (' + await page.evaluate(() => LS.read['cf-species']) + ')');
+  check((await page.locator('#learnroot').innerText()).includes('Урок засчитан') && await page.locator('#learnroot [data-l="lnext"]').count() === 1, 'lesson check: «Урок засчитан» and the next lesson on offer');
+  await page.click('#learnBack');
+  check(await page.locator('#learnroot [data-l="lcheck"]').count() === 0 && await page.locator('#learnroot [data-l="ltest"]').count() === 1 && (await page.locator('#learnroot').innerText()).includes('Урок пройден'), 'lesson: after the check it reads «Урок пройден» and offers the free test');
+  /* a topic without questions keeps the plain button */
+  await page.evaluate(() => { LES.push({ id: 'zz-test', cat: 'CF', topic: 'ZZ-0', title: 'Test lesson', blocks: [{ p: 'x' }] }); L.lid = 'zz-test'; renderLearn(); });
+  check(await page.locator('#learnroot [data-l="lread"]').count() === 1 && await page.locator('#learnroot [data-l="lcheck"]').count() === 0, 'lesson without questions: the plain «mark read» button stays');
   await page.click('#learnroot [data-l="lread"]');
-  check(await page.evaluate(() => LS.read['cf-species'] === 1) && await page.locator('#learnroot [data-l="lread"]').count() === 0, 'lesson: marked read, remembered in sensum_learn.read');
+  check(await page.evaluate(() => !!LS.read['zz-test']), 'lesson without questions: it can be marked read');
+  await page.evaluate(() => { LES.pop(); delete LS.read['zz-test']; L.lid = 'cf-species'; renderLearn(); });
   await page.click('#learnBack');
   check((await page.locator('#learnroot .tile.read').count()) === 1 && (await page.locator('#learnroot .lpanel').first().innerText()).includes('1 / 17'), 'lessons: the list shows the read lesson and 1 / 17');
   /* a long lesson title fits the top bar: two lines at most, no side scroll */
@@ -603,6 +645,14 @@ const server = http.createServer((req, res) => {
   await page.click('#learnroot [data-l="lcat"][data-v="CF"]');
   await page.click('#learnroot [data-l="lesson"][data-v="cf-milk"]');
   const nPosted = posted.length, nAtt = await page.evaluate(() => LS.att.length);
+  /* the check takes 3 questions of this lesson's topic only (CF-8); leaving it asks first and the lesson stays unread */
+  await page.click('#learnroot [data-l="lcheck"]');
+  check(await page.evaluate(() => L.view === 'quiz' && L.qz.kind === 'check' && L.qz.qs.length === 3 && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'CF-8')), 'lesson check: «Молоко» asks 3 questions of CF-8 only');
+  page.once('dialog', d => d.accept());
+  await page.click('#learnBack');
+  await page.waitForTimeout(250);
+  check(await page.evaluate(() => L.view === 'lesson' && !LS.read['cf-milk']), 'lesson check: leaving it keeps the lesson unread');
+  await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); renderLearn(); });
   await page.click('#learnroot [data-l="ltest"]');
   const lq = await page.evaluate(() => ({ view: L.view, kind: L.qz && L.qz.kind, practice: L.qz && L.qz.practice, rec: L.qz && !!L.qz.rec, topic: L.qz && [...new Set(L.qz.qs.map(q => TH.find(t => t.id === q.id).topic))], n: L.qz && L.qz.qs.length, scope: L.qz && L.qz.scope }));
   check(lq.view === 'quiz' && lq.practice === true && lq.rec === false && lq.topic.length === 1 && lq.topic[0] === 'CF-8' && lq.n >= 3 && lq.scope.includes('Молоко'), 'lesson test: a theory test of this lesson’s topic only (CF-8, ' + lq.n + ' questions)');
@@ -611,6 +661,7 @@ const server = http.createServer((req, res) => {
   await page.click('#learnBack');
   await page.waitForTimeout(250);
   check(await page.evaluate(() => L.view === 'lesson' && L.lid === 'cf-milk' && !L.qz), 'back: leaving a test started from a lesson returns to that lesson');
+  await page.evaluate(() => { delete LS.read['cf-milk']; });
   check(posted.length === nPosted && await page.evaluate(() => LS.att.length) === nAtt && await page.evaluate(() => !LS.live && LS.outbox.length === 0), 'practice: leaving it sends nothing, uses no attempt and leaves nothing waiting');
   /* a lesson of «Сервис и продажи»: its test takes only SV-3 questions */
   await page.evaluate(() => { LS.att = []; if (LS.stats) LS.stats.week = { recipes: 0, theory: 0 }; L.nav = []; L.view = 'materials'; renderLearn(); });
@@ -618,6 +669,7 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot [data-l="lesson"]').count() === 12 && await ttl() === 'Сервис и продажи', 'lessons: «Сервис и продажи» lists 12 lessons');
   await page.click('#learnroot [data-l="lesson"][data-v="sv-order"]');
   check(await page.locator('#learnroot ol.ll li').count() === 6 && (await page.locator('#learnroot').innerText()).includes('Подтверждение заказа'), 'lesson: the order steps are a six-step list');
+  await page.evaluate(() => { LS.read['sv-order'] = bakuDay(); renderLearn(); });
   await page.click('#learnroot [data-l="ltest"]');
   check(await page.evaluate(() => L.view === 'quiz' && L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'SV-3')), 'lesson test: «Приём заказа» tests only the topic SV-3');
   page.once('dialog', d => d.accept());
@@ -629,11 +681,13 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot [data-l="lesson"]').count() === 14 && await ttl() === 'Бренд SENSUM', 'lessons: «Бренд SENSUM» lists 14 lessons');
   await page.click('#learnroot [data-l="lesson"][data-v="br-mission"]');
   check((await page.locator('#learnroot').innerText()).includes('Кредо компании') && (await page.locator('#learnroot').innerText()).includes('Талант'), 'lesson: the mission lesson carries the credo');
+  await page.evaluate(() => { LS.read['br-mission'] = bakuDay(); renderLearn(); });
   await page.click('#learnroot [data-l="ltest"]');
   check(await page.evaluate(() => L.view === 'quiz' && L.qz.practice && L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'BR-1')), 'lesson test: «Миссия» tests only the topic BR-1');
   page.once('dialog', d => d.accept());
   await page.click('#learnBack');
   await page.waitForTimeout(250);
+  await page.evaluate(() => { delete LS.read['sv-order']; delete LS.read['br-mission']; });
   await page.evaluate(() => { L.nav = [{ view: 'home', y: 0 }]; L.view = 'materials'; renderLearn(); });
   await page.click('#learnroot [data-l="lcat"][data-v="CF"]');
   await page.click('#learnroot [data-l="lesson"][data-v="cf-milk"]');
