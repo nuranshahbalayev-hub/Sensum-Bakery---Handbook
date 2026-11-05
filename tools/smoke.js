@@ -339,7 +339,7 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot [data-l="topic"]').count() === 11, 'theory: a direction shows its topics');
   await page.click('#learnroot [data-l="topic"][data-v="CF-8"]');
   await page.click('#learnroot [data-l="quiz"]');
-  check(await page.evaluate(() => L.qz.qs.length === 4 && L.qz.qs.every(q => q.id.startsWith('CF-4') || /^CF-/.test(q.id)) && L.qz.scope.includes('Молоко')),
+  check(await page.evaluate(() => L.qz.qs.length === Math.min(10, TH.filter(t => t.topic === 'CF-8' && LVL_RANK[t.lvl] <= LVL_RANK[myLvl() || 'senior']).length) && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'CF-8') && L.qz.scope.includes('Молоко')),
     'theory: a topic test takes only that topic and names it');
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exit"]');
@@ -429,14 +429,15 @@ const server = http.createServer((req, res) => {
   const home1 = await page.locator('#learnroot').innerText();
   check(home1.includes('Smoke Test · Test · Бариста') && home1.includes('Твой уровень: Бариста') && await page.locator('#learnroot [data-l="lvl"]').count() === 2,
     'levels: the login shows the level; the theory home shows the level panel and the two level chips');
-  check(await lvlCount() === 92 && await page.evaluate(() => theoryItems().every(t => t.lvl !== 'senior')), 'levels: a barista gets the trainee and barista questions (92), none of the senior ones');
+  const nAll = await page.evaluate(() => TH.length), nTrainee = await page.evaluate(() => TH.filter(t => t.lvl === 'trainee').length), nBarista = await page.evaluate(() => TH.filter(t => t.lvl !== 'senior').length);
+  check(await lvlCount() === nBarista && nBarista < nAll && await page.evaluate(() => theoryItems().every(t => t.lvl !== 'senior')), 'levels: a barista gets the trainee and barista questions (' + nBarista + '), none of the senior ones');
   await page.click('#learnroot [data-l="lvl"][data-v="all"]');
-  check(await lvlCount() === 101, 'levels: «Все уровни» shows all 101');
+  check(await lvlCount() === nAll, 'levels: «Все уровни» shows all ' + nAll);
   await page.click('#learnroot [data-l="lvl"][data-v="my"]');
   ME.level = 'trainee';  /* the trainer sets the level in the sheet; the app picks it up with the next stats refresh */
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); L.dir = 'all'; L.topic = 'all'; });
   await page.waitForTimeout(500);
-  check(await lvlCount() === 31 && await page.evaluate(() => theoryItems().every(t => t.lvl === 'trainee')), 'levels: a trainee gets only the 31 trainee questions');
+  check(await lvlCount() === nTrainee && await page.evaluate(() => theoryItems().every(t => t.lvl === 'trainee')), 'levels: a trainee gets only the ' + nTrainee + ' trainee questions');
   await page.click('#learnroot [data-l="dir"][data-v="CF"]');
   const cfTopics = await page.locator('#learnroot [data-l="topic"]').count();
   const cfExpected = await page.evaluate(() => new Set(TH.filter(t => t.lvl === 'trainee' && t.topic.startsWith('CF-')).map(t => t.topic)).size + 1);
@@ -452,11 +453,11 @@ const server = http.createServer((req, res) => {
   ME.level = 'senior';
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
-  check((await page.locator('#learnroot').innerText()).includes('Высший уровень') && await lvlCount() === 101, 'levels: a senior sees everything and the top-level note');
+  check((await page.locator('#learnroot').innerText()).includes('Высший уровень') && await lvlCount() === nAll, 'levels: a senior sees everything and the top-level note');
   ME.level = '';
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
-  check(await page.locator('#learnroot [data-l="lvl"]').count() === 0 && await lvlCount() === 101 && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'),
+  check(await page.locator('#learnroot [data-l="lvl"]').count() === 0 && await lvlCount() === nAll && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'),
     'levels: no level (an older sheet script, an empty cell) = all questions, no level chips, no panel');
   ME.level = 'barista';
   await page.evaluate(() => { Object.keys(LS.box).forEach(k => { LS.box[k] = 0; touchProgress(k); }); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
@@ -910,7 +911,8 @@ const server = http.createServer((req, res) => {
     out.one = { n: qs.length, th: qs.filter(q => q.isTheory).length, topics: [...new Set(qs.filter(q => q.isTheory).map(q => TH.find(t => t.id === q.id).topic))] };
     LS.read = keep; return out; });
   check(lowExam.none.n === 20 && lowExam.none.th === 0 && lowExam.none.d === 8 && lowExam.none.p === 6 && lowExam.none.v === 6, 'exam: nothing read, no theory, the recipes make up the 20 (8 drinks, 6 preps, 6 vitrina)');
-  check(lowExam.one.n === 20 && lowExam.one.th === 4 && lowExam.one.topics.join() === 'CF-8', 'exam: one topic read: its four questions are taken, the rest comes from the recipes (' + JSON.stringify(lowExam.one) + ')');
+  const cf8 = await page.evaluate(() => TH.filter(t => t.topic === 'CF-8' && LVL_RANK[t.lvl] <= LVL_RANK[myLvl() || 'senior']).length);
+  check(lowExam.one.n === 20 && lowExam.one.th === Math.min(6, cf8) && lowExam.one.topics.join() === 'CF-8', 'exam: one topic read: its ' + Math.min(6, cf8) + ' questions are taken (at most 6), the rest comes from the recipes (' + JSON.stringify(lowExam.one) + ')');
   /* the vitrina test of the training home counts as a recipe attempt */
   await page.evaluate(() => { LS.att = []; if (LS.stats) { LS.stats.week = { recipes: 0, theory: 0 }; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.at = Date.now(); } L.nav = []; L.view = 'home'; L.scope = 'drinks'; renderLearn(); });
   await page.click('#learnroot [data-l="scope"][data-v="vitrina"]');
