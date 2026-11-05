@@ -1,0 +1,861 @@
+<title>Дизайн-система Sensum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<!--
+  Concept of the Sensum design system v2 (stage 0 of the plan): the new tokens, the components and four app screens in the new look.
+  The page is styled with the same tokens it proposes. It does not touch index.html: nothing here is live in the app yet.
+  Photos come from ../images/ (the published copy has them embedded, plus screenshots of the current app for «Было»).
+  Icons: paths after Lucide (lucide.dev, ISC licence), redrawn on a 24 grid with a 1.75 stroke.
+-->
+<style>
+/* Layout: one centred column of foundations and components, with a swipeable row of phone frames that render the app screens. */
+:root{
+  /* ── palette: warm neutrals, caramel, status hues ─────────────── */
+  --n-0:#FFFFFF; --n-50:#F6F2ED; --n-100:#EEE8E1; --n-200:#E2D9CF; --n-300:#CBBFB2; --n-400:#9A8D80;
+  --n-600:#6B5E52; --n-700:#4E433A; --n-850:#2A231D; --n-900:#1D1814; --n-950:#0F0C0A;
+  --caramel-300:#E0A066; --caramel-500:#B5723A; --caramel-600:#9A5B28; --caramel-700:#7D4A20;
+
+  /* ── roles (light) ────────────────────────────────────────────── */
+  --bg:var(--n-50); --bg-elevated:var(--n-0); --bg-tertiary:var(--n-50); --bg-photo:#E9DFD3;
+  --label:#1F1813; --label-2:var(--n-600); --label-3:var(--n-400); --label-4:var(--n-300);
+  --fill:rgba(118,92,68,.16); --fill-2:rgba(118,92,68,.11); --fill-3:rgba(118,92,68,.07);
+  --separator:rgba(78,58,42,.16); --separator-opaque:var(--n-200);
+  --tint:var(--caramel-600); --tint-strong:var(--caramel-700); --on-tint:#FFFFFF; --tint-bg:rgba(181,114,58,.10);
+  --red:#C4372C; --red-solid:#C4372C; --red-bg:rgba(196,55,44,.10);
+  --green:#2A7A4B; --green-solid:#2A7A4B; --green-bg:rgba(42,122,75,.10);
+  --orange:#A9521A; --orange-solid:#B0561C; --orange-bg:rgba(176,86,28,.10);
+  --blue:#2E6F99; --blue-solid:#2E6F99; --blue-bg:rgba(46,111,153,.10);
+  --gold-solid:#C08A1E;
+  --seg-thumb:#FFFFFF; --seg-thumb-shadow:0 1px 3px rgba(40,28,20,.16),0 0 0 .5px rgba(40,28,20,.06);
+  --material:rgba(246,242,237,.78); --glass:rgba(255,255,255,.80); --on-glass:#1F1813;
+  --scrim:rgba(20,14,10,.42); --photo-grabber:rgba(255,255,255,.75);
+  --elev-1:0 1px 2px rgba(40,28,20,.06),0 3px 10px rgba(40,28,20,.05);
+  --elev-2:0 12px 40px rgba(20,14,10,.20);
+  --device:#1A1613; --device-edge:#3A322C;
+
+  /* ── type: the iOS text styles, size + leading, scaled by the text size setting ── */
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+  --ts:1;
+  --fs-large:calc(34px * var(--ts)); --lh-large:calc(41px * var(--ts));
+  --fs-t1:calc(28px * var(--ts));    --lh-t1:calc(34px * var(--ts));
+  --fs-t2:calc(22px * var(--ts));    --lh-t2:calc(28px * var(--ts));
+  --fs-t3:calc(20px * var(--ts));    --lh-t3:calc(25px * var(--ts));
+  --fs-body:calc(17px * var(--ts));  --lh-body:calc(22px * var(--ts));
+  --fs-callout:calc(16px * var(--ts)); --lh-callout:calc(21px * var(--ts));
+  --fs-sub:calc(15px * var(--ts));   --lh-sub:calc(20px * var(--ts));
+  --fs-fn:calc(13px * var(--ts));    --lh-fn:calc(18px * var(--ts));
+  --fs-c1:calc(12px * var(--ts));    --lh-c1:calc(16px * var(--ts));
+  --fs-c2:calc(11px * var(--ts));    --lh-c2:calc(13px * var(--ts));
+
+  /* ── space, shape, motion ─────────────────────────────────────── */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px; --gutter:16px;
+  --r-icon:8px; --r-sm:10px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-pill:999px;
+  --tap:44px; --hair:.5px;
+  --ease:cubic-bezier(.32,.72,0,1); --dur-fast:.15s; --dur:.3s; --press:.97; --disabled:.4;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:var(--n-950); --bg-elevated:var(--n-900); --bg-tertiary:var(--n-850); --bg-photo:#2A231D;
+  --label:#F3ECE4; --label-2:#B3A698; --label-3:#7E7266; --label-4:#4F463E;
+  --fill:rgba(160,138,116,.26); --fill-2:rgba(160,138,116,.20); --fill-3:rgba(160,138,116,.13);
+  --separator:rgba(230,210,190,.14); --separator-opaque:#3A322A;
+  --tint:var(--caramel-300); --tint-strong:#EDB37E; --on-tint:#1F140B; --tint-bg:rgba(224,160,102,.16);
+  --red:#FF7A6E; --red-bg:rgba(255,122,110,.16); --green:#5CC48A; --green-bg:rgba(92,196,138,.15);
+  --orange:#F0985A; --orange-bg:rgba(240,152,90,.15); --blue:#6AB0E0; --blue-bg:rgba(106,176,224,.15);
+  --seg-thumb:#4A4038; --seg-thumb-shadow:none;
+  --material:rgba(15,12,10,.76); --glass:rgba(40,33,28,.72); --on-glass:#F3ECE4;
+  --scrim:rgba(0,0,0,.55); --elev-1:none; --elev-2:0 12px 40px rgba(0,0,0,.55);
+  --device:#000000; --device-edge:#2A2420;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:var(--n-950); --bg-elevated:var(--n-900); --bg-tertiary:var(--n-850); --bg-photo:#2A231D;
+  --label:#F3ECE4; --label-2:#B3A698; --label-3:#7E7266; --label-4:#4F463E;
+  --fill:rgba(160,138,116,.26); --fill-2:rgba(160,138,116,.20); --fill-3:rgba(160,138,116,.13);
+  --separator:rgba(230,210,190,.14); --separator-opaque:#3A322A;
+  --tint:var(--caramel-300); --tint-strong:#EDB37E; --on-tint:#1F140B; --tint-bg:rgba(224,160,102,.16);
+  --red:#FF7A6E; --red-bg:rgba(255,122,110,.16); --green:#5CC48A; --green-bg:rgba(92,196,138,.15);
+  --orange:#F0985A; --orange-bg:rgba(240,152,90,.15); --blue:#6AB0E0; --blue-bg:rgba(106,176,224,.15);
+  --seg-thumb:#4A4038; --seg-thumb-shadow:none;
+  --material:rgba(15,12,10,.76); --glass:rgba(40,33,28,.72); --on-glass:#F3ECE4;
+  --scrim:rgba(0,0,0,.55); --elev-1:none; --elev-2:0 12px 40px rgba(0,0,0,.55);
+  --device:#000000; --device-edge:#2A2420;
+  color-scheme:dark;
+}
+
+/* ── base ───────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--label);font-family:var(--font);font-size:var(--fs-body);line-height:var(--lh-body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--material)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--tint);outline-offset:2px;border-radius:6px}
+h1,h2,h3,h4,p{margin:0}
+code{font:500 .86em/1 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--fill-3);padding:2px 5px;border-radius:5px;color:var(--label)}
+
+/* text styles */
+.t-large{font-size:var(--fs-large);line-height:var(--lh-large);font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.t-t1{font-size:var(--fs-t1);line-height:var(--lh-t1);font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.t-t2{font-size:var(--fs-t2);line-height:var(--lh-t2);font-weight:700;text-wrap:balance}
+.t-t3{font-size:var(--fs-t3);line-height:var(--lh-t3);font-weight:600;text-wrap:balance}
+.t-headline{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:600}
+.t-body{font-size:var(--fs-body);line-height:var(--lh-body)}
+.t-callout{font-size:var(--fs-callout);line-height:var(--lh-callout)}
+.t-sub{font-size:var(--fs-sub);line-height:var(--lh-sub)}
+.t-fn{font-size:var(--fs-fn);line-height:var(--lh-fn)}
+.t-c1{font-size:var(--fs-c1);line-height:var(--lh-c1)}
+.t-c2{font-size:var(--fs-c2);line-height:var(--lh-c2)}
+.l2{color:var(--label-2)} .l3{color:var(--label-3)} .tint{color:var(--tint)}
+.b{font-weight:600} .num{font-variant-numeric:tabular-nums}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* icons */
+.ic{width:1em;height:1em;flex:none;display:inline-block;vertical-align:-.15em}
+.ic svg{width:100%;height:100%;display:block}
+
+/* ── components ─────────────────────────────────────────────────── */
+/* buttons: filled / tinted / gray / plain × l / m / s */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);border:0;border-radius:var(--r-md);font-weight:600;
+  min-height:50px;padding:0 var(--sp-5);font-size:var(--fs-body);line-height:1.15;transition:transform var(--dur-fast) var(--ease),opacity var(--dur-fast),background-color var(--dur-fast)}
+.btn.m{min-height:var(--tap);font-size:var(--fs-sub);padding:0 var(--sp-4);border-radius:var(--r-sm)}
+.btn.s{min-height:30px;font-size:var(--fs-fn);padding:0 var(--sp-3);border-radius:var(--r-pill)}
+.btn.block{display:flex;width:100%}
+.btn.filled{background:var(--tint);color:var(--on-tint)}
+.btn.tinted{background:var(--tint-bg);color:var(--tint)}
+.btn.gray{background:var(--fill-2);color:var(--label)}
+.btn.plain{background:none;color:var(--tint);padding:0 var(--sp-2);min-height:var(--tap)}
+.btn.danger{background:var(--red-bg);color:var(--red)}
+.btn:not(:disabled):active{transform:scale(var(--press))}
+.btn.plain:active{transform:none;opacity:.5}
+.btn:disabled{opacity:var(--disabled);cursor:default}
+.ibtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:2px;border:0;background:none;color:var(--tint);
+  min-width:32px;height:32px;padding:0 var(--sp-1);font-size:22px;font-weight:600}
+.ibtn::after{content:"";position:absolute;inset:-6px}
+.ibtn .lbl{font-size:var(--fs-sub);letter-spacing:.02em}
+.ibtn:active{opacity:.5}
+
+/* chips and the segmented control */
+.chips{display:flex;gap:var(--sp-2);overflow-x:auto;scrollbar-width:none;margin:0 calc(var(--gutter) * -1);padding:0 var(--gutter)}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 14px;border:0;border-radius:var(--r-pill);
+  background:var(--fill-2);color:var(--label);font-size:var(--fs-fn);font-weight:500;white-space:nowrap;transition:background-color var(--dur-fast),transform var(--dur-fast) var(--ease)}
+.chip.on{background:var(--tint);color:var(--on-tint);font-weight:600}
+.chip:active{transform:scale(var(--press))}
+.chip .ic{font-size:15px}
+.seg{display:flex;padding:2px;border-radius:9px;background:var(--fill-2);gap:0}
+.seg button{flex:1;min-height:30px;border:0;border-radius:7px;background:none;color:var(--label);font-size:var(--fs-fn);font-weight:500;padding:0 var(--sp-3);white-space:nowrap;
+  transition:background-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.seg button.on{background:var(--seg-thumb);box-shadow:var(--seg-thumb-shadow);font-weight:600}
+.seg button:disabled{opacity:var(--disabled);cursor:default}
+
+/* badges: tinted by default, solid on photos and for counts */
+.badge{display:inline-flex;align-items:center;gap:4px;height:calc(22px * var(--ts));padding:0 var(--sp-2);border-radius:var(--r-pill);
+  font-size:var(--fs-c1);font-weight:600;line-height:1;white-space:nowrap;background:var(--fill-2);color:var(--label-2)}
+.badge .ic{font-size:12px}
+.badge.red{background:var(--red-bg);color:var(--red)} .badge.green{background:var(--green-bg);color:var(--green)}
+.badge.orange{background:var(--orange-bg);color:var(--orange)} .badge.blue{background:var(--blue-bg);color:var(--blue)}
+.badge.accent{background:var(--tint-bg);color:var(--tint)}
+.badge.solid{color:#fff} .badge.solid.red{background:var(--red-solid)} .badge.solid.green{background:var(--green-solid)}
+.badge.solid.orange{background:var(--orange-solid)} .badge.solid.blue{background:var(--blue-solid)}
+.badge.glass{background:var(--glass);color:var(--on-glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:var(--r-pill);background:var(--red-solid);color:#fff;font-size:var(--fs-c1);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* inset grouped list */
+.list{background:var(--bg-elevated);border-radius:var(--r-lg);overflow:hidden}
+.list-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);padding:0 var(--sp-4) var(--sp-2);font-size:var(--fs-fn);line-height:var(--lh-fn);color:var(--label-2)}
+.list-f{padding:var(--sp-2) var(--sp-4) 0;font-size:var(--fs-fn);line-height:var(--lh-fn);color:var(--label-2)}
+.row{position:relative;display:flex;align-items:center;gap:var(--sp-3);width:100%;min-height:var(--tap);padding:11px var(--sp-4);border:0;background:none;text-align:left;color:var(--label);
+  transition:background-color var(--dur-fast)}
+button.row:active,a.row:active{background:var(--fill-3)}
+.row+.row::before{content:"";position:absolute;top:0;right:0;left:var(--sep-left,var(--sp-4));border-top:var(--hair) solid var(--separator)}
+.list.icons .row{--sep-left:58px}
+.list.avatar .row{--sep-left:68px}
+.row .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row .tt{font-size:var(--fs-body);line-height:var(--lh-body)}
+.row .td{font-size:var(--fs-fn);line-height:var(--lh-fn);color:var(--label-2)}
+.row .val{flex:none;font-size:var(--fs-body);color:var(--label-2);font-variant-numeric:tabular-nums}
+.row .qty{flex:none;font-size:var(--fs-body);font-weight:600;font-variant-numeric:tabular-nums;color:var(--label)}
+.row .chev{flex:none;color:var(--label-3);font-size:17px}
+.row.link .tt{color:var(--tint)}
+.ico{flex:none;width:30px;height:30px;border-radius:var(--r-icon);display:grid;place-items:center;color:#fff;font-size:18px}
+.ico .ic svg{stroke-width:2}
+.ico.red{background:var(--red-solid)} .ico.green{background:var(--green-solid)} .ico.orange{background:var(--orange-solid)}
+.ico.blue{background:var(--blue-solid)} .ico.caramel{background:var(--caramel-500)} .ico.gold{background:var(--gold-solid)} .ico.gray{background:var(--n-400)}
+.avatar-c{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--tint-bg);color:var(--tint);font-size:var(--fs-sub);font-weight:600}
+
+/* panel: a plain raised block, no border, no shadow */
+.panel{background:var(--bg-elevated);border-radius:var(--r-lg);padding:var(--sp-4)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-3);margin:var(--sp-6) 0 var(--sp-3)}
+.sec-h .t-fn{flex:none}
+
+/* fields */
+.search{display:flex;align-items:center;gap:6px;height:36px;padding:0 var(--sp-2);border-radius:var(--r-sm);background:var(--fill-2);color:var(--label-2)}
+.search .ic{font-size:17px}
+.search input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:var(--fs-body);color:var(--label)}
+.search input::placeholder{color:var(--label-2)}
+.field{width:100%;min-height:var(--tap);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);background:var(--bg-elevated);font-size:16px;color:var(--label);outline:none;box-shadow:inset 0 0 0 1px var(--separator)}
+.field:focus{box-shadow:inset 0 0 0 2px var(--tint)}
+.field.ok{box-shadow:inset 0 0 0 2px var(--green);background:var(--green-bg)}
+.field.bad{box-shadow:inset 0 0 0 2px var(--red);background:var(--red-bg)}
+
+/* progress, callout */
+.progress{display:block;height:6px;border-radius:var(--r-pill);background:var(--fill-2);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:inherit;background:var(--tint)}
+.progress.green i{background:var(--green-solid)} .progress.red i{background:var(--red-solid)}
+.callout{display:flex;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--r-md);background:var(--tint-bg);font-size:var(--fs-sub);line-height:var(--lh-sub)}
+.callout .ic{font-size:18px;color:var(--tint);margin-top:1px}
+.callout.red{background:var(--red-bg)} .callout.red .ic{color:var(--red)}
+
+/* quiz answers */
+.opts{display:grid;gap:var(--sp-2)}
+.opt{display:flex;align-items:center;gap:var(--sp-3);min-height:52px;padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--r-md);background:var(--bg-elevated);text-align:left;
+  font-size:var(--fs-callout);line-height:var(--lh-callout);color:var(--label);box-shadow:inset 0 0 0 1px var(--separator);transition:transform var(--dur-fast) var(--ease),background-color var(--dur-fast)}
+.opt:active{transform:scale(.985)}
+.opt .mk{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;box-shadow:inset 0 0 0 1.5px var(--label-4);color:#fff}
+.opt.sel{box-shadow:inset 0 0 0 2px var(--tint);background:var(--tint-bg)}
+.opt.sel .mk{background:var(--tint);box-shadow:none;color:var(--on-tint)}
+.opt.right{box-shadow:inset 0 0 0 2px var(--green);background:var(--green-bg)}
+.opt.right .mk{background:var(--green-solid);box-shadow:none}
+.opt.wrong{box-shadow:inset 0 0 0 2px var(--red);background:var(--red-bg)}
+.opt.wrong .mk{background:var(--red-solid);box-shadow:none}
+.opt.dim{opacity:.45}
+.qcard{background:var(--bg-elevated);border-radius:var(--r-lg);padding:var(--sp-5) var(--sp-4)}
+
+/* photo card (grid) */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5) var(--sp-3)}
+.card{display:flex;flex-direction:column;gap:var(--sp-2);border:0;background:none;padding:0;text-align:left;color:var(--label);transition:transform var(--dur-fast) var(--ease)}
+.card:active{transform:scale(var(--press))}
+.card .ph{position:relative;aspect-ratio:1/1;max-width:100%;border-radius:var(--r-lg);overflow:hidden;background:var(--bg-photo);box-shadow:var(--elev-1)}
+.card .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.card .ph .badge{position:absolute;left:var(--sp-2);top:var(--sp-2)}
+.fav{position:absolute;right:var(--sp-2);top:var(--sp-2);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:0;background:var(--glass);color:var(--on-glass);font-size:16px;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.fav::after{content:"";position:absolute;inset:-7px}
+.fav.on{color:var(--gold-solid)}
+.card .nm{font-size:var(--fs-sub);line-height:var(--lh-sub);font-weight:600}
+.card .mt{display:flex;align-items:center;gap:4px;font-size:var(--fs-c1);line-height:var(--lh-c1);color:var(--label-2)}
+.card .mt .ic{font-size:12px}
+.hot{color:var(--orange)} .cold{color:var(--blue)}
+
+/* ── the page around the screens ───────────────────────────────── */
+.page{max-width:1120px;margin:0 auto;padding-left:max(var(--gutter),env(safe-area-inset-left,0px));padding-right:max(var(--gutter),env(safe-area-inset-right,0px));padding-block:var(--sp-8) var(--sp-10)}
+.intro{max-width:720px}
+.eyebrow{font-size:var(--fs-fn);font-weight:600;color:var(--tint);margin-bottom:var(--sp-2)}
+.lead{font-size:var(--fs-body);line-height:1.5;color:var(--label-2);margin-top:var(--sp-3);max-width:65ch}
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:var(--sp-6) calc(var(--gutter) * -1) 0;padding:var(--sp-3) var(--gutter);
+  background:var(--material);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:var(--hair) solid var(--separator);display:flex;flex-wrap:wrap;gap:var(--sp-3) var(--sp-5);align-items:center}
+.tb-g{display:flex;align-items:center;gap:var(--sp-2)}
+.tb-g>span{font-size:var(--fs-fn);color:var(--label-2)}
+.tb-g .seg{min-width:0}
+.tb-g .seg button{padding:0 10px}
+.tsz{font-size:var(--fs-fn);color:var(--label-2);min-width:4ch;text-align:center;font-variant-numeric:tabular-nums}
+section.blk{margin-top:var(--sp-10)}
+section.blk>h2{font-size:var(--fs-t1);line-height:var(--lh-t1);font-weight:700;letter-spacing:-.01em}
+section.blk>.lead{margin-top:var(--sp-2)}
+.sub-h{font-size:var(--fs-t3);line-height:var(--lh-t3);font-weight:600;margin:var(--sp-8) 0 var(--sp-2)}
+.sub-lead{font-size:var(--fs-sub);line-height:1.5;color:var(--label-2);max-width:65ch;margin-bottom:var(--sp-4)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--sp-4)}
+.demo{background:var(--bg-elevated);border-radius:var(--r-lg);padding:var(--sp-4);min-width:0;display:flex;flex-direction:column;gap:var(--sp-3)}
+.demo.page-bg{background:var(--bg);box-shadow:inset 0 0 0 1px var(--separator)}
+.demo h4{font-size:var(--fs-fn);font-weight:600;color:var(--label-2)}
+.wrapr{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
+.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:var(--sp-5) var(--sp-6);margin-top:var(--sp-5);max-width:960px}
+.principles div{display:flex;flex-direction:column;gap:var(--sp-1)}
+.principles b{font-size:var(--fs-headline,var(--fs-body));font-weight:600}
+.principles span{font-size:var(--fs-sub);line-height:1.5;color:var(--label-2)}
+
+/* swatches */
+.swg{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:var(--sp-3)}
+.sw{display:flex;gap:var(--sp-3);align-items:center;background:var(--bg-elevated);border-radius:var(--r-md);padding:var(--sp-3);min-width:0}
+.sw .chipc{flex:none;width:44px;height:44px;border-radius:var(--r-sm);overflow:hidden;display:flex;box-shadow:inset 0 0 0 1px var(--separator)}
+.sw .chipc i{flex:1}
+.sw .tx{min-width:0;display:flex;flex-direction:column;gap:1px}
+.sw code{background:none;padding:0;font-size:var(--fs-c1)}
+.sw .use{font-size:var(--fs-c1);line-height:var(--lh-c1);color:var(--label-2)}
+.sw .hex{font-size:var(--fs-c2);color:var(--label-3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* type specimen */
+.tyl{background:var(--bg-elevated);border-radius:var(--r-lg);overflow:hidden}
+.tyr{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-1) var(--sp-4);align-items:baseline;padding:var(--sp-3) var(--sp-4)}
+.tyr+.tyr::before{content:"";position:absolute;top:0;left:var(--sp-4);right:0;border-top:var(--hair) solid var(--separator)}
+.tyr .spec{font-size:var(--fs-c1);color:var(--label-2);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tyr .spec b{display:block;color:var(--label);font-weight:600}
+.tyr .smp{min-width:0;overflow-wrap:anywhere}
+
+/* space, radii, depth */
+.spl{display:grid;gap:var(--sp-2)}
+.spl div{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:var(--sp-3);font-size:var(--fs-fn);color:var(--label-2)}
+.spl i{display:block;height:10px;border-radius:3px;background:var(--tint)}
+.rdl{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.rdl div{width:76px;height:64px;display:flex;align-items:flex-end;padding:var(--sp-2);background:var(--tint-bg);font-size:var(--fs-c2);color:var(--tint);font-weight:600}
+.depth{position:relative;background:var(--bg);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:inset 0 0 0 1px var(--separator);min-height:220px;overflow:hidden}
+.depth .lv1{background:var(--bg-elevated);border-radius:var(--r-md);padding:var(--sp-3);width:70%}
+.depth .lv2{position:absolute;right:var(--sp-4);bottom:-12px;width:55%;background:var(--bg);border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--elev-2);padding:var(--sp-4) var(--sp-3) var(--sp-6)}
+.depth .lv2::before{content:"";display:block;width:32px;height:4px;border-radius:2px;background:var(--label-4);margin:-8px auto var(--sp-3)}
+
+/* icon set */
+.icg{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:var(--sp-2)}
+.icg div{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-4) var(--sp-1) var(--sp-3);background:var(--bg-elevated);border-radius:var(--r-md);font-size:var(--fs-c2);color:var(--label-2);text-align:center}
+.icg .ic{font-size:26px;color:var(--label)}
+
+/* mapping table */
+.tblw{overflow-x:auto;border-radius:var(--r-lg);background:var(--bg-elevated)}
+table.map{width:100%;border-collapse:collapse;font-size:var(--fs-fn);line-height:var(--lh-fn);min-width:560px}
+.map th,.map td{text-align:left;vertical-align:top;padding:var(--sp-3) var(--sp-4);border-bottom:var(--hair) solid var(--separator)}
+.map tr:last-child td{border-bottom:0}
+.map th{font-weight:600;color:var(--label-2)}
+.map td:first-child{font-weight:600;white-space:nowrap}
+.map td code{font-size:var(--fs-c1)}
+
+/* ── phone frames ──────────────────────────────────────────────── */
+.screens{display:flex;gap:var(--sp-6);overflow-x:auto;scroll-snap-type:x mandatory;margin:var(--sp-5) calc(var(--gutter) * -1) 0;padding:var(--sp-1) var(--gutter) var(--sp-4);scrollbar-width:thin}
+.screen{flex:0 0 auto;width:min(390px,calc(100vw - 2 * var(--gutter)));scroll-snap-align:center;display:flex;flex-direction:column;gap:var(--sp-3)}
+.screen>header{display:flex;flex-direction:column;gap:2px}
+.screen>header b{font-size:var(--fs-headline,var(--fs-body));font-weight:600}
+.screen>header span{font-size:var(--fs-fn);color:var(--label-2)}
+.device{position:relative;height:800px;max-height:calc(100vh - 120px);min-height:560px;border-radius:50px;padding:10px;background:var(--device);box-shadow:0 0 0 1px var(--device-edge),var(--elev-2)}
+.dscreen{position:relative;height:100%;border-radius:40px;overflow:hidden;background:var(--bg);isolation:isolate;
+  --gutter:16px;font-size:var(--fs-body)}
+.scr{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.statusbar{position:absolute;z-index:6;left:0;right:0;top:0;height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font-size:16px;font-weight:600;color:var(--label);pointer-events:none;letter-spacing:-.01em}
+.statusbar .ic{font-size:18px}
+.statusbar.light{color:#fff}
+.island{position:absolute;z-index:7;top:11px;left:50%;width:112px;height:32px;margin-left:-56px;border-radius:20px;background:#000;pointer-events:none}
+.homeind{position:absolute;z-index:7;bottom:7px;left:50%;width:132px;height:5px;margin-left:-66px;border-radius:3px;background:var(--label);opacity:.85;pointer-events:none}
+.shot{display:block;width:100%;height:auto}
+html[data-view="before"] .mock{display:none!important}
+html:not([data-view="before"]) .shot{display:none!important}
+html[data-view="before"] .dscreen .statusbar,html[data-view="before"] .dscreen .island{display:none}
+
+/* nav bar with a large title that collapses into a slim bar */
+.nav{padding:54px var(--gutter) var(--sp-3)}
+.nav-top{display:flex;align-items:center;justify-content:space-between;min-height:var(--tap)}
+.nav-brand{font-size:var(--fs-fn);font-weight:600;color:var(--label-2);letter-spacing:.01em}
+.nav-act{display:flex;align-items:center;gap:var(--sp-4)}
+.nav h1{margin:2px 0 var(--sp-3)}
+.navbar{position:absolute;z-index:5;left:0;right:0;top:0;height:96px;padding:50px var(--gutter) 0;display:flex;align-items:center;justify-content:center;
+  background:var(--material);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-bottom:var(--hair) solid var(--separator);
+  opacity:0;transition:opacity var(--dur-fast);pointer-events:none;font-size:var(--fs-body);font-weight:600}
+.dscreen.scrolled .navbar{opacity:1}
+.mbody{padding:0 var(--gutter) 120px}
+
+/* tab bar */
+.tabbar{position:absolute;z-index:5;left:0;right:0;bottom:0;display:flex;padding:6px 4px 26px;background:var(--material);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-top:var(--hair) solid var(--separator)}
+.tabbar button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;padding:3px 0;color:var(--label-3);font-size:10px;font-weight:500;letter-spacing:.01em}
+.tabbar .ic{font-size:25px}
+.tabbar .on{color:var(--tint)}
+.tabbar .dot{position:absolute;top:2px;left:calc(50% + 9px);width:8px;height:8px;border-radius:50%;background:var(--red-solid)}
+
+/* screen pieces */
+.spot{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);border:0;width:100%;text-align:left;color:var(--label);transition:transform var(--dur-fast) var(--ease)}
+.spot:active{transform:scale(var(--press))}
+.spot img{flex:none;width:76px;height:76px;border-radius:var(--r-md);object-fit:cover;background:var(--bg-photo)}
+.spot .sx{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.spot .chev{flex:none;color:var(--label-3);font-size:17px}
+.hscroll{display:flex;gap:var(--sp-3);overflow-x:auto;scrollbar-width:none;margin:0 calc(var(--gutter) * -1);padding:0 var(--gutter)}
+.hscroll::-webkit-scrollbar{display:none}
+.promo{flex:0 0 236px;display:flex;flex-direction:column;gap:var(--sp-1);border:0;text-align:left;color:var(--label);transition:transform var(--dur-fast) var(--ease)}
+.promo:active{transform:scale(var(--press))}
+.promo .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-2)}
+.promo .pi{width:34px;height:34px;border-radius:var(--r-sm);display:grid;place-items:center;background:var(--tint-bg);color:var(--tint);font-size:19px}
+.promo .price{font-size:var(--fs-t3);line-height:var(--lh-t3);font-weight:700;color:var(--tint);margin:var(--sp-1) 0}
+.promo .mrow{display:flex;align-items:flex-start;gap:6px;font-size:var(--fs-fn);line-height:var(--lh-fn);color:var(--label-2)}
+.promo .mrow .ic{font-size:14px;margin-top:2px}
+.sheetbg{position:absolute;inset:0;background:var(--bg)}
+.sheetbg::after{content:"";position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;z-index:2;left:0;right:0;top:58px;bottom:0;background:var(--bg);border-radius:var(--r-xl) var(--r-xl) 0 0;overflow-y:auto;scrollbar-width:none;box-shadow:var(--elev-2)}
+.sheet::-webkit-scrollbar{display:none}
+.hero{position:relative;aspect-ratio:16/11;max-width:100%;background:var(--bg-photo)}
+.hero img{width:100%;height:100%;object-fit:cover;display:block}
+.grab{position:absolute;top:6px;left:50%;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--photo-grabber)}
+.xbtn{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:0;background:var(--glass);color:var(--on-glass);font-size:16px;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.xbtn::after{content:"";position:absolute;inset:-7px}
+.shd{padding:var(--sp-4) var(--gutter) 0;display:flex;flex-direction:column;gap:var(--sp-1)}
+.shd .wrapr{margin-top:var(--sp-2)}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:var(--sp-4);padding:var(--sp-3) 0}
+.facts div{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:0 var(--sp-2);min-width:0}
+.facts div+div::before{content:"";position:absolute;left:0;top:4px;bottom:4px;border-left:var(--hair) solid var(--separator)}
+.facts span{font-size:var(--fs-c1);color:var(--label-2)}
+.facts b{font-size:var(--fs-body);font-weight:600;font-variant-numeric:tabular-nums}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{position:relative;counter-increment:s;padding:var(--sp-3) var(--sp-4) var(--sp-3) 52px;font-size:var(--fs-callout);line-height:var(--lh-callout)}
+.steps li::before{content:counter(s);position:absolute;left:var(--sp-4);top:var(--sp-3);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  background:var(--tint-bg);color:var(--tint);font-size:var(--fs-c1);font-weight:700;line-height:24px;text-align:center}
+.steps li+li::after{content:"";position:absolute;top:0;left:52px;right:0;border-top:var(--hair) solid var(--separator)}
+.wk{display:flex;align-items:center;gap:6px}
+.wk i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-style:normal;color:var(--label-3);box-shadow:inset 0 0 0 1.5px var(--label-4)}
+.wk i.done{background:var(--green-solid);color:#fff;box-shadow:none}
+.wk i.tried{color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.rank{display:flex;align-items:center;gap:var(--sp-3)}
+.rank .rk{flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--tint-bg);color:var(--tint);font-size:24px}
+.rank .tx{flex:1;min-width:0}
+.rank .xp{font-size:var(--fs-body);font-weight:700;color:var(--tint);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:var(--hair) solid var(--separator)}
+.stats div{position:relative;text-align:center;display:flex;flex-direction:column;gap:2px}
+.stats div+div::before{content:"";position:absolute;left:0;top:2px;bottom:2px;border-left:var(--hair) solid var(--separator)}
+.stats b{font-size:var(--fs-t3);line-height:var(--lh-t3);font-weight:700;font-variant-numeric:tabular-nums}
+.stats span{font-size:var(--fs-c1);color:var(--label-2)}
+.stepper{display:flex;border-radius:var(--r-sm);background:var(--fill-2);overflow:hidden}
+.stepper button{width:46px;height:32px;border:0;background:none;color:var(--label);font-weight:600;display:grid;place-items:center}
+.stepper button+button{box-shadow:inset 1px 0 0 var(--separator)}
+.stepper button:active{background:var(--fill-3)}
+.stepper .a1{font-size:13px}.stepper .a2{font-size:19px}
+.tsdots{display:flex;gap:6px}
+.tsdots i{width:7px;height:7px;border-radius:50%;background:var(--fill)}
+.tsdots i.on{background:var(--tint)}
+.foot{text-align:center;font-size:var(--fs-c1);color:var(--label-3);margin-top:var(--sp-6)}
+
+@media (max-width:440px){
+  .toolbar{gap:var(--sp-2) var(--sp-3);padding-block:var(--sp-2)}
+  .tb-g>span:first-child{display:none}
+  .device{padding:7px;border-radius:44px}
+  .dscreen{border-radius:37px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+
+<script type="application/json" id="assets">{"photos":{"lotuslatte":"../images/lotuslatte.204c7364.webp","espresso":"../images/espresso.afeff0c4.webp","latte":"../images/latte.cc2f525d.webp","cappuccino":"../images/cappuccino.292c0c9b.webp"},"before":{}}</script>
+
+<main class="page">
+  <div class="intro">
+    <p class="eyebrow">Sensum &amp; Bakery · дизайн-система, версия 2 · макет</p>
+    <h1 class="t-large">Дизайн-система Sensum</h1>
+    <p class="lead">Как приложение будет выглядеть после перехода на новую систему: тёплые цвета Sensum, а порядок как в iOS. Ниже четыре экрана в новом виде, затем основы и все компоненты. Это макет, само приложение пока не изменено. Переключатель «Было» показывает, как экраны выглядят сейчас.</p>
+  </div>
+
+  <div class="toolbar" role="toolbar" aria-label="Настройки просмотра">
+    <div class="tb-g"><span>Тема</span><div class="seg" id="segTheme"><button data-v="auto" class="on">Авто</button><button data-v="light">Светлая</button><button data-v="dark">Тёмная</button></div></div>
+    <div class="tb-g" id="grpView"><span>Экраны</span><div class="seg" id="segView"><button data-v="after" class="on">Стало</button><button data-v="before">Было</button></div></div>
+    <div class="tb-g"><span>Текст</span><div class="stepper"><button id="tsMinus" aria-label="Меньше текст"><span class="a1">A</span></button><button id="tsPlus" aria-label="Больше текст"><span class="a2">A</span></button></div><span class="tsz" id="tsVal">100%</span></div>
+  </div>
+
+  <!-- ═══════════ SCREENS ═══════════ -->
+  <section class="blk" id="screens">
+    <h2>Экраны</h2>
+    <p class="lead">Экраны можно листать вбок. Внутри каждого телефона работает прокрутка: большой заголовок сжимается в тонкую полупрозрачную панель, как в iOS.</p>
+    <div class="screens">
+
+      <!-- Drinks -->
+      <article class="screen">
+        <header><b>Напитки</b><span>Большой заголовок, поиск, сегменты и чипы, фото без рамок</span></header>
+        <div class="device"><div class="dscreen">
+          <div class="island"></div>
+          <div class="statusbar"><span>9:41</span><span data-ic="battery"></span></div>
+          <img class="shot" data-shot="drinks" alt="Экран «Напитки» сейчас">
+          <div class="navbar mock">Напитки</div>
+          <div class="scr mock">
+            <div class="nav">
+              <div class="nav-top"><span class="nav-brand">Sensum &amp; Bakery</span><span class="nav-act"><button class="ibtn" aria-label="Язык"><span class="lbl">AZ</span></button><button class="ibtn" aria-label="Тёмная тема"><span data-ic="moon"></span></button></span></div>
+              <h1 class="t-large">Напитки</h1>
+              <label class="search"><span data-ic="search"></span><input type="search" id="q1" placeholder="Название или состав"></label>
+            </div>
+            <div class="mbody">
+              <div class="seg"><button class="on">Все</button><button>Горячие</button><button>Холодные</button></div>
+              <div class="chips" style="margin-top:var(--sp-3)"><button class="chip on">Все категории</button><button class="chip">Эспрессо-бар</button><button class="chip">Эспрессо-спешелти</button><button class="chip">Ручное заваривание</button><button class="chip">Холодный кофе</button></div>
+
+              <div class="sec-h"><h2 class="t-t3">Новинка</h2></div>
+              <button class="panel spot"><img data-photo="lotuslatte" alt=""><span class="sx"><span class="badge red">Новинка</span><span class="t-headline">Lotus Latte</span><span class="t-fn l2 clamp2">Эспрессо · Молоко · Lotus крем · Печенье Lotus</span><span class="badge green" style="margin-top:2px">В продаже с 1 ноября</span></span><span class="chev" data-ic="chevron-right"></span></button>
+
+              <div class="sec-h"><h2 class="t-t3">Акции</h2><span class="t-fn l2">1 сейчас</span></div>
+              <div class="hscroll">
+                <button class="panel promo"><span class="top"><span class="pi" data-ic="salad"></span><span class="badge green">Сейчас</span></span><span class="t-headline">Fresh Combo</span><span class="t-fn l2">2 салата + 2 айс-ти</span><span class="price">18 AZN</span><span class="mrow"><span data-ic="clock"></span>17:00–00:00 · каждый день</span><span class="mrow"><span data-ic="pin"></span>Только Ağ Şəhər и Mərkəzi Park</span></button>
+                <button class="panel promo"><span class="top"><span class="pi" data-ic="percent"></span><span class="badge">С 17:00</span></span><span class="t-headline">Скидка 50% вечером</span><span class="t-fn l2">Салаты, сэндвичи, круассаны, десерты</span><span class="price">−50%</span><span class="mrow"><span data-ic="clock"></span>17:00–21:00 · каждый день</span><span class="mrow"><span data-ic="pin"></span>Только Ə. Rəcəbli и Port Baku 2</span></button>
+                <button class="panel promo"><span class="top"><span class="pi" data-ic="sun"></span><span class="badge">Завтра</span></span><span class="t-headline">Morning Duo</span><span class="t-fn l2">Выпечка + классический кофе</span><span class="price">10 AZN</span><span class="mrow"><span data-ic="clock"></span>08:00–11:00 · пн–пт</span></button>
+              </div>
+
+              <div class="sec-h"><h2 class="t-t3">Все напитки</h2><span class="t-fn l2 num">56</span></div>
+              <div class="grid">
+                <button class="card"><span class="ph"><img data-photo="lotuslatte" alt=""><span class="badge solid red">Новинка</span><span class="fav on" data-ic="star-fill"></span></span><span class="nm">Lotus Latte</span><span class="mt"><span class="hot" data-ic="flame"></span>Спешелти · 330 мл</span></button>
+                <button class="card"><span class="ph"><img data-photo="espresso" alt=""><span class="fav" data-ic="star"></span></span><span class="nm">Espresso</span><span class="mt"><span class="hot" data-ic="flame"></span>Эспрессо-бар · 160 мл</span></button>
+                <button class="card"><span class="ph"><img data-photo="latte" alt=""><span class="fav" data-ic="star"></span></span><span class="nm">Café Latte</span><span class="mt"><span class="hot" data-ic="flame"></span>Эспрессо-бар · 280 мл</span></button>
+                <button class="card"><span class="ph"><img data-photo="cappuccino" alt=""><span class="fav" data-ic="star"></span></span><span class="nm">Cappuccino</span><span class="mt"><span class="hot" data-ic="flame"></span>Эспрессо-бар · 280 мл</span></button>
+              </div>
+            </div>
+          </div>
+          <nav class="tabbar mock"><button class="on"><span data-ic="coffee"></span>Напитки</button><button><span data-ic="bottle"></span>Заготовки</button><button><span data-ic="cake"></span>Витрина</button><button><span data-ic="cap"></span>Обучение</button><button><span data-ic="more"></span>Ещё</button></nav>
+          <div class="homeind"></div>
+        </div></div>
+      </article>
+
+      <!-- Drink sheet -->
+      <article class="screen">
+        <header><b>Карточка напитка</b><span>Лист поверх экрана: фото, факты, состав списком, шаги с номерами</span></header>
+        <div class="device"><div class="dscreen">
+          <div class="island"></div>
+          <div class="statusbar light"><span>9:41</span><span data-ic="battery"></span></div>
+          <img class="shot" data-shot="sheet" alt="Карточка напитка сейчас">
+          <div class="sheetbg mock"></div>
+          <div class="sheet mock">
+            <div class="hero"><img data-photo="lotuslatte" alt="Lotus Latte"><span class="grab"></span><button class="xbtn" aria-label="Закрыть" data-ic="x"></button></div>
+            <div class="shd">
+              <h2 class="t-t1">Lotus Latte</h2>
+              <p class="t-sub l2">Эспрессо-спешелти</p>
+              <div class="wrapr"><span class="badge red">Новинка</span><span class="badge orange"><span data-ic="flame"></span>Горячий</span><button class="btn s gray" style="margin-left:auto"><span data-ic="star"></span>В избранное</button></div>
+            </div>
+            <div style="padding:0 var(--gutter) 40px">
+              <div class="panel facts" style="padding:var(--sp-3) 0"><div><span>Посуда</span><b>330 мл</b></div><div><span>Подача</span><b>Горячий</b></div><div><span>Старт продаж</span><b>1 ноября</b></div></div>
+              <div class="sec-h"><h3 class="t-t3">Состав</h3><span class="t-fn l2">5</span></div>
+              <div class="list">
+                <div class="row"><span class="tx"><span class="tt">Эспрессо (одинарный)</span></span><span class="qty">18 г</span></div>
+                <div class="row"><span class="tx"><span class="tt">Молоко</span></span><span class="qty">220 мл</span></div>
+                <div class="row"><span class="tx"><span class="tt">Lotus крем</span></span><span class="qty">30 г</span></div>
+                <div class="row"><span class="tx"><span class="tt">Печенье Lotus (измельчённое)</span></span><span class="qty">8 г</span></div>
+                <div class="row"><span class="tx"><span class="tt">Молотая корица</span></span><span class="qty">2 г</span></div>
+              </div>
+              <div class="sec-h"><h3 class="t-t3">Приготовление</h3></div>
+              <ol class="list steps">
+                <li>В стакан добавь Lotus крем 30 г.</li>
+                <li>Свари одинарный эспрессо (18 г — половина дабл-пролива), влей в стакан и хорошо размешай с кремом до однородной массы.</li>
+                <li>Взбей 220 мл молока как под латте.</li>
+                <li>Медленно, тонкой струйкой влей молоко в стакан, постоянно помешивая смесь.</li>
+                <li>Печенье Lotus (8 г) заранее измельчи в мелкую крошку-посыпку и насыпь сверху, как на фото.</li>
+                <li>Сверху добавь молотую корицу (2 г).</li>
+              </ol>
+            </div>
+          </div>
+          <div class="homeind"></div>
+        </div></div>
+      </article>
+
+      <!-- Training -->
+      <article class="screen">
+        <header><b>Обучение</b><span>Сгруппированные списки с цветными иконками, одна главная кнопка</span></header>
+        <div class="device"><div class="dscreen">
+          <div class="island"></div>
+          <div class="statusbar"><span>9:41</span><span data-ic="battery"></span></div>
+          <img class="shot" data-shot="learn" alt="Экран «Обучение» сейчас">
+          <div class="navbar mock">Обучение</div>
+          <div class="scr mock">
+            <div class="nav">
+              <div class="nav-top"><span class="nav-brand">Sensum &amp; Bakery</span><span class="nav-act"><button class="ibtn" aria-label="Язык"><span class="lbl">AZ</span></button><button class="ibtn" aria-label="Тёмная тема"><span data-ic="moon"></span></button></span></div>
+              <h1 class="t-large">Обучение</h1>
+            </div>
+            <div class="mbody">
+              <div class="list avatar"><div class="row"><span class="avatar-c">ТС</span><span class="tx"><span class="tt b">Тестовый сотрудник</span><span class="td">Ağ Şəhər · Бариста</span></span><button class="btn plain m">Сменить</button></div></div>
+
+              <div class="sec-h"><h2 class="t-t3">План на сегодня</h2><span class="t-fn l2 num">0 из 3</span></div>
+              <div class="list icons">
+                <button class="row"><span class="ico blue" data-ic="calendar"></span><span class="tx"><span class="tt">Вопрос дня</span><span class="td">3 вопроса · около минуты</span></span><span class="badge accent">Сейчас</span><span class="chev" data-ic="chevron-right"></span></button>
+                <button class="row"><span class="ico orange" data-ic="book"></span><span class="tx"><span class="tt">Урок: Легенда и происхождение</span><span class="td">Кофе · Происхождение и ботаника</span></span><span class="chev" data-ic="chevron-right"></span></button>
+                <button class="row"><span class="ico green" data-ic="checklist"></span><span class="tx"><span class="tt">Общий тест недели</span><span class="td">На этой неделе: 1 из 3</span></span><span class="chev" data-ic="chevron-right"></span></button>
+                <div class="row"><span class="tx"><span class="tt t-sub">Неделя</span></span><span class="wk"><i class="done" data-ic="check"></i><i></i><i></i><i></i><i></i></span><span class="val t-fn num">1 / 5</span></div>
+              </div>
+              <p class="list-f">Неделя полная: 3 теста на 70% и выше и 2 урока. Один зачётный тест в день.</p>
+              <button class="btn filled block" style="margin-top:var(--sp-4)">Начать вопрос дня</button>
+
+              <div class="sec-h"><h2 class="t-t3">Ранг</h2></div>
+              <div class="panel">
+                <div class="rank"><span class="rk" data-ic="coffee"></span><span class="tx"><span class="t-t3" style="display:block">Эспрессо</span><span class="t-fn l2">Ранг 3 из 7</span></span><span class="xp">1140 XP</span></div>
+                <span class="progress" style="margin-top:var(--sp-4)"><i style="width:57%"></i></span>
+                <p class="t-fn l2" style="margin-top:var(--sp-2)">Ещё 860 XP до ранга «Капучино»</p>
+                <div class="stats"><div><b>18</b><span>Сов из 50</span></div><div><b>3</b><span>Недели подряд</span></div><div><b>4</b><span>Дня подряд</span></div></div>
+              </div>
+
+              <div class="sec-h"><h2 class="t-t3">Учиться</h2></div>
+              <div class="list icons">
+                <button class="row"><span class="ico caramel" data-ic="book"></span><span class="tx"><span class="tt">Материалы</span><span class="td">Уроки и карточки</span></span><span class="val num">0 / 46</span><span class="chev" data-ic="chevron-right"></span></button>
+                <button class="row"><span class="ico gold" data-ic="trophy"></span><span class="tx"><span class="tt">Экзамен месяца</span><span class="td">20 вопросов · до 15 сов</span></span><span class="chev" data-ic="chevron-right"></span></button>
+                <button class="row"><span class="ico red" data-ic="medal"></span><span class="tx"><span class="tt">Рейтинг и награды</span><span class="td">1-е место на неделе</span></span><span class="chev" data-ic="chevron-right"></span></button>
+              </div>
+            </div>
+          </div>
+          <nav class="tabbar mock"><button><span data-ic="coffee"></span>Напитки</button><button><span data-ic="bottle"></span>Заготовки</button><button><span data-ic="cake"></span>Витрина</button><button class="on"><span data-ic="cap"></span>Обучение<i class="dot"></i></button><button><span data-ic="more"></span>Ещё</button></nav>
+          <div class="homeind"></div>
+        </div></div>
+      </article>
+
+      <!-- More -->
+      <article class="screen">
+        <header><b>Ещё</b><span>Как «Настройки» в iPhone: строки, значения справа, счётчик</span></header>
+        <div class="device"><div class="dscreen">
+          <div class="island"></div>
+          <div class="statusbar"><span>9:41</span><span data-ic="battery"></span></div>
+          <img class="shot" data-shot="more" alt="Экран «Ещё» сейчас">
+          <div class="navbar mock">Ещё</div>
+          <div class="scr mock">
+            <div class="nav">
+              <div class="nav-top"><span class="nav-brand">Sensum &amp; Bakery</span><span class="nav-act"><button class="ibtn" aria-label="Язык"><span class="lbl">AZ</span></button><button class="ibtn" aria-label="Тёмная тема"><span data-ic="moon"></span></button></span></div>
+              <h1 class="t-large">Ещё</h1>
+            </div>
+            <div class="mbody">
+              <div class="list icons">
+                <button class="row"><span class="ico red" data-ic="bell"></span><span class="tx"><span class="tt">Изменения</span><span class="td">Новая позиция — Lotus Latte</span></span><span class="count">1</span><span class="chev" data-ic="chevron-right"></span></button>
+                <button class="row"><span class="ico gold" data-ic="star-fill"></span><span class="tx"><span class="tt">Избранное</span></span><span class="val num">3</span><span class="chev" data-ic="chevron-right"></span></button>
+              </div>
+
+              <div class="sec-h" style="margin-bottom:var(--sp-2)"><span class="list-h" style="padding-bottom:0">Размер текста</span></div>
+              <div class="list">
+                <div class="row"><span class="tx"><span class="tt">Размер</span></span><span class="tsdots" id="mockDots"><i></i><i class="on"></i><i></i><i></i><i></i></span><span class="stepper"><button data-ts="-1" aria-label="Меньше"><span class="a1">A</span></button><button data-ts="1" aria-label="Больше"><span class="a2">A</span></button></span></div>
+                <div class="row"><span class="tx"><span class="tt">Так будут выглядеть рецепты: взбей 220 мл молока как под латте.</span></span></div>
+              </div>
+              <p class="list-f">Меняет весь текст приложения, кроме названий вкладок.</p>
+
+              <div class="sec-h" style="margin-bottom:var(--sp-2)"><span class="list-h" style="padding-bottom:0">Приложение</span></div>
+              <div class="list">
+                <div class="row"><span class="tx"><span class="tt">Язык</span></span><span class="val">Русский</span></div>
+                <div class="row"><span class="tx"><span class="tt">Версия</span></span><span class="val num">1.112</span></div>
+              </div>
+              <p class="foot">Sensum &amp; Bakery · внутренний справочник</p>
+            </div>
+          </div>
+          <nav class="tabbar mock"><button><span data-ic="coffee"></span>Напитки</button><button><span data-ic="bottle"></span>Заготовки</button><button><span data-ic="cake"></span>Витрина</button><button><span data-ic="cap"></span>Обучение</button><button class="on"><span data-ic="more"></span>Ещё<i class="dot"></i></button></nav>
+          <div class="homeind"></div>
+        </div></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════ PRINCIPLES ═══════════ -->
+  <section class="blk" id="principles">
+    <h2>Принципы</h2>
+    <p class="lead">Шесть правил. Если сомневаешься, как оформить новый экран, сверяйся с ними.</p>
+    <div class="principles">
+      <div><b>Содержание главное</b><span>Крупно — фото и рецепт. Интерфейс вокруг них тихий: без рамок, градиентов и лишних теней.</span></div>
+      <div><b>Глубина — фоном</b><span>Страница чуть темнее, блоки на ней белые (в тёмной теме наоборот). Тень есть только у фото и у листа, который лежит поверх экрана.</span></div>
+      <div><b>Один акцент</b><span>Карамельный цвет значит одно: «можно нажать» или «выбрано». Им не красят заголовки и украшения.</span></div>
+      <div><b>Цвет несёт смысл</b><span>Красный — новое и ошибка, зелёный — идёт сейчас и верно, оранжевый — горячее, синий — холодное. Других значений у них нет.</span></div>
+      <div><b>Одинаковое — одинаково</b><span>Одна строка списка, одна кнопка, один бейдж на всё приложение. Новый компонент появляется, только если старые не подходят.</span></div>
+      <div><b>Для каждого</b><span>Контраст текста не ниже AA (4,5 : 1) в обеих темах, зона касания от 44 pt, весь текст растёт вместе с настройкой размера.</span></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ COLOUR ═══════════ -->
+  <section class="blk" id="color">
+    <h2>Цвет</h2>
+    <p class="lead">Цвета называются по роли, а не по оттенку. Компонент берёт <code>--label-2</code>, а не «коричнево-серый»: в тёмной теме роль сама получает своё значение. Слева в квадрате светлая тема, справа тёмная.</p>
+    <div id="swatches"></div>
+  </section>
+
+  <!-- ═══════════ TYPE ═══════════ -->
+  <section class="blk" id="type">
+    <h2>Типографика</h2>
+    <p class="lead">Системный шрифт (SF Pro на iPhone) и одиннадцать стилей текста iOS. У каждого стиля свой размер, межстрочный интервал и насыщенность, поэтому «размер 17» больше не пишем: пишем «Body» или «Headline». Все стили растут вместе с настройкой размера текста.</p>
+    <div class="tyl" id="typeList"></div>
+  </section>
+
+  <!-- ═══════════ LAYOUT ═══════════ -->
+  <section class="blk" id="layout">
+    <h2>Сетка, форма, глубина</h2>
+    <p class="lead">Сетка 4 pt. Каждый экран начинается в 16 pt от края. Скругления вложены друг в друга: у вложенного элемента радиус меньше, чем у того, в котором он лежит.</p>
+    <div class="cols" style="margin-top:var(--sp-5)">
+      <div class="demo"><h4>Отступы <code>--sp-1…--sp-10</code></h4><div class="spl" id="spaceList"></div></div>
+      <div class="demo"><h4>Скругления</h4><div class="rdl"><div style="border-radius:8px">icon · 8</div><div style="border-radius:10px">sm · 10</div><div style="border-radius:12px">md · 12</div><div style="border-radius:16px">lg · 16</div><div style="border-radius:22px">xl · 22</div></div>
+        <p class="t-fn l2">icon — квадрат иконки в строке · sm — поле, маленькая кнопка · md — кнопка, вариант ответа · lg — группа, карточка, фото · xl — лист.</p></div>
+      <div class="demo"><h4>Три уровня глубины</h4>
+        <div class="depth"><p class="t-c1 l2" style="margin-bottom:var(--sp-2)">0 · фон экрана</p><div class="lv1"><p class="t-c1 l2">1 · группа, карточка — светлее фона, без тени</p></div><div class="lv2"><p class="t-c1 l2">2 · лист поверх — с тенью</p></div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ICONS ═══════════ -->
+  <section class="blk" id="icons">
+    <h2>Иконки</h2>
+    <p class="lead">Один набор линейных иконок: сетка 24, линия 1,75, цвет берут от текста. Вместо эмодзи в навигации и на кнопках. Эмодзи остаются там, где они сами содержание: значки-награды, совы 🦉, иконки позиций витрины без фото.</p>
+    <div class="icg" id="iconGrid" style="margin-top:var(--sp-5)"></div>
+    <h3 class="sub-h">Иконка в строке списка</h3>
+    <p class="sub-lead">Белый знак на цветном квадрате, как в «Настройках» iPhone. Цвет помогает найти строку взглядом, у каждого раздела свой.</p>
+    <div class="wrapr"><span class="ico blue" data-ic="calendar"></span><span class="ico orange" data-ic="book"></span><span class="ico green" data-ic="checklist"></span><span class="ico caramel" data-ic="book"></span><span class="ico gold" data-ic="trophy"></span><span class="ico red" data-ic="bell"></span><span class="ico gray" data-ic="gear"></span></div>
+  </section>
+
+  <!-- ═══════════ COMPONENTS ═══════════ -->
+  <section class="blk" id="components">
+    <h2>Компоненты</h2>
+    <p class="lead">Полный набор. Всё, что есть в приложении, собирается из этих деталей. Нажмите на любую, чтобы увидеть нажатое состояние.</p>
+
+    <h3 class="sub-h">Кнопки</h3>
+    <p class="sub-lead">Четыре вида и три размера. <b>Filled</b> — одна на экран, главное действие. <b>Tinted</b> — второе по важности. <b>Gray</b> — нейтральное. <b>Plain</b> — текстовая, в строке или в навигации.</p>
+    <div class="cols">
+      <div class="demo"><h4>Виды · большой размер</h4><button class="btn filled block">Начать тест</button><button class="btn tinted block">Проверить себя</button><button class="btn gray block">Открыть рецепт</button><div class="wrapr"><button class="btn plain">Завершить</button><button class="btn plain"><span data-ic="chevron-left"></span>Материалы</button></div></div>
+      <div class="demo"><h4>Размеры и состояния</h4><div class="wrapr"><button class="btn filled">Большая</button><button class="btn filled m">Средняя</button><button class="btn filled s">Маленькая</button></div><div class="wrapr"><button class="btn tinted m"><span data-ic="check"></span>Знаю</button><button class="btn danger m"><span data-ic="refresh"></span>Повторить</button></div><button class="btn filled block" disabled>Тесты на эту неделю сданы</button></div>
+    </div>
+
+    <h3 class="sub-h">Фильтры</h3>
+    <p class="sub-lead"><b>Сегменты</b> — когда вариантов 2–4 и выбран всегда один (горячие или холодные, сотрудники или филиалы). <b>Чипы</b> — когда вариантов много и они листаются вбок (категории).</p>
+    <div class="cols">
+      <div class="demo"><h4>Сегменты</h4><div class="seg"><button class="on">Все</button><button>Горячие</button><button>Холодные</button></div><div class="seg"><button class="on">Сотрудники</button><button>Филиалы</button></div></div>
+      <div class="demo"><h4>Чипы</h4><div class="chips" style="margin:0;padding:0;flex-wrap:wrap"><button class="chip on">Все категории</button><button class="chip">Эспрессо-бар</button><button class="chip">Лимонады</button><button class="chip">Чаи</button><button class="chip"><span data-ic="star"></span>Избранное</button></div></div>
+    </div>
+
+    <h3 class="sub-h">Бейджи</h3>
+    <p class="sub-lead">Одна форма вместо девяти. На странице бейдж бледный: цветной текст на бледном фоне того же цвета. На фото он плотный, с белым текстом. Текст обычными буквами, не заглавными: это читается легче, и азербайджанские İ/ı не ломаются.</p>
+    <div class="cols">
+      <div class="demo"><h4>На странице</h4><div class="wrapr"><span class="badge red">Новинка</span><span class="badge accent">Обновлено</span><span class="badge green">Сейчас действует</span><span class="badge">Сегодня с 17:00</span><span class="badge orange"><span data-ic="flame"></span>Горячий</span><span class="badge blue"><span data-ic="snow"></span>Холодный</span></div></div>
+      <div class="demo" style="background:var(--bg-photo);background-image:linear-gradient(135deg,#8a5a34,#3a2317)"><h4 style="color:#fff">На фото</h4><div class="wrapr"><span class="badge solid red">Новинка</span><span class="badge solid green">Сейчас</span><span class="badge glass">Салаты</span><span class="count">2</span></div></div>
+    </div>
+
+    <h3 class="sub-h">Списки</h3>
+    <p class="sub-lead">Главная деталь системы. Ею заменяются плитки «Ещё», строки плана, уроки, таблица состава, рейтинг и строки прогресса. Строка высотой от 44 pt, линия между строками волосяная и не доходит до левого края. Заголовок группы — мелкий серый текст над ней, подпись — под ней.</p>
+    <div class="cols">
+      <div class="demo page-bg"><div><p class="list-h">Состав</p><div class="list">
+        <div class="row"><span class="tx"><span class="tt">Эспрессо (двойной)</span></span><span class="qty">36 г</span></div>
+        <button class="row link"><span class="tx"><span class="tt">Шоколадный соус</span></span><span class="qty">70 г</span><span class="chev" data-ic="chevron-right"></span></button>
+        <div class="row"><span class="tx"><span class="tt">Молоко</span></span><span class="qty">200 мл</span></div>
+      </div><p class="list-f">Карамельная строка со стрелкой ведёт к заготовке. Раньше это было пунктирное подчёркивание со звёздочкой.</p></div></div>
+      <div class="demo page-bg"><div><p class="list-h">Уроки · Кофе</p><div class="list icons">
+        <button class="row"><span class="ico green" data-ic="check"></span><span class="tx"><span class="tt">Легенда и происхождение</span><span class="td">Урок пройден</span></span><span class="chev" data-ic="chevron-right"></span></button>
+        <button class="row"><span class="ico gray"><b style="font-size:14px">2</b></span><span class="tx"><span class="tt">Ботаника кофе</span><span class="td">Происхождение и ботаника</span></span><span class="chev" data-ic="chevron-right"></span></button>
+        <button class="row"><span class="ico gray"><b style="font-size:14px">3</b></span><span class="tx"><span class="tt">Арабика и робуста</span><span class="td">Арабика и робуста</span></span><span class="chev" data-ic="chevron-right"></span></button>
+      </div></div></div>
+      <div class="demo page-bg"><div><p class="list-h">Рейтинг недели</p><div class="list">
+        <div class="row" style="background:var(--tint-bg)"><span class="t-sub b tint num" style="width:20px">1</span><span class="tx"><span class="tt b">Тестовый сотрудник</span><span class="td">Ağ Şəhər</span></span><span class="val num tint b">660 XP</span></div>
+        <div class="row"><span class="t-sub b l2 num" style="width:20px">2</span><span class="tx"><span class="tt">Второй сотрудник</span><span class="td">Mərkəzi Park</span></span><span class="val num">350 XP</span></div>
+      </div></div></div>
+    </div>
+
+    <h3 class="sub-h">Поля и прогресс</h3>
+    <div class="cols">
+      <div class="demo"><h4>Поиск</h4><label class="search"><span data-ic="search"></span><input type="search" id="q2" placeholder="Название или состав"></label><h4>Код сотрудника</h4><div style="display:flex;gap:var(--sp-2)"><input class="field num" id="code1" inputmode="numeric" placeholder="4 цифры" style="letter-spacing:.2em"><button class="btn filled m">Войти</button></div></div>
+      <div class="demo"><h4>Прогресс и таймер</h4><span class="progress"><i style="width:57%"></i></span><span class="progress green"><i style="width:70%"></i></span><span class="progress red"><i style="width:20%"></i></span>
+        <div class="callout"><span data-ic="info"></span><span>Классическая подача — стакан воды рядом.</span></div>
+        <div class="callout red"><span data-ic="alert"></span><span>До конца месяца 2 дня, план выполнен на 74% из 80%.</span></div></div>
+    </div>
+
+    <h3 class="sub-h">Тест</h3>
+    <p class="sub-lead">Вопрос на белом блоке, варианты отдельными строками. Кружок слева показывает состояние: пустой — не выбран, карамельный — отмечен, зелёный — верно, красный — неверно.</p>
+    <div class="cols">
+      <div class="demo page-bg"><div class="qcard"><p class="t-fn l2" style="margin-bottom:var(--sp-2)">Вопрос 3 из 10 · Напитки</p><p class="t-t3">Сколько молока в Lotus Latte?</p></div>
+        <div style="display:flex;align-items:center;gap:var(--sp-2)"><span class="progress green" style="flex:1"><i style="width:60%"></i></span><span class="t-fn l2 num">9 с</span></div>
+        <div class="opts"><button class="opt"><span class="mk"></span>180 мл</button><button class="opt right"><span class="mk" data-ic="check"></span>220 мл</button><button class="opt wrong"><span class="mk" data-ic="x"></span>250 мл</button><button class="opt dim"><span class="mk"></span>300 мл</button></div></div>
+      <div class="demo page-bg"><h4>Несколько ответов и порядок</h4><div class="opts"><button class="opt sel"><span class="mk" data-ic="check"></span>Отмеченный вариант</button><button class="opt sel"><span class="mk"><b style="font-size:12px">2</b></span>Второй по порядку</button><button class="opt"><span class="mk"></span>Не отмечен</button></div>
+        <h4>Ответ числом</h4><input class="field num" id="n1" value="70" inputmode="decimal"><input class="field ok num" id="n2" value="70" disabled><input class="field bad num" id="n3" value="71" disabled></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ MAPPING ═══════════ -->
+  <section class="blk" id="mapping">
+    <h2>Что заменяется</h2>
+    <p class="lead">Сейчас в приложении около 40 классов оформления, после перехода останется 12 компонентов. Логика, данные и тексты не меняются, только вид.</p>
+    <div class="tblw" style="margin-top:var(--sp-5)"><table class="map">
+      <thead><tr><th>Компонент</th><th>Заменяет</th><th>Что меняется на вид</th></tr></thead>
+      <tbody>
+        <tr><td>Навигация</td><td><code>header</code>, <code>.brand</code>, <code>.search</code>, <code>.langbtn</code>, <code>.themebtn</code></td><td>Нет тёмной полосы. Большой заголовок экрана, серое поле поиска, кнопки AZ и темы — иконки справа</td></tr>
+        <tr><td>Таббар</td><td><code>nav.tabs</code></td><td>Полупрозрачный, линейные иконки вместо эмодзи</td></tr>
+        <tr><td>Список</td><td><code>.tile</code>, <code>.hub</code>, <code>.lrows</code>, <code>.board</code>, <code>.prow2</code>, <code>table.ing</code>, <code>h4.sec</code></td><td>Строки в белой группе, волосяные линии, цветные квадраты иконок, серые заголовки групп</td></tr>
+        <tr><td>Панель</td><td><code>.lpanel</code>, <code>.mode</code>, <code>.promo</code>, <code>.spot</code></td><td>Без рамки и тени, без градиентов. Что важно — показывает бейдж</td></tr>
+        <tr><td>Фото-карточка</td><td><code>.card</code></td><td>Подпись под фото, а не в белой коробке. Звезда на матовом кружке</td></tr>
+        <tr><td>Кнопка</td><td><code>.lbtn.pri/.sec/.ok/.again</code>, <code>.lnk</code>, <code>.back</code></td><td>Четыре вида, три размера</td></tr>
+        <tr><td>Чип, сегменты</td><td><code>.chip</code>, <code>.seg</code>, <code>.tsize</code></td><td>Чипы на серой заливке. Сегменты как в iOS: дорожка и белый бегунок</td></tr>
+        <tr><td>Бейдж</td><td><code>.tbadge</code>, <code>.newr</code>, <code>.kbadge</code>, <code>.vtag</code>, <code>.pst</code>, <code>.cnt</code>, <code>.chtype</code>, <code>.sb</code>, <code>.ver</code></td><td>Одна форма, обычные буквы вместо заглавных</td></tr>
+        <tr><td>Лист</td><td><code>.sheet</code>, <code>.grabzone</code>, <code>.close</code>, <code>.hero</code>, <code>.spec</code></td><td>Название под фото, факты строкой как в App Store, матовая кнопка ✕</td></tr>
+        <tr><td>Заметка</td><td><code>.note</code>, <code>.hint.lead</code></td><td>Бледная плашка с иконкой вместо полосы слева</td></tr>
+        <tr><td>Прогресс</td><td><code>.bar</code>, <code>.qtimer</code>, <code>.kbar</code>, <code>.wstrip</code></td><td>Одна полоса в трёх цветах</td></tr>
+        <tr><td>Вариант ответа</td><td><code>.opt</code>, <code>.pos</code>, <code>.linput</code></td><td>Кружок состояния слева, без символов ✓ / ✗ в тексте</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  /* icons: Lucide-style paths, 24 grid; filled ones are marked with F: */
+  const P={
+    search:'<circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/>',
+    'chevron-right':'<path d="m9 18 6-6-6-6"/>','chevron-left':'<path d="m15 18-6-6 6-6"/>',
+    x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',check:'<path d="M20 6 9 17l-5-5"/>',
+    star:'<path d="M12 2.8l2.85 5.78 6.37.93-4.61 4.49 1.09 6.35L12 17.35l-5.7 3 1.09-6.35-4.61-4.49 6.37-.93z"/>',
+    'star-fill':'F:<path d="M12 2.8l2.85 5.78 6.37.93-4.61 4.49 1.09 6.35L12 17.35l-5.7 3 1.09-6.35-4.61-4.49 6.37-.93z"/>',
+    moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+    globe:'<circle cx="12" cy="12" r="9.5"/><path d="M12 2.5a14.5 14.5 0 0 0 0 19 14.5 14.5 0 0 0 0-19M2.5 12h19"/>',
+    coffee:'<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+    bottle:'<path d="M9 2h6"/><path d="M10 2v4l-2.4 2.6A3 3 0 0 0 7 10.6V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.4a3 3 0 0 0-.6-2L14 6V2"/><path d="M7 14h10"/>',
+    cake:'<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20M7 8v3M12 8v3M17 8v3"/><path d="M7 4h.01M12 4h.01M17 4h.01"/>',
+    cap:'<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/>',
+    more:'<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12h.01M12 12h.01M16.5 12h.01" stroke-width="2.5"/>',
+    book:'<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+    cards:'<rect width="13" height="16" x="8" y="5" rx="2"/><path d="M5 18.5 3.2 8.6a2 2 0 0 1 1.6-2.3L13 4.8"/>',
+    checklist:'<path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"/>',
+    calendar:'<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16"/><path d="M10 14.7V17c0 .6-.5 1-1 1.2C7.8 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.2.6 2 2 2 3.8"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    medal:'<circle cx="12" cy="15" r="6"/><path d="M8.2 10.4 5 2h4l3 6M15.8 10.4 19 2h-4l-1.6 3.3"/><path d="M12 12.5v5"/>',
+    flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    snow:'<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 3.5 3 2 3-2M9 20.5l3-2 3 2M4 11l2.6 1L4 13.5M20 11l-2.6 1 2.6 1.5"/>',
+    clock:'<circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3 2"/>',
+    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    pin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    salad:'<path d="M7 21h10M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.4 12a3 3 0 0 1 4.8-3.5 3 3 0 0 1 4.6 3.5M6 12a3 3 0 1 1 5-2.8"/>',
+    percent:'<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+    gift:'<rect width="18" height="4" x="3" y="8" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+    info:'<circle cx="12" cy="12" r="9.5"/><path d="M12 16v-4.5M12 8h.01"/>',
+    alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
+    refresh:'<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M8 16H3v5"/>',
+    thermo:'<path d="M14 4v10.5a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+    battery:'<rect width="19" height="10" x="1.5" y="7" rx="3"/><rect width="13" height="6" x="3.5" y="9" rx="1.5" fill="currentColor" stroke="none"/><path d="M22.5 10.5v3"/>'
+  };
+  const svg=n=>{let p=P[n]||'',fill='none';if(p.startsWith('F:')){p=p.slice(2);fill='currentColor'}
+    return `<svg viewBox="0 0 24 24" fill="${fill}" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`};
+  const putIcons=root=>root.querySelectorAll('[data-ic]').forEach(el=>{const s=document.createElement('span');s.className='ic';s.innerHTML=svg(el.dataset.ic);el.prepend(s);el.removeAttribute('data-ic')});
+
+  /* colour roles: light / dark values as written in :root */
+  const C=[
+    ['Фоны',[['--bg','#F6F2ED','#0F0C0A','Фон экрана'],['--bg-elevated','#FFFFFF','#1D1814','Группы, карточки, варианты ответа'],['--bg-tertiary','#F6F2ED','#2A231D','Блок внутри блока'],['--bg-photo','#E9DFD3','#2A231D','Место под фото, пока оно грузится']]],
+    ['Текст',[['--label','#1F1813','#F3ECE4','Основной текст · 16 : 1'],['--label-2','#6B5E52','#B3A698','Подписи, значения · 5,6 : 1'],['--label-3','#9A8D80','#7E7266','Стрелки, неактивное'],['--label-4','#CBBFB2','#4F463E','Пустые кружки, рамки']]],
+    ['Заливки и линии',[['--fill','rgba(118,92,68,.16)','rgba(160,138,116,.26)','Дорожка прогресса, точки'],['--fill-2','rgba(118,92,68,.11)','rgba(160,138,116,.20)','Поиск, чипы, сегменты, серая кнопка'],['--fill-3','rgba(118,92,68,.07)','rgba(160,138,116,.13)','Нажатая строка'],['--separator','rgba(78,58,42,.16)','rgba(230,210,190,.14)','Волосяная линия между строками']]],
+    ['Акцент',[['--tint','#9A5B28','#E0A066','Можно нажать, выбрано · 5,4 : 1'],['--on-tint','#FFFFFF','#1F140B','Текст на акценте'],['--tint-bg','rgba(181,114,58,.10)','rgba(224,160,102,.16)','Tinted-кнопка, отмеченный ответ']]],
+    ['Смысловые',[['--red','#C4372C','#FF7A6E','Новинка, ошибка, неверно'],['--green','#2A7A4B','#5CC48A','Идёт сейчас, верно, сделано'],['--orange','#A9521A','#F0985A','Горячий напиток'],['--blue','#2E6F99','#6AB0E0','Холодный напиток']]]
+  ];
+  const sw=document.getElementById('swatches');
+  sw.innerHTML=C.map(([g,rows])=>`<h3 class="sub-h">${g}</h3><div class="swg">${rows.map(([n,l,d,u])=>`<div class="sw"><span class="chipc"><i style="background:${l}"></i><i style="background:${d}"></i></span><span class="tx"><code>${n}</code><span class="use">${u}</span><span class="hex">${l} · ${d}</span></span></div>`).join('')}</div>`).join('')
+    +`<p class="sub-lead" style="margin-top:var(--sp-4)">У каждого смыслового цвета три значения: <code>--red</code> для текста и иконок, <code>--red-bg</code> для бледной плашки, <code>--red-solid</code> для плотной заливки с белым текстом. Все пары проверены на контраст AA.</p>`;
+
+  /* type styles */
+  const TY=[['t-large','Large Title','34 / 41 · Bold','Напитки'],['t-t1','Title 1','28 / 34 · Bold','Lotus Latte'],['t-t2','Title 2','22 / 28 · Bold','Экзамен месяца'],['t-t3','Title 3','20 / 25 · Semibold','План на сегодня'],
+    ['t-headline','Headline','17 / 22 · Semibold','Общий тест недели'],['t-body','Body','17 / 22 · Regular','Взбей 220 мл молока как под латте.'],['t-callout','Callout','16 / 21 · Regular','Медленно влей молоко в стакан'],
+    ['t-sub','Subheadline','15 / 20 · Regular','Эспрессо · Молоко · Lotus крем'],['t-fn','Footnote','13 / 18 · Regular','Неделя полная: 3 теста и 2 урока'],['t-c1','Caption 1','12 / 16 · Regular','Эспрессо-бар · 160 мл'],['t-c2','Caption 2','11 / 13 · Regular','Подпись к числу']];
+  document.getElementById('typeList').innerHTML=TY.map(([c,n,s,t])=>`<div class="tyr"><span class="smp ${c}">${t}</span><span class="spec"><b>${n}</b>${s}</span></div>`).join('');
+
+  /* spacing */
+  document.getElementById('spaceList').innerHTML=[[1,4],[2,8],[3,12],[4,16],[5,20],[6,24],[8,32],[10,40]].map(([k,v])=>`<div><code>sp-${k} · ${v}</code><i style="width:${v*4}px;max-width:100%"></i></div>`).join('');
+
+  /* icon grid */
+  const IG=[['coffee','Напитки'],['bottle','Заготовки'],['cake','Витрина'],['cap','Обучение'],['more','Ещё'],['search','Поиск'],['chevron-left','Назад'],['chevron-right','Открыть'],['x','Закрыть'],['star','Избранное'],['star-fill','В избранном'],['moon','Тёмная тема'],['sun','Светлая тема'],['globe','Язык'],
+    ['book','Урок'],['cards','Карточки'],['checklist','Тест'],['calendar','Вопрос дня'],['trophy','Экзамен'],['medal','Награды'],['flame','Горячий'],['snow','Холодный'],['clock','Время'],['pin','Филиал'],['bell','Изменения'],['gift','Подарок'],['percent','Скидка'],['salad','Салат'],['thermo','Хранение'],['info','Заметка'],['alert','Внимание'],['refresh','Повторить'],['check','Готово']];
+  document.getElementById('iconGrid').innerHTML=IG.map(([k,n])=>`<div><span data-ic="${k}"></span>${n}</div>`).join('');
+
+  putIcons(document);
+
+  /* photos and the screenshots of the current app */
+  let A={photos:{},before:{}};try{A=JSON.parse(document.getElementById('assets').textContent)}catch(e){}
+  document.querySelectorAll('img[data-photo]').forEach(i=>{i.src=A.photos[i.dataset.photo]||''});
+  const hasBefore=Object.keys(A.before||{}).length>0;
+  if(!hasBefore)document.getElementById('grpView').hidden=true;
+
+  const root=document.documentElement, mq=window.matchMedia('(prefers-color-scheme: dark)');
+  const isDark=()=>root.dataset.theme?root.dataset.theme==='dark':mq.matches;
+  const shots=()=>{if(!hasBefore)return;const t=isDark()?'dark':'light';document.querySelectorAll('img[data-shot]').forEach(i=>{const s=A.before[t+'-'+i.dataset.shot];if(s&&i.getAttribute('src')!==s)i.src=s})};
+  const store=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}, load=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+  const seg=(id,fn)=>{const el=document.getElementById(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;el.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));fn(b.dataset.v)});
+    return v=>el.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v===v))};
+  const setTheme=v=>{if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;store('sg2_theme',v);shots()};
+  const markTheme=seg('segTheme',setTheme);
+  const setView=v=>{root.dataset.view=v;store('sg2_view',v);shots()};
+  const markView=seg('segView',setView);
+  const t0=load('sg2_theme');if(t0&&t0!=='auto'){markTheme(t0);setTheme(t0)}
+  const v0=load('sg2_view');if(hasBefore&&v0==='before'){markView(v0);setView(v0)}
+  mq.addEventListener&&mq.addEventListener('change',shots);
+  shots();
+
+  /* text size, the app's own steps */
+  const TS=[0.88,1,1.12,1.24,1.35];let ti=1;const z0=parseFloat(load('sg2_ts'));if(TS.includes(z0))ti=TS.indexOf(z0);
+  const setTs=i=>{ti=Math.max(0,Math.min(TS.length-1,i));root.style.setProperty('--ts',TS[ti]);document.getElementById('tsVal').textContent=Math.round(TS[ti]*100)+'%';
+    document.querySelectorAll('#mockDots i').forEach((d,k)=>d.classList.toggle('on',k<=ti));store('sg2_ts',TS[ti]);
+    document.getElementById('tsMinus').disabled=ti===0;document.getElementById('tsPlus').disabled=ti===TS.length-1};
+  document.getElementById('tsMinus').onclick=()=>setTs(ti-1);document.getElementById('tsPlus').onclick=()=>setTs(ti+1);
+  document.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>setTs(ti+Number(b.dataset.ts)));
+  setTs(ti);
+
+  /* the large title collapses into the slim bar */
+  document.querySelectorAll('.dscreen').forEach(d=>{const s=d.querySelector('.scr');if(!s||!d.querySelector('.navbar'))return;
+    s.addEventListener('scroll',()=>d.classList.toggle('scrolled',s.scrollTop>58),{passive:true})});
+
+  /* the mock controls switch like the real ones */
+  document.querySelectorAll('.mock .seg, .demo .seg').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))}));
+  document.querySelectorAll('.mock .chips').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;g.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b))}));
+  document.querySelectorAll('.fav').forEach(f=>f.addEventListener('click',e=>{e.stopPropagation();const on=!f.classList.contains('on');f.classList.toggle('on',on);f.querySelector('.ic').innerHTML=svg(on?'star-fill':'star')}));
+  document.querySelectorAll('.demo .opts').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b||b.closest('.demo').querySelector('.right'))return;b.classList.toggle('sel')}));
+})();
+</script>

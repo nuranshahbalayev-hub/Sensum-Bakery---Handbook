@@ -7,33 +7,80 @@
 <title>Sensum — дизайн-система</title>
 <script>(function(){try{var t=localStorage.getItem("sensum_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var z=parseFloat(localStorage.getItem("sensum_textsize"));if(z>=0.8&&z<=1.5)document.documentElement.style.setProperty("--ts",z);}catch(e){}})();</script>
 <style id="sg-page">
-/* the app's own stylesheet is injected after this block (see the script): the page shows the real components */
-body{display:block!important;height:auto!important;overflow:auto!important;background:var(--cream);color:var(--ink)}
+/* the app's own stylesheet is injected before this block (see the script): the page shows the real tokens and components.
+   This block styles only the guide itself, with the v2 roles. */
 html{height:auto!important;overflow:auto!important}
-.sg{max-width:430px;margin:0 auto;padding:var(--sp-4) var(--gutter) var(--sp-8)}
-.sg h1{font-size:var(--fs-t1);margin:var(--sp-2) 0 var(--sp-1)}
-.sg .lead{color:var(--muted);font-size:var(--fs-sub);margin:0 0 var(--sp-4)}
-.sg section{margin-top:var(--sp-8)}
-.sg h2{font-size:var(--fs-t2);margin:0 0 var(--sp-1);padding-bottom:var(--sp-2);border-bottom:2px solid var(--crema)}
-.sg .why{color:var(--muted);font-size:var(--fs-fn);margin:var(--sp-2) 0 var(--sp-3)}
-.sg .label{font-size:var(--fs-c1);color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);font-weight:600}
-.sg .label code,.sg .why code{background:var(--bg2);border-radius:6px;padding:1px 6px;font-size:var(--fs-c1)}
-.sg .row{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
-.sg .bar2{position:sticky;top:0;z-index:5;background:var(--cream);padding:var(--sp-2) 0;display:flex;gap:var(--sp-2);flex-wrap:wrap;border-bottom:1px solid var(--line)}
+body{display:block!important;height:auto!important;overflow:auto!important;background:var(--bg);color:var(--label)}
+.sg{max-width:760px;margin:0 auto;padding:var(--sp-6) var(--gutter) var(--sp-10)}
+.sg h1{margin:var(--sp-2) 0 var(--sp-2)}
+.sg .eyebrow{font-size:var(--fs-fn);font-weight:600;color:var(--tint)}
+.sg .lead{color:var(--label-2);font-size:var(--fs-body);line-height:1.5;margin:0 0 var(--sp-4);max-width:65ch}
+.sg .bar2{position:sticky;top:0;z-index:5;background:var(--material);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  margin:0 calc(var(--gutter) * -1);padding:var(--sp-2) var(--gutter);display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;border-bottom:var(--hair) solid var(--separator)}
 .sg .bar2 button{min-height:36px}
-.sw{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
-.sw div{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;font-size:var(--fs-c2);background:var(--card)}
-.sw i{display:block;height:36px}
-.sw span{display:block;padding:var(--sp-1) var(--sp-2);color:var(--muted)}
-.ty{display:grid;gap:var(--sp-2)}
-.ty div{display:flex;align-items:baseline;gap:var(--sp-3);border-bottom:1px solid var(--line);padding-bottom:var(--sp-2)}
-.ty code{flex:0 0 112px;font-size:var(--fs-c1);color:var(--muted)}
-.sp div{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2);font-size:var(--fs-fn);color:var(--muted)}
-.sp i{display:block;height:12px;background:var(--caramel);border-radius:3px}
-.rd{display:flex;gap:var(--sp-3);flex-wrap:wrap}
-.rd div{width:72px;height:72px;background:var(--note-bg);border:1px solid var(--note-border);display:flex;align-items:center;justify-content:center;font-size:var(--fs-c1);color:var(--muted)}
+.sg .toc{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-4);margin:var(--sp-4) 0 0;padding:0;list-style:none;font-size:var(--fs-fn)}
+.sg .toc a{color:var(--tint);text-decoration:none;font-weight:600}
+.sg section{margin-top:var(--sp-10);scroll-margin-top:64px}
+.sg section>h2{font-size:var(--fs-t1);line-height:var(--lh-t1);font-weight:700;letter-spacing:-.01em;margin:0}
+.sg .why{color:var(--label-2);font-size:var(--fs-sub);line-height:1.5;margin:var(--sp-2) 0 var(--sp-4);max-width:65ch}
+.sg section>h3{font-size:var(--fs-t3);line-height:var(--lh-t3);font-weight:600;margin:var(--sp-8) 0 var(--sp-1);display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.sg .label{font-size:var(--fs-fn);color:var(--label-2);margin:var(--sp-4) 0 var(--sp-2);font-weight:600}
+.sg code{font:500 .86em/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--fill-3);border-radius:5px;padding:1px 5px;color:var(--label)}
+.sg .row{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
 .sg .gridc{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
 .sg .nested{margin:0 calc(var(--gutter) * -1)}
+.sg .stage{display:inline-flex;align-items:center;height:22px;padding:0 var(--sp-2);border-radius:var(--r-pill);background:var(--fill-2);color:var(--label-2);font-size:var(--fs-c1);font-weight:600;line-height:1}
+.sg .stage.done{background:var(--green-bg);color:var(--green)}
+.sg .box{background:var(--bg-elevated);border-radius:var(--r-lg);overflow:hidden}
+.sg .pr{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:var(--sp-5) var(--sp-6)}
+.sg .pr div{display:flex;flex-direction:column;gap:var(--sp-1)}
+.sg .pr b{font-weight:600;font-size:var(--fs-body)}
+.sg .pr span{color:var(--label-2);font-size:var(--fs-sub);line-height:1.5}
+/* swatches */
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:var(--sp-2)}
+.sw div{display:flex;gap:var(--sp-3);align-items:center;background:var(--bg-elevated);border-radius:var(--r-md);padding:var(--sp-2) var(--sp-3);min-width:0}
+.sw i{flex:none;width:36px;height:36px;border-radius:var(--r-sm);box-shadow:inset 0 0 0 1px var(--separator)}
+.sw span{display:flex;flex-direction:column;min-width:0;font-size:var(--fs-c1);line-height:var(--lh-c1);color:var(--label-2)}
+.sw span code{background:none;padding:0;font-size:var(--fs-c1);color:var(--label)}
+.sw span small{font-size:var(--fs-c2);color:var(--label-3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+.legacy{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:var(--sp-1) var(--sp-4);font-size:var(--fs-fn);color:var(--label-2)}
+.legacy div{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.legacy i{flex:none;width:14px;height:14px;border-radius:4px;box-shadow:inset 0 0 0 1px var(--separator)}
+/* type, space, radii, depth */
+.ty div{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-1) var(--sp-4);align-items:baseline;padding:var(--sp-3) var(--sp-4)}
+.ty div+div::before{content:"";position:absolute;top:0;left:var(--sp-4);right:0;border-top:var(--hair) solid var(--separator)}
+.ty .spec{font-size:var(--fs-c1);color:var(--label-2);text-align:right;white-space:nowrap}
+.ty .spec b{display:block;color:var(--label);font-weight:600}
+.ty .smp{min-width:0;overflow-wrap:anywhere}
+.sp div{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2);font-size:var(--fs-fn);color:var(--label-2)}
+.sp i{display:block;height:10px;background:var(--tint);border-radius:3px;max-width:100%}
+.rd{display:flex;gap:var(--sp-3);flex-wrap:wrap}
+.rd div{width:76px;height:64px;background:var(--tint-bg);display:flex;align-items:flex-end;padding:var(--sp-2);font-size:var(--fs-c2);font-weight:600;color:var(--tint)}
+.tapd{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-fn);color:var(--label-2)}
+.tapd i{flex:none;width:44px;height:44px;border-radius:50%;border:1.5px dashed var(--tint);display:grid;place-items:center}
+.tapd i::after{content:"";width:30px;height:30px;border-radius:50%;background:var(--fill)}
+.depth{position:relative;background:var(--bg);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:inset 0 0 0 1px var(--separator);min-height:210px;overflow:hidden;font-size:var(--fs-c1);color:var(--label-2)}
+.depth .l1{background:var(--bg-elevated);border-radius:var(--r-md);padding:var(--sp-3);width:68%;margin-top:var(--sp-2)}
+.depth .l2{position:absolute;right:var(--sp-4);bottom:-12px;width:52%;background:var(--bg);border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--elev-2);padding:var(--sp-4) var(--sp-3) var(--sp-6)}
+.depth .l2::before{content:"";display:block;width:32px;height:4px;border-radius:2px;background:var(--label-4);margin:-8px auto var(--sp-3)}
+/* icons */
+.icg{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:var(--sp-2)}
+.icg div{display:flex;flex-direction:column;align-items:center;gap:var(--sp-1);padding:var(--sp-4) var(--sp-1) var(--sp-3);background:var(--bg-elevated);border-radius:var(--r-md);font-size:var(--fs-c2);color:var(--label-2);text-align:center;min-width:0}
+.icg .sym{font-size:26px;color:var(--label);margin-bottom:var(--sp-1)}
+.icg code{background:none;padding:0;font-size:var(--fs-c2);color:var(--label-3)}
+.sq{width:30px;height:30px;border-radius:var(--r-icon);display:grid;place-items:center;color:#fff;font-size:18px}
+.sq .sym{stroke-width:2}
+/* motion and the migration table */
+.mo{display:grid;gap:var(--sp-2);font-size:var(--fs-sub)}
+.mo div{display:flex;gap:var(--sp-3);align-items:baseline}
+.mo code{flex:none}
+.tblw{overflow-x:auto;background:var(--bg-elevated);border-radius:var(--r-lg)}
+table.map{width:100%;border-collapse:collapse;font-size:var(--fs-fn);line-height:var(--lh-fn);min-width:560px}
+.map th,.map td{text-align:left;vertical-align:top;padding:var(--sp-3) var(--sp-4);border-bottom:var(--hair) solid var(--separator)}
+.map tr:last-child td{border-bottom:0}
+.map th{font-weight:600;color:var(--label-2)}
+.map td:first-child{font-weight:600}
+.map td:last-child{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -43,40 +90,103 @@ fetch('./index.html').then(r=>r.text()).then(src=>{
   const css=src.slice(src.indexOf('<style>')+7,src.indexOf('</style>'));
   const st=document.createElement('style'); st.id='app-css'; st.textContent=css; document.head.insertBefore(st,document.getElementById('sg-page'));
   const img=k=>{const m=src.match(new RegExp('"'+k+'":"(images/[^"]+)"'));return m?m[1]:''};
+  /* the icon set: one line of JSON in index.html, drawn the way ic() draws it */
+  let ICONS={}; try{const a=src.indexOf('const ICONS=')+12; ICONS=JSON.parse(src.slice(a,src.indexOf(';\n',a)));}catch(e){}
+  const ic=(n,cls)=>{let p=ICONS[n]||'',f='none';if(p.startsWith('F:')){p=p.slice(2);f='currentColor'}
+    return `<svg class="sym${cls?' '+cls:''}" viewBox="0 0 24 24" fill="${f}" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`};
   const THEME=()=>document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
-  const tokens=['espresso','espresso2','caramel','caramel-d','crema','cream','card','ink','muted','line','note-bg','bg2','hot','cold','new','ok','b-fix','b-news','b-hot','b-ok','b-new','chip-active'];
-  const fs=[['c2',11,'Подпись, бейдж'],['c1',12,'Мелкая подпись'],['fn',13,'Сноска, фильтр'],['sub',15,'Основной текст, кнопка'],['callout',16,'Поле ввода'],['body',17,'Крупный текст, заголовок кнопки'],['t3',20,'Заголовок раздела'],['t2',22,'Заголовок листа'],['t1',28,'Большой заголовок']];
-  const sp=[1,2,3,4,5,6,8], rd=[['sm',10],['md',12],['lg',16],['xl',20],['pill',999]];
+  const stage=n=>n?`<span class="stage">Заменится на этапе ${n}</span>`:'<span class="stage done">Система v2</span>';
+
+  const ROLES=[
+    ['Фоны','Глубина задаётся фоном: экран чуть темнее, блоки на нём светлее (в тёмной теме наоборот).',[['bg','Фон экрана'],['bg-elevated','Группы, карточки, варианты ответа'],['bg-tertiary','Блок внутри блока'],['bg-photo','Место под фото, пока оно грузится']]],
+    ['Текст','Основной текст и подписи читаются с контрастом не ниже AA. Третий и четвёртый уровни — только для стрелок, пустых кружков и неактивного.',[['label','Основной текст'],['label-2','Подписи, значения справа'],['label-3','Стрелки, неактивное'],['label-4','Пустые кружки, черта листа']]],
+    ['Заливки и линии','Вместо рамок: серые заливки у полей и чипов, волосяная линия между строками.',[['fill','Дорожка прогресса, точки'],['fill-2','Поиск, чипы, сегменты, серая кнопка'],['fill-3','Нажатая строка'],['separator','Линия между строками'],['separator-opaque','Непрозрачная линия']]],
+    ['Акцент','Один цвет для «можно нажать» и «выбрано». Им не красят заголовки и украшения.',[['tint','Кнопки, ссылки, выбранное'],['tint-strong','Нажатая кнопка'],['on-tint','Текст на акценте'],['tint-bg','Бледный акцент: tinted-кнопка, отмеченный ответ']]],
+    ['Смысловые','У каждого цвета одно значение. X — для текста и иконок, X-bg — бледная плашка, X-solid — заливка под белый текст.',[['red','Новинка, неверно, ошибка'],['red-bg','Плашка ошибки'],['red-solid','Бейдж «Новинка» на фото, счётчик'],['green','Идёт сейчас, верно, сделано'],['green-bg','Плашка «верно»'],['green-solid','Галочка «сделано»'],['orange','Горячий'],['orange-solid','Квадрат иконки'],['blue','Холодный'],['blue-solid','Квадрат иконки'],['gold-solid','Избранное, экзамен (только квадрат иконки)']]],
+    ['Материалы','Полупрозрачные поверхности поверх содержимого.',[['material','Панель навигации и таббар (с размытием)'],['glass','Кнопки поверх фото: ✕, звезда'],['seg-thumb','Бегунок сегментов'],['scrim','Затемнение под листом']]]
+  ];
+  const LEGACY=[['cream','bg'],['card','bg-elevated'],['bg2','bg-tertiary'],['note-bg','tint-bg'],['ink','label'],['espresso','label'],['espresso2','label-2'],['muted','label-2'],['line','separator'],['note-border','separator'],['crema','bg-photo'],
+    ['caramel','tint'],['caramel-d','tint'],['chip-active','tint'],['b-fix','tint'],['new','red'],['b-new','red-solid'],['bad-bg','red-bg'],['ok','green'],['b-ok','green-solid'],['ok-bg','green-bg'],['hot','orange'],['b-hot','orange-solid'],['cold','blue'],['b-cold','blue-solid'],['b-news','blue-solid'],['grabber','label-4']];
+  const TY=[['t-large','Large Title','34 / 41 · Bold','Напитки','Заголовок вкладки (этап 2)'],['t-t1','Title 1','28 / 34 · Bold','Lotus Latte','Название в листе'],['t-t2','Title 2','22 / 28 · Bold','Экзамен месяца','Крупный заголовок блока'],
+    ['t-t3','Title 3','20 / 25 · Semibold','План на сегодня','Заголовок раздела на экране'],['t-headline','Headline','17 / 22 · Semibold','Общий тест недели','Название в строке, кнопка'],['t-body','Body','17 / 22 · Regular','Взбей 220 мл молока как под латте.','Основной текст, строки списка'],
+    ['t-callout','Callout','16 / 21 · Regular','Медленно влей молоко в стакан','Шаги, варианты ответа, поля'],['t-sub','Subheadline','15 / 20 · Regular','Эспрессо · Молоко · Lotus крем','Подзаголовок, состав в баннере'],
+    ['t-fn','Footnote','13 / 18 · Regular','Неделя полная: 3 теста и 2 урока','Подписи строк, заголовки групп'],['t-c1','Caption 1','12 / 16 · Regular','Эспрессо-бар · 160 мл','Подписи под фото, бейджи'],['t-c2','Caption 2','11 / 13 · Regular','Подпись к числу','Самое мелкое; меньше не бывает']];
+  const ICN={coffee:'Напитки',bottle:'Заготовки',cake:'Витрина',cap:'Обучение',more:'Ещё',search:'Поиск','chevron-left':'Назад','chevron-right':'Открыть',x:'Закрыть',star:'Избранное','star-fill':'В избранном',moon:'Тёмная тема',sun:'Светлая тема',globe:'Язык',
+    book:'Урок',cards:'Карточки',checklist:'Тест',calendar:'Вопрос дня',trophy:'Экзамен',medal:'Награды',flame:'Горячий',snow:'Холодный',clock:'Время',pin:'Филиал',bell:'Изменения',gift:'Подарок',percent:'Скидка',salad:'Салат',thermo:'Хранение',info:'Заметка',alert:'Внимание',refresh:'Повторить',check:'Готово',gear:'Настройки'};
+  const MAP=[['Навигация','header, .brand, .search, .langbtn, .themebtn','Большой заголовок экрана, серое поле поиска, AZ и тема — иконки справа',2],['Таббар','nav.tabs','Полупрозрачный, линейные иконки вместо эмодзи',2],
+    ['Лист','.sheet, .grabzone, .close, .hero, .spec','Название под фото, факты строкой, матовая кнопка ✕',2],['Список','.tile, .hub, .lrows, .board, .prow2, table.ing, h4.sec','Строки в белой группе, волосяные линии, цветные квадраты иконок, серые заголовки групп',3],
+    ['Панель','.lpanel, .mode, .promo, .spot','Без рамки, тени и градиента; важное показывает бейдж',3],['Фото-карточка','.card','Подпись под фото, звезда на матовом кружке',3],['Заметка','.note, .hint.lead','Бледная плашка с иконкой',3],
+    ['Кнопка','.lbtn.pri/.sec/.ok/.again, .lnk, .back','Четыре вида (filled, tinted, gray, plain), три размера',4],['Чип, сегменты','.chip, .seg, .tsize','Серая заливка; сегменты с дорожкой и белым бегунком',4],
+    ['Бейдж','.tbadge, .newr, .kbadge, .vtag, .pst, .cnt, .chtype, .sb, .ver','Одна форма, обычные буквы вместо заглавных',4],['Прогресс','.bar, .qtimer, .kbar, .wstrip','Одна полоса в трёх цветах',4],['Вариант ответа','.opt, .pos, .linput','Кружок состояния слева',4],
+    ['Уборка','старые токены, inline-стили, градиенты в JS','Удаляются; аудит предупреждает о цветах вне :root',5]];
+
   const html=`
-  <h1>Дизайн-система Sensum</h1>
-  <p class="lead">Живая шпаргалка: ниже настоящие компоненты приложения, они берут стили прямо из <code>index.html</code>. Правишь стиль в приложении — здесь он меняется сам.</p>
-  <div class="bar2"><button class="chip" id="g-theme">🌙 Тёмная тема</button><button class="chip" id="g-m">A−</button><button class="chip" id="g-p">A+</button><span class="hint" style="margin:0;align-self:center" id="g-ts"></span></div>
+  <p class="eyebrow">Sensum &amp; Bakery · дизайн-система v2</p>
+  <h1 class="t-large">Дизайн-система</h1>
+  <p class="lead">Живой справочник: цвета, шрифты и компоненты ниже берутся прямо из <code>index.html</code>, поэтому всегда совпадают с приложением. Основы уже по системе v2. Компоненты пока прежние, у каждого указан этап, на котором его заменят. Как всё будет выглядеть в итоге — в <a class="lnk" style="display:inline;min-height:0;padding:0" href="design/concept.html">макете</a>.</p>
+  <div class="bar2"><button class="chip" id="g-theme">Тёмная тема</button><button class="chip" id="g-m">A−</button><button class="chip" id="g-p">A+</button><span class="hint" style="margin:0;align-self:center" id="g-ts"></span></div>
+  <ul class="toc"><li><a href="#s-pr">Принципы</a></li><li><a href="#s-color">Цвет</a></li><li><a href="#s-type">Типографика</a></li><li><a href="#s-layout">Сетка и глубина</a></li><li><a href="#s-icons">Иконки</a></li><li><a href="#s-motion">Движение</a></li><li><a href="#s-comp">Компоненты</a></li><li><a href="#s-plan">План перехода</a></li></ul>
 
-  <section id="s-color"><h2>Цвета</h2><p class="why">Только переменные <code>--имя</code>: в тёмной теме они меняются сами. Белый текст — только на <code>--b-*</code> (контраст 4,5:1).</p>
-    <div class="sw" id="sw"></div></section>
+  <section id="s-pr"><h2>Принципы</h2><p class="why">Шесть правил. Если не знаешь, как оформить новый экран, сверяйся с ними.</p>
+    <div class="pr">
+      <div><b>Содержание главное</b><span>Крупно — фото и рецепт. Интерфейс вокруг них тихий: без рамок, градиентов и лишних теней.</span></div>
+      <div><b>Глубина — фоном</b><span>Экран чуть темнее, блоки на нём белые. Тень есть только у фото и у листа поверх экрана.</span></div>
+      <div><b>Один акцент</b><span>Карамельный <code>--tint</code> значит одно: «можно нажать» или «выбрано».</span></div>
+      <div><b>Цвет несёт смысл</b><span>Красный — новое и ошибка, зелёный — идёт сейчас и верно, оранжевый — горячее, синий — холодное.</span></div>
+      <div><b>Одинаковое — одинаково</b><span>Одна строка списка, одна кнопка, один бейдж на всё приложение. Новый компонент — только если старые не подходят.</span></div>
+      <div><b>Для каждого</b><span>Контраст AA (4,5 : 1) в обеих темах, касание от 44 pt, весь текст растёт с настройкой размера.</span></div>
+    </div></section>
 
-  <section id="s-type"><h2>Шрифт и размеры</h2><p class="why">Системный шрифт (SF Pro на iPhone), шкала как в iOS Dynamic Type. Новые размеры не вводим — берём <code>var(--fs-…)</code>.</p>
-    <div class="ty">${fs.map(([k,px,use])=>`<div><code>--fs-${k} · ${px}</code><span style="font-size:var(--fs-${k});font-weight:${px>=20?700:500}">${use}</span></div>`).join('')}</div></section>
+  <section id="s-color"><h2>Цвет</h2><p class="why">Цвета называются по роли, а не по оттенку. Компонент берёт <code>var(--label-2)</code>, и в тёмной теме роль сама получает своё значение. Значения ниже — для темы, включённой сейчас. Новый CSS берёт только роли.</p>
+    <div id="sw"></div>
+    <h3>Старые токены ${stage(5)}</h3><p class="why">Заморожены: их ещё используют прежние компоненты, но в новом CSS их не берём. Справа — роль, которая их заменит.</p>
+    <div class="legacy">${LEGACY.map(([o,n])=>`<div><i style="background:var(--${o})"></i><code>--${o}</code> → <code>--${n}</code></div>`).join('')}</div></section>
 
-  <section id="s-space"><h2>Отступы, скругления, касание</h2><p class="why">Сетка 4 pt: <code>--sp-1…--sp-8</code>. Край экрана — <code>--gutter</code> (16). Минимальная зона касания — <code>--tap</code> (44).</p>
-    <div class="sp">${sp.map(n=>`<div><code>--sp-${n}</code><i style="width:calc(var(--sp-${n}) * 4)"></i><span>${[4,8,12,16,20,24,32][sp.indexOf(n)]}</span></div>`).join('')}</div>
-    <div class="label">Скругления</div><div class="rd">${rd.map(([k,v])=>`<div style="border-radius:var(--r-${k})">${k}</div>`).join('')}</div></section>
+  <section id="s-type"><h2>Типографика</h2><p class="why">Системный шрифт (SF Pro на iPhone) и одиннадцать стилей текста iOS. У стиля свой размер, межстрочный интервал и насыщенность: пишем класс <code>.t-headline</code>, а не «17 px, жирный». Все стили растут вместе с настройкой размера текста (<code>--ts</code>). Поля ввода — 16 px, иначе iOS приближает экран.</p>
+    <div class="box ty">${TY.map(([c,n,s,t,u])=>`<div><span class="smp"><span class="${c}" style="display:block">${t}</span><span class="t-c1" style="color:var(--label-2)">${u}</span></span><span class="spec"><b>${n}</b>${s}<br><code>.${c}</code></span></div>`).join('')}</div></section>
 
-  <section id="s-btn"><h2>Кнопки</h2><p class="why">Одна главная кнопка на экране. Нажатие: поверхности чуть «проваливаются», кнопки сильнее, текстовые бледнеют.</p>
+  <section id="s-layout"><h2>Сетка, форма, глубина</h2><p class="why">Сетка 4 pt: <code>--sp-1…--sp-10</code>. Левый и правый край каждого экрана — <code>--gutter</code> (16). Скругления вложены: у элемента внутри радиус меньше, чем у того, в котором он лежит.</p>
+    <div class="sp">${[[1,4],[2,8],[3,12],[4,16],[5,20],[6,24],[8,32],[10,40]].map(([k,v])=>`<div><code>--sp-${k} · ${v}</code><i style="width:calc(var(--sp-${k}) * 4)"></i></div>`).join('')}</div>
+    <div class="label">Скругления</div>
+    <div class="rd">${[['icon',8],['sm',10],['md',12],['lg',16],['xl',20],['pill',999]].map(([k,v])=>`<div style="border-radius:var(--r-${k})">${k} · ${v}</div>`).join('')}</div>
+    <p class="why" style="margin-top:var(--sp-3)">icon — квадрат иконки в строке · sm — поле, сегмент · md — кнопка, вариант ответа · lg — группа, карточка, фото · xl — лист · pill — бейдж, чип.</p>
+    <div class="label">Зона касания <code>--tap</code> 44</div>
+    <div class="tapd"><i></i><span>Маленькая кнопка (30 pt) получает невидимую зону <code>::after</code> до 44 pt вместо того, чтобы расти.</span></div>
+    <div class="label">Три уровня глубины</div>
+    <div class="depth">0 · фон экрана <code>--bg</code><div class="l1">1 · группа, карточка — <code>--bg-elevated</code>, без тени</div><div class="l2">2 · лист поверх — <code>--elev-2</code></div></div></section>
+
+  <section id="s-icons"><h2>Иконки</h2><p class="why">Один набор линейных иконок: сетка 24, линия 1,75, цвет от текста, размер от шрифта (<code>1em</code>). В коде — <code>ic('book')</code>, набор — <code>ICONS</code> в <code>index.html</code>. Новую иконку рисуем в том же стиле и добавляем в набор. Эмодзи остаются только там, где они содержание: значки-награды, совы 🦉, позиции витрины без фото.</p>
+    <div class="icg" id="icg"></div>
+    <div class="label">Иконка в строке списка: белый знак на цветном квадрате, как в «Настройках» iPhone (этап 3)</div>
+    <div class="row">${[['blue-solid','calendar'],['orange-solid','book'],['green-solid','checklist'],['caramel-500','book'],['gold-solid','trophy'],['red-solid','bell'],['n-400','gear']].map(([c,n])=>`<span class="sq" style="background:var(--${c})">${ic(n)}</span>`).join('')}</div></section>
+
+  <section id="s-motion"><h2>Движение и состояния</h2><p class="why">Одно поведение на вид компонента. Нажмите на кнопки и карточки ниже, чтобы увидеть.</p>
+    <div class="mo">
+      <div><code>--press .97</code><span>Нажатие: кнопки и карточки чуть уменьшаются. Строки списка вместо этого подсвечиваются <code>--fill-3</code>.</span></div>
+      <div><code>--disabled .5</code><span>Недоступное — полупрозрачное и не реагирует.</span></div>
+      <div><code>--dur .12s</code><span>Быстрые переходы цвета и нажатия.</span></div>
+      <div><code>--dur-slow .3s</code><span>Сегменты, появление панелей.</span></div>
+      <div><code>--ease</code><span>Кривая iOS для листа и бегунка: быстро начинается, мягко останавливается.</span></div>
+      <div><code>reduced motion</code><span>Если в телефоне включено «Уменьшение движения», анимаций нет совсем.</span></div>
+    </div></section>
+
+  <section id="s-comp"><h2>Компоненты</h2><p class="why">Сейчас в приложении — эти. Они переходят на систему v2 по этапам. Новый компонент сначала появляется здесь, с образцом.</p>
+
+    <h3>Кнопки ${stage(4)}</h3><p class="why">Одна главная кнопка на экране. Нажатие: поверхности чуть «проваливаются», кнопки сильнее, текстовые бледнеют.</p>
     <div class="label"><code>.lbtn.pri</code> главная · <code>.sec</code> вторичная</div><div class="lbtns" style="margin:0"><button class="lbtn sec">Открыть рецепт</button><button class="lbtn pri">Дальше ›</button></div>
     <div class="label"><code>.ok</code> положительная · <code>.again</code> «повторить»</div><div class="lbtns" style="margin:0"><button class="lbtn again">↺ Повторить</button><button class="lbtn ok">✓ Знаю</button></div>
     <div class="label">Недоступная (<code>:disabled</code>)</div><div class="lbtns" style="margin:0"><button class="lbtn pri" disabled>Недоступно</button></div>
-    <div class="label"><code>.lnk</code> и <code>.back</code> — текстовые</div><div class="row"><button class="back">‹ Ещё</button><button class="lnk">Завершить</button></div></section>
+    <div class="label"><code>.lnk</code> и <code>.back</code> — текстовые</div><div class="row"><button class="back">‹ Ещё</button><button class="lnk">Завершить</button></div>
 
-  <section id="s-chip"><h2>Фильтры и переключатели</h2>
+    <h3>Фильтры и переключатели ${stage(4)}</h3>
     <div class="label"><code>.chip</code> / <code>.chip.on</code></div><div class="row"><button class="chip on">Все</button><button class="chip">☕ Горячие</button><button class="chip">🧊 Холодные</button></div>
-    <div class="label"><code>.seg</code> — сегментный переключатель</div><div class="seg"><button class="on">Сотрудники</button><button>Филиалы</button></div></section>
+    <div class="label"><code>.seg</code> — сегментный переключатель</div><div class="seg"><button class="on">Сотрудники</button><button>Филиалы</button></div>
 
-  <section id="s-badge"><h2>Бейджи</h2><p class="why">Одна форма — «таблетка»: 11 px, жирный. Цвет несёт смысл: красный — новое, зелёный — идёт сейчас, серый — нейтральное.</p>
+    <h3>Бейджи ${stage(4)}</h3><p class="why">Одна форма — «таблетка». Цвет несёт смысл: красный — новое, зелёный — идёт сейчас, серый — нейтральное.</p>
     <div class="row"><span class="chtype news" style="position:static">ОБЪЯВЛЕНИЕ</span><span class="chtype fix" style="position:static">ПРАВКА</span><span class="pst on" style="margin:0">Сейчас действует</span><span class="pst" style="margin:0">Сегодня с 17:00</span><span class="cnt">1 новое</span></div>
-    <div class="label">На фото карточки</div><div class="row" style="position:relative;height:36px"><span class="tbadge hot" style="left:0;top:0">HOT</span><span class="tbadge cold" style="left:64px;top:0">COLD</span><span class="newr" style="left:140px;top:0">НОВИНКА</span><span class="kbadge" style="left:240px;top:0">Салаты</span></div></section>
+    <div class="label">На фото карточки</div><div class="row" style="position:relative;height:36px"><span class="tbadge hot" style="left:0;top:0">HOT</span><span class="tbadge cold" style="left:64px;top:0">COLD</span><span class="newr" style="left:140px;top:0">НОВИНКА</span><span class="kbadge" style="left:240px;top:0">Салаты</span></div>
 
-  <section id="s-card"><h2>Карточки</h2><p class="why"><b>Карточка с фото</b> (<code>.card</code>) — без рамки, с тенью. <b>Панель</b> (<code>.lpanel</code>, <code>.promo</code>, <code>.tile</code>) — с рамкой и тенью.</p>
+    <h3>Карточки и панели ${stage(3)}</h3><p class="why"><b>Карточка с фото</b> (<code>.card</code>) — без рамки, с тенью. <b>Панель</b> (<code>.lpanel</code>, <code>.promo</code>, <code>.tile</code>) — с рамкой и тенью.</p>
     <div class="gridc"><div class="card"><div class="ph"><img src="${img('lotuslatte')}" alt=""></div><span class="newr">Новинка</span><button class="fav">☆</button><div class="body"><h3 class="serif">Lotus Latte</h3><div class="meta">Эспрессо-спешелти · 330 мл</div></div></div>
     <div class="card"><div class="ph"><img src="${img('citrussalad')}" alt=""></div><span class="kbadge">Салаты</span><button class="fav on">★</button><div class="body"><h3 class="serif">Цитрусовый салат</h3><div class="meta vdesc">Салатный микс, киноа, черри</div></div></div></div>
     <div class="label"><code>.spot</code> — баннер новинки</div>
@@ -84,22 +194,22 @@ fetch('./index.html').then(r=>r.text()).then(src=>{
     <div class="label"><code>.promo</code> — акция</div><div class="prow" style="padding:0;margin:0"><div class="promo now"><div class="pn">🎁 Напиток в подарок</div><div class="ps">К салату или большому сэндвичу</div><div class="pp">Подарок</div><div class="pt">12:00–15:00 · Пн–пт</div><span class="pst on">Сейчас действует</span></div><div class="promo"><div class="pn">🥗 Fresh Combo</div><div class="ps">2 салата + 2 айс-ти</div><div class="pp">18 AZN</div><div class="pt">17:00–00:00 · Каждый день</div><div class="pb">📍 Только Ağ Şəhər</div><span class="pst">Сегодня с 17:00</span></div></div>
     <div class="label"><code>.tile</code> — строка меню «Ещё»</div><div class="hub"><button class="tile"><span class="ti">★</span><span class="tx"><span class="tt">Избранное</span><span class="td">Сохранённые напитки, заготовки и позиции витрины</span></span><span class="chev">›</span></button></div>
     <div class="label"><code>.tile</code> в списке уроков: номер, <code>.tile.read</code> — прочитано (зелёная галочка)</div><div class="lrows"><button class="tile read"><span class="ti">✓</span><span class="tx"><span class="tt">Легенда и происхождение</span><span class="td">Происхождение и ботаника</span></span><span class="chev">›</span></button><button class="tile"><span class="ti">3</span><span class="tx"><span class="tt">Арабика и робуста</span><span class="td">Арабика и робуста</span></span><span class="chev">›</span></button></div>
-    <div class="label"><code>.lpanel.plan</code> — «План на сегодня»: <code>.tile.next</code> — что делать сейчас, <code>.tile.read</code> — сделано сегодня</div><div class="lpanel plan"><div class="lph serif"><span>План на сегодня</span><small>1 / 2</small></div><div class="lrows"><button class="tile read"><span class="ti">✓</span><span class="tx"><span class="tt">Учёба на сегодня: сделано</span><span class="td">Дальше: Арабика и робуста</span></span><span class="chev">›</span></button><button class="tile next"><span class="ti">📝</span><span class="tx"><span class="tt">Тест недели: Напитки</span><span class="td">Осталось попыток: 3 из 4</span></span><span class="chev">›</span></button></div></div>
-    <div class="label"><code>.wstrip .ws</code> — неделя одним взглядом: <code>.done</code> засчитано, <code>.tried</code> сдано ниже 70% (можно пересдать), без класса — ещё нет</div><div class="lpanel plan"><div class="wstrip"><span class="ws done">✓</span><span class="ws done">✓</span><span class="ws tried">↺</span><span class="ws">📚</span><span class="ws">📚</span><span class="ws done">✓</span><span class="ws">📖</span><small>Неделя: 3 из 7</small></div><p class="hint wlead" style="margin-bottom:0">Неделя полная, когда закрыты 5 тестов на 70%+ и пройдено 2 урока. Один зачётный тест в день.</p></div>
-    <div class="label"><code>.lpanel.kpi</code> — «План месяца»: <code>.kbar</code> с чертой порога (<code>u</code>), <code>.prow2</code> — части процента, <code>.warn</code> — предупреждение (пятница или последние дни месяца), <code>.kl</code> — что это значит</div><div class="lpanel kpi warn"><div class="lph serif"><span>План месяца</span><small>74% · нужно 80%</small></div><span class="bar kbar"><i style="width:74%"></i><u style="left:80%"></u></span><div class="prow2"><span>Недели (5 тестов и 2 урока)</span><b>79%</b></div><div class="prow2"><span>Экзамен месяца</span><b>ещё не сдан</b></div><div class="prow2"><span>Качество тестов</span><b>100%</b></div><div class="prow2"><span>Регулярность</span><b>100%</b></div><p class="note kwarn">Внимание: до конца месяца 2 дн., план выполнен на 74% из 80%.</p><p class="hint kl">Пробный месяц: ничего не списывается. Так выглядел бы минус: −6% KPI обучения.</p></div>
+    <div class="label"><code>.lpanel.plan</code> — «План на сегодня»: <code>.tile.next</code> — что делать сейчас, <code>.tile.read</code> — сделано сегодня</div><div class="lpanel plan"><div class="lph serif"><span>План на сегодня</span><small>1 / 2</small></div><div class="lrows"><button class="tile read"><span class="ti">✓</span><span class="tx"><span class="tt">Учёба на сегодня: сделано</span><span class="td">Дальше: Арабика и робуста</span></span><span class="chev">›</span></button><button class="tile next"><span class="ti">📝</span><span class="tx"><span class="tt">Общий тест недели</span><span class="td">На этой неделе: 1 / 3</span></span><span class="chev">›</span></button></div></div>
+    <div class="label"><code>.wstrip .ws</code> — неделя одним взглядом: <code>.done</code> засчитано, <code>.tried</code> сдано ниже 70% (можно пересдать), без класса — ещё нет</div><div class="lpanel plan"><div class="wstrip"><span class="ws done">✓</span><span class="ws tried">↺</span><span class="ws">📝</span><span class="ws">📚</span><span class="ws">📚</span><small>Неделя: 1 из 5</small></div><p class="hint wlead" style="margin-bottom:0">Неделя полная, когда сданы 3 теста на 70%+ и пройдено 2 урока. Один зачётный тест в день.</p></div>
+    <div class="label"><code>.lpanel.kpi</code> — «План месяца»: <code>.kbar</code> с чертой порога (<code>u</code>), <code>.prow2</code> — части процента, <code>.warn</code> — предупреждение, <code>.kl</code> — что это значит</div><div class="lpanel kpi warn"><div class="lph serif"><span>План месяца</span><small>74% · нужно 80%</small></div><span class="bar kbar"><i style="width:74%"></i><u style="left:80%"></u></span><div class="prow2"><span>Недели (3 теста и 2 урока)</span><b>79%</b></div><div class="prow2"><span>Экзамен месяца</span><b>ещё не сдан</b></div><div class="prow2"><span>Качество тестов</span><b>100%</b></div><div class="prow2"><span>Регулярность</span><b>100%</b></div><p class="note kwarn">Внимание: до конца месяца 2 дн., план выполнен на 74% из 80%.</p><p class="hint kl">Пробный месяц: ничего не списывается. Так выглядел бы минус: −6% KPI обучения.</p></div>
     <div class="label"><code>.mode.exam.slim</code> — экзамен месяца одной строкой; <code>details.bdgs</code> — свёрнутые значки</div><div class="modes"><button class="mode exam slim"><span class="mi">🏆</span><span class="mt"><b class="serif">Экзамен месяца</b><em>🦉 +5 / +10 / +15 за 80 / 90 / 100%</em></span><span class="chev">›</span></button></div><details class="lpanel bdgs" style="margin-top:var(--sp-3)"><summary><span>Значки · 2 / 6</span><span class="bico">👣🎯</span></summary><div class="badges"><div class="bdg on"><span>👣</span><b>Первый шаг</b><small>Первый тест</small></div><div class="bdg on"><span>🎯</span><b>В яблочко</b><small>Тест без ошибок</small></div><div class="bdg"><span>☕</span><b>Знаток напитков</b><small>10 тестов на 90%+</small></div></div></details>
     <div class="label"><code>.mode</code> — крупные кнопки-плитки</div><div class="modes"><button class="mode"><span class="mi">🃏</span><b>Карточки</b><span>Вспомни рецепт</span><em>20 в наборе</em></button><button class="mode"><span class="mi">📝</span><b>Тест</b><span>Варианты ответа</span><em>10 вопросов · ⏱ 15 с</em></button></div>
     <div class="label"><code>.lpanel.lesson</code> — текст урока: <code>h4.sec</code>, <code>.lp</code>, <code>.ll</code> (список), <code>.ltab</code> (таблица), <code>.note</code></div><div class="lpanel lesson"><div class="lph serif">Арабика и робуста</div><p class="lp">В мировом производстве на арабику приходится 70 %.</p><ul class="ll"><li><b>Арабика</b> — более кислая</li><li><b>Робуста</b> — более горькая</li></ul><table class="ltab"><thead><tr><th></th><th>Арабика</th><th>Робуста</th></tr></thead><tbody><tr><th scope="row">Кофеин</th><td>1–1,5 %</td><td>2–3 %</td></tr></tbody></table><div class="note">Арабика — Эфиопия, робуста — Центральная Африка.</div></div>
-    <div class="label"><code>.lpanel</code> — панель</div><div class="lpanel"><div class="lph">Твой прогресс</div><div class="prow2"><span>Напитки</span><b>12 / 56</b></div><span class="bar"><i style="width:22%"></i></span><div class="hint">Тестов ещё не было</div></div></section>
+    <div class="label"><code>.lpanel</code> — панель</div><div class="lpanel"><div class="lph">Твой прогресс</div><div class="prow2"><span>Напитки</span><b>12 / 56</b></div><span class="bar"><i style="width:22%"></i></span><div class="hint">Тестов ещё не было</div></div>
 
-  <section id="s-content"><h2>Содержимое листа</h2>
+    <h3>Содержимое листа ${stage(2)}</h3><p class="why">Шапка листа меняется на этапе 2, состав и шаги становятся списками на этапе 3.</p>
     <div class="label"><code>.spec .p</code> — плашки-факты</div><div class="spec"><div class="p"><b>Посуда</b>330 мл</div><div class="p"><b>Подача</b>Горячий</div></div>
     <div class="label"><code>h4.sec</code>, <code>table.ing</code>, <code>.note</code>, <code>.hint</code></div><h4 class="sec" style="margin-top:0">Состав</h4>
-    <table class="ing"><tr><td>Эспрессо (одинарный)</td><td class="q">18 г</td></tr><tr><td><span class="prep-link">Lotus крем</span></td><td class="q">30 г</td></tr></table>
+    <table class="ing"><tr><td>Эспрессо (одинарный)</td><td class="q">18 г</td></tr><tr><td><span class="prep-link">Шоколадный соус</span></td><td class="q">70 г</td></tr></table>
     <div class="note">Заметка: сироп хранится 7 дней при +2…+5 °C.</div><p class="hint">Вспомогательный текст — серый, 12 px.</p>
-    <div class="label"><code>.chchip</code> / <code>.uchip</code> — ссылки на позиции</div><div class="usedin"><span class="chchip">☕ Lotus Latte</span><span class="uchip"><b>6 г</b> Signature Bliss</span></div></section>
+    <div class="label"><code>.chchip</code> / <code>.uchip</code> — ссылки на позиции</div><div class="usedin"><span class="chchip">☕ Lotus Latte</span><span class="uchip"><b>6 г</b> Signature Bliss</span></div>
 
-  <section id="s-quiz"><h2>Тест</h2><p class="why">Варианты ответа <code>.opt</code> в четырёх состояниях. В теории есть вопросы с несколькими ответами и на порядок: отмеченный вариант <code>.sel</code> и номер <code>.pos</code>.</p>
+    <h3>Тест ${stage(4)}</h3><p class="why">Варианты ответа <code>.opt</code> в четырёх состояниях. В теории есть вопросы с несколькими ответами и на порядок: отмеченный вариант <code>.sel</code> и номер <code>.pos</code>.</p>
     <div class="qcard" style="margin-bottom:var(--sp-3)"><div class="qtext">Что входит в состав «Iced Cappuccino»?</div></div>
     <div class="qtrow" style="margin-top:0"><span class="qtimer"><i style="width:60%"></i></span><b>9</b></div>
     <div class="opts"><button class="opt">Обычный вариант</button><button class="opt right">Верный ответ</button><button class="opt wrong">Неверный ответ</button><button class="opt dim" disabled>Остальные — приглушены</button></div>
@@ -109,12 +219,18 @@ fetch('./index.html').then(r=>r.text()).then(src=>{
     <div class="opts"><button class="opt right" disabled><b class="pos">1</b>Стоит на своём месте</button><button class="opt wrong" disabled><b class="pos">2</b>Должен быть вторым</button></div>
     <div class="label" style="margin-top:var(--sp-4)"><code>.linput</code> — ответ числом</div>
     <div class="qnum"><input class="linput" type="text" inputmode="decimal" placeholder="Число" value="70"><input class="linput right" type="text" value="70" disabled><input class="linput wrong" type="text" value="71" disabled></div></section>
+
+  <section id="s-plan"><h2>План перехода</h2><p class="why">Каждый этап — отдельный PR. Логика, данные и тексты не меняются, только вид. Этап 0 (макет) и этап 1 (основа: роли, стили текста, иконки, этот справочник) сделаны.</p>
+    <div class="tblw"><table class="map"><thead><tr><th>Компонент</th><th>Заменяет</th><th>Каким станет</th><th>Этап</th></tr></thead>
+    <tbody>${MAP.map(([a,b,c,n])=>`<tr><td>${a}</td><td><code>${b}</code></td><td>${c}</td><td>${n}</td></tr>`).join('')}</tbody></table></div></section>
   `;
   const root=document.getElementById('sg'); root.innerHTML=html;
+  document.getElementById('icg').innerHTML=Object.keys(ICONS).map(k=>`<div>${ic(k)}${ICN[k]||k}<code>${k}</code></div>`).join('');
   const sw=document.getElementById('sw');
-  const paint=()=>{sw.innerHTML=tokens.map(t=>`<div><i style="background:var(--${t})"></i><span>--${t}<br>${getComputedStyle(document.documentElement).getPropertyValue('--'+t).trim()}</span></div>`).join('');
-    document.getElementById('g-theme').textContent=THEME()==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема';
-    document.getElementById('g-ts').textContent='текст '+Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')||1)*100)+'%';};
+  const paint=()=>{const cs=getComputedStyle(document.documentElement);
+    sw.innerHTML=ROLES.map(([g,why,rows])=>`<div class="label" style="font-size:var(--fs-body);color:var(--label);margin-top:var(--sp-5)">${g}</div><p class="why" style="margin-top:0">${why}</p><div class="sw">${rows.map(([t,u])=>`<div><i style="background:var(--${t})"></i><span><code>--${t}</code>${u}<small>${cs.getPropertyValue('--'+t).trim()}</small></span></div>`).join('')}</div>`).join('');
+    document.getElementById('g-theme').textContent=THEME()==='dark'?'Светлая тема':'Тёмная тема';
+    document.getElementById('g-ts').textContent='текст '+Math.round(parseFloat(cs.getPropertyValue('--ts')||1)*100)+'%';};
   paint();
   document.getElementById('g-theme').onclick=()=>{const d=THEME()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',d);try{localStorage.setItem('sensum_theme',d)}catch(e){}paint();};
   const STEPS=[0.88,1,1.12,1.24,1.35]; const cur=()=>{const z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts'))||1;return Math.max(0,STEPS.findIndex(x=>Math.abs(x-z)<.01))};

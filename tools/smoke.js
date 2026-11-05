@@ -1032,8 +1032,9 @@ const server = http.createServer((req, res) => {
   sg.on('pageerror', e => sgErr.push(e.message)); sg.on('console', m => { if (m.type() === 'error') sgErr.push(m.text()); });
   await sg.goto(base.replace('index.html', 'styleguide.html'));
   await sg.waitForSelector('[data-sg-ready]', { timeout: 5000 }).catch(() => {});
-  check(await sg.locator('.sg section').count() === 9 && await sg.locator('.sg .lbtn.pri').count() >= 1 && await sg.locator('.sg .card').count() === 2
-    && !(await sg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)) && sgErr.length === 0, 'style guide page renders every component without errors');
+  check(await sg.locator('.sg section').count() === 8 && await sg.locator('.sg .lbtn.pri').count() >= 1 && await sg.locator('.sg .card').count() === 2
+    && await sg.locator('.sg #icg svg.sym').count() >= 30 && await sg.locator('.sg #sw .sw i').count() >= 25
+    && !(await sg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)) && sgErr.length === 0, 'style guide page renders the v2 foundations (roles, icons) and every component without errors');
   await browser.close();
   server.close();
   console.log(fails.length ? `\n${fails.length} check(s) failed` : '\nall smoke checks passed');
