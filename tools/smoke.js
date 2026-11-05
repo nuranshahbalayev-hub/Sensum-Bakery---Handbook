@@ -593,7 +593,7 @@ const server = http.createServer((req, res) => {
   check((await backTxt0()).includes('Кофе') && await ttl() === await page.evaluate(() => LES[2].title) && (await page.locator('#learnroot .qtop').first().innerText()).includes('Урок 3 из 17'), 'back: a lesson returns to its list («Кофе»), its title is the lesson’s, «Урок 3 из 17» under it');
   const les3 = await page.evaluate(() => ({ id: L.lid, title: LES.find(x => x.id === L.lid).title }));
   const lt = await page.locator('#learnroot').innerText();
-  check(les3.id === 'cf-species' && lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: title, the arabica / robusta table and its numbers');
+  check(les3.id === 'cf-species' && (await page.locator('#learnTitle').innerText()) === les3.title && !lt.includes(les3.title) && await page.locator('#learnroot table.ltab').count() === 1 && lt.includes('2–3 %'), 'lesson: the title only in the top bar (not repeated in the text), the arabica / robusta table and its numbers');
   check(await page.locator('#learnroot [data-l="lcheck"]').count() === 1 && await page.locator('#learnroot [data-l="lread"]').count() === 0 && await page.locator('#learnroot [data-l="ltest"]').count() === 0,
     'lesson: an unread lesson offers only the check, no «mark read» button and no free test');
   check((await page.locator('#learnroot .lbtns + .hint').innerText()).includes('2 из 3'), 'lesson: the hint says 2 of 3 are needed');
@@ -706,7 +706,7 @@ const server = http.createServer((req, res) => {
   const lessonProblems = async () => page.evaluate(() => { const bad = [], sa = document.getElementById('scrollArea'); sa.scrollLeft = 0;
     for (const les of LES) { L.lid = les.id; L.view = 'lesson'; renderLearn(); const t = document.getElementById('learnroot').innerText;
       if (sa.scrollWidth > sa.clientWidth) bad.push(les.id + ': wider than the screen');
-      if (t.includes('undefined') || !t.includes(les.title)) bad.push(les.id + ': text');
+      if (t.includes('undefined') || document.getElementById('learnTitle').textContent !== les.title) bad.push(les.id + ': text');  /* the title is the big title of the top bar */
       if (LANG === 'az' && /[А-Яа-яЁё]/.test(t)) bad.push(les.id + ': Russian letters'); }
     L.view = 'home'; renderLearn(); return bad; });
   const badRu = await lessonProblems();
