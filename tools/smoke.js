@@ -150,7 +150,7 @@ const server = http.createServer((req, res) => {
   await page.click('nav.tabs button[data-tab="preps"]');
   check(!/[А-Яа-яЁё]/.test(await page.getAttribute('#q', 'placeholder')), 'AZ: search placeholder has no Russian');
   const va = await vitSheet();
-  check(['ÇƏKİ', '220 q', '2°C ilə 5°C arasında', '48 saat', '290 kkal'].every(s => va.includes(s)) && !/[А-Яа-яЁё]/.test(va), 'AZ: vitrina card facts are Azerbaijani');
+  check(['Çəki', '220 q', '2°C ilə 5°C arasında', '48 saat', '290 kkal'].every(s => va.includes(s)) && !/[А-Яа-яЁё]/.test(va), 'AZ: vitrina card facts are Azerbaijani');
   await page.click('#langbtn');
 
   const gen = await page.evaluate(() => {
