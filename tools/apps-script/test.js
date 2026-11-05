@@ -168,9 +168,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.9'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.10'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.9');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.10');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -208,21 +208,20 @@ const NOW = Date.parse('2026-10-30T19:00:00Z');  // Friday 30.10.2026, 23:00 in 
 const g = env({ notifyAll: false, now: NOW });
 const at = (days, h = 12) => Date.parse('2026-10-30T00:00:00Z') - days * 864e5 + h * 3600e3;
 /* this week: Mon 26.10 = at(4), Tue at(3), Wed at(2), Thu at(1), Fri at(0). One counted test a day, each section once (theory twice). */
-let gr = g.post({ id: 'g1', code: '9001', scope: 'Напитки', kind: 'drinks', score: 9, total: 10, ts: at(4, 8) });
+/* the general test (kind mixed): a barista takes 3 counted tests a week, one a day */
+let gr = g.post({ id: 'g1', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 9, total: 10, ts: at(4, 8) });
 assert.strictEqual(gr.xp, 90); assert.deepStrictEqual(gr.owls, [{ why: 'Тест на 90%+', n: 1 }]);
-gr = g.post({ id: 'g2', code: '9001', scope: 'Заготовки', kind: 'preps', score: 10, total: 10, ts: at(3, 9) });
+gr = g.post({ id: 'g2', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 10, total: 10, ts: at(3, 9) });
 assert.strictEqual(gr.xp, 150, 'flawless: +50'); assert.deepStrictEqual(gr.owls, [{ why: 'Тест на 90%+', n: 1 }], 'the second «90%+» owl of the week');
-gr = g.post({ id: 'g3', code: '9001', scope: 'Витрина', kind: 'vitrina', score: 7, total: 10, ts: at(2, 9) });
-assert.deepStrictEqual([gr.xp, gr.owls], [70, []], '70% closes the section, no owl for it');
-assert.strictEqual(g.results.data[g.results.data.length - 1][17], 'vitrina', 'type column R');
-gr = g.post({ id: 'g3b', code: '9001', scope: 'Теория', kind: 'theory', score: 10, total: 10, ts: at(2, 10) });
+gr = g.post({ id: 'g3', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 7, total: 10, ts: at(2, 9) });
+assert.deepStrictEqual([gr.xp, gr.owls], [70, []], '70% uses the third slot of the week, no owl for it');
+assert.strictEqual(g.results.data[g.results.data.length - 1][17], 'mixed', 'type column R');
+gr = g.post({ id: 'g3b', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 10, total: 10, ts: at(2, 10) });
 assert.deepStrictEqual([gr.ok, gr.xp, gr.over, gr.owls], [true, 0, true, []], 'a second counted test the same day is saved but over: no XP, no owls');
-gr = g.post({ id: 'g3c', code: '9001', scope: 'Теория', kind: 'theory', score: 10, total: 10, ts: at(1, 9) });
-assert.deepStrictEqual([gr.xp, gr.owls], [150, []], 'two «90%+» owls a week at most');
-g.post({ action: 'progress', code: '9001', read: ['cf-origin', 'cf-farm'], box: {}, ts: NOW - 1000, readAt: { 'cf-origin': '2026-10-28', 'cf-farm': '2026-10-29' } });
-assert.strictEqual(g.sheets['Совы'].data.length, 3, 'two lessons alone do not end the week while a test is missing');
-gr = g.post({ id: 'g3d', code: '9001', scope: 'Теория', kind: 'theory', score: 8, total: 10, ts: at(0, 8) });
-assert.deepStrictEqual(gr.owls, [{ why: 'Полная учебная неделя', n: 3 }], 'the fifth test completes the week (5 tests and 2 lessons)');
+gr = g.post({ id: 'g3c', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 10, total: 10, ts: at(1, 9) });
+assert.deepStrictEqual([gr.xp, gr.over, gr.owls], [0, true, []], 'a fourth test in the week is over: the quota of a barista is 3');
+const pgr = g.post({ action: 'progress', code: '9001', read: ['cf-origin', 'cf-farm'], box: {}, ts: NOW - 1000, readAt: { 'cf-origin': '2026-10-28', 'cf-farm': '2026-10-29' } });
+assert.deepStrictEqual(pgr.owls, [{ why: 'Полная учебная неделя', n: 3 }], 'the two lessons complete the week: 3 tests and 2 lessons');
 gr = g.post({ id: 'g4', code: '9001', scope: 'Экзамен месяца', kind: 'exam', score: 20, total: 20, ts: at(0, 10) });
 assert.strictEqual(gr.xp, 350, 'exam: 15 per answer + 50'); assert.deepStrictEqual(gr.owls, [{ why: 'Экзамен месяца 100%', n: 15 }]);
 assert.deepStrictEqual(g.post({ id: 'g5', code: '9001', scope: 'Экзамен месяца', kind: 'exam', score: 5, total: 20, ts: at(0, 11) }), { ok: false, error: 'exam_done' });
@@ -268,50 +267,69 @@ lv.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажер', true], ['90
 const lvl = code => JSON.parse(lv.api.doGet({ parameter: { action: 'whoami', code } }).text).level;
 assert.deepStrictEqual(['9001', '9004', '9005', '9006', '9007'].map(lvl), ['barista', 'trainee', 'senior', '', ''], 'level from the role column; unknown text = no level');
 assert.strictEqual(lv.me('9004').level, 'trainee', '?action=me carries the level too');
-// the rhythm of the week (v5.8): each section once (theory twice), one counted test a day, a test below 70% does not close its section
+// the rhythm of the week (v5.10): one general test, a quota of tests a week (3, a trainee 5), one counted test a day, a test below 70% uses no slot
 const rh = env({ notifyAll: true, now: NOW });
 const rp = (id, kind, days, h, o) => rh.post(Object.assign({ id, code: '9002', scope: 'Тест', kind, score: 10, total: 10, ts: at(days, h) }, o));
-const x1 = rp('r1', 'drinks', 4, 8), x2 = rp('r2', 'drinks', 3, 8);
-assert.ok(x1.xp > 0 && x1.over === false, 'the first drinks test of the week counts');
-assert.deepStrictEqual([x2.ok, x2.xp, x2.over, x2.owls], [true, 0, true, []], 'a second drinks test in the week is saved but over');
-assert.ok(rh.results.data.some(x => x[12] === 'r2'), 'the result over the limit is not lost');
+const x1 = rp('r1', 'mixed', 4, 8), x2 = rp('r2', 'mixed', 3, 8), x3 = rp('r3', 'mixed', 2, 8);
+assert.ok([x1, x2, x3].every(x => x.over === false && x.xp > 0), 'the first three tests of the week count');
+const x4 = rp('r4', 'mixed', 2, 9), x5 = rp('r5', 'mixed', 1, 8);
+assert.deepStrictEqual([x4.ok, x4.xp, x4.over, x4.owls], [true, 0, true, []], 'a second counted test the same day is saved but over');
+assert.deepStrictEqual([x5.xp, x5.over], [0, true], 'a fourth test of the week is over: the quota is used up');
+assert.ok(rh.results.data.some(x => x[12] === 'r5'), 'the result over the limit is not lost');
 assert.ok(rh.sent[rh.sent.length - 1].includes('Сверх лимита'), 'the trainer\u2019s message says it was over the limit');
-const x3 = rp('r3', 'preps', 2, 8), x4 = rp('r4', 'vitrina', 2, 9);
-assert.ok(x3.over === false && x4.over === true && x4.xp === 0, 'one counted test a day: the second of the day is over although its section is open');
-const x5 = rp('r5', 'vitrina', 1, 8, { score: 5 });
-assert.ok(x5.over === false && x5.xp === 50, 'a test below 70% is saved with its XP');
 let rme = rh.me('9002');
-assert.deepStrictEqual(rme.week, { drinks: 1, preps: 1, vitrina: 0, theory: 0 }, 'the failed vitrina test did not close its section');
-assert.deepStrictEqual(rme.plan.tried, { drinks: 0, preps: 0, vitrina: 1, theory: 0 }, 'it is listed as tried');
-const x6 = rp('r6', 'vitrina', 0, 8, { score: 8 }), x7 = rp('r7', 'theory', 0, 9);
-assert.ok(x6.over === false && x6.xp > 0, 'another day the section can be taken again');
-assert.ok(x7.over === true, 'but not a second counted test on that day');
-rme = rh.me('9002');
-assert.deepStrictEqual([rme.week, rme.todayUsed, rme.limits, rme.perDay], [{ drinks: 1, preps: 1, vitrina: 1, theory: 0 }, 2, { drinks: 1, preps: 1, vitrina: 1, theory: 2 }, 1],
-  '?action=me reports the sections closed, the tests of today, the limits');
-assert.deepStrictEqual([rme.plan.tests, rme.plan.testsDone, rme.plan.testsNeed, rme.plan.lessons, rme.plan.full], [{ drinks: 1, preps: 1, vitrina: 1, theory: 0 }, 3, 5, 0, false]);
-// an aborted test closes its section and uses the day
+assert.deepStrictEqual([rme.week, rme.limits, rme.perDay, rme.plan.tests, rme.plan.testsDone, rme.plan.testsNeed, rme.plan.lessons, rme.plan.full], [{ test: 3 }, { test: 3 }, 1, { test: 3 }, 3, 3, 0, false],
+  '?action=me: slots used, the quota, the tests of the plan');
+// the old kinds by section (an old app) share the same quota
+const old = env({ notifyAll: false, now: NOW });
+['drinks', 'preps', 'theory', 'vitrina'].forEach((kind, i) => old.post({ id: 'o' + i, code: '9002', scope: 'x', kind, score: 10, total: 10, ts: at(4 - i, 8) }));
+assert.deepStrictEqual([old.me('9002').week, old.results.data.slice(1).map(x => x[17])], [{ test: 3 }, ['drinks', 'preps', 'theory', 'vitrina']], 'drinks, preps and theory use the quota; the fourth is over');
+assert.strictEqual(old.me('9002').plan.testsDone, 3);
+// a test below 70% uses no slot but takes the day; the person can take another on another day
+const lo = env({ notifyAll: false, now: NOW });
+const l1 = lo.post({ id: 'l1', code: '9002', scope: 'x', kind: 'mixed', score: 5, total: 10, ts: at(4, 8) });
+assert.ok(l1.over === false && l1.xp === 50, 'a test below 70% is saved with its XP');
+assert.strictEqual(lo.post({ id: 'l2', code: '9002', scope: 'x', kind: 'mixed', score: 9, total: 10, ts: at(4, 9) }).over, true, 'but it took the day');
+rme = lo.me('9002');
+assert.deepStrictEqual([rme.week, rme.plan.tried, rme.plan.testsDone], [{ test: 0 }, { test: 1 }, 0], 'no slot used; listed as tried');
+assert.strictEqual(lo.post({ id: 'l3', code: '9002', scope: 'x', kind: 'mixed', score: 8, total: 10, ts: at(3, 8) }).over, false, 'another day it can be taken again');
+assert.deepStrictEqual([lo.me('9002').week, lo.me('9002').todayUsed], [{ test: 1 }, 0]);
+// an aborted test uses a slot and the day
 const ab = env({ notifyAll: false, now: NOW });
-ab.post({ id: 'a1', code: '9002', scope: 'x', kind: 'drinks', score: 2, total: 10, ts: at(1, 9), aborted: true });
-assert.strictEqual(ab.post({ id: 'a2', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 9) }).over, true, 'an aborted test closes the section');
-assert.deepStrictEqual(ab.me('9002').week, { drinks: 1, preps: 0, vitrina: 0, theory: 0 });
-assert.strictEqual(ab.post({ id: 'a3', code: '9002', scope: 'x', kind: 'preps', score: 10, total: 10, ts: at(0, 10) }).over, true, 'and the test of that day');
-// exam, retries and «Вопрос дня» do not take the day or a section
+ab.post({ id: 'a1', code: '9002', scope: 'x', kind: 'mixed', score: 2, total: 10, ts: at(4, 9), aborted: true });
+assert.deepStrictEqual(ab.me('9002').week, { test: 1 }, 'an aborted test uses a slot');
+assert.strictEqual(ab.post({ id: 'a2', code: '9002', scope: 'x', kind: 'mixed', score: 10, total: 10, ts: at(4, 10) }).over, true, 'and the day');
+// today's tests: any result of a counted test counts for the day
+const td = env({ notifyAll: false, now: NOW });
+td.post({ id: 't1', code: '9002', scope: 'x', kind: 'mixed', score: 5, total: 10, ts: at(0, 8) });
+assert.strictEqual(td.me('9002').todayUsed, 1);
+// exam, retries and «Вопрос дня» do not take the day or a slot; a test with no kind is not limited
 const fr = env({ notifyAll: false, now: NOW });
 fr.post({ id: 'f1', code: '9001', scope: 'x', kind: 'mix', score: 5, total: 10, ts: at(0, 8) });
 fr.post({ id: 'f2', code: '9001', scope: 'x', kind: 'exam', score: 15, total: 20, ts: at(0, 9) });
 fr.post({ id: 'f3', code: '9001', kind: 'daily', scope: 'Вопрос дня', score: 2, total: 3, ts: at(0, 10) });
-assert.strictEqual(fr.post({ id: 'f4', code: '9001', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 11) }).over, false, 'retries, the exam and the daily question are not counted tests');
+assert.strictEqual(fr.post({ id: 'f4', code: '9001', scope: 'x', kind: 'mixed', score: 10, total: 10, ts: at(0, 11) }).over, false, 'retries, the exam and the daily question are not counted tests');
 assert.strictEqual(fr.me('9001').todayUsed, 1);
-// a test with no kind (an old app) is not limited
-assert.strictEqual(ab.post({ id: 'a4', code: '9002', scope: 'Напитки', score: 10, total: 10, ts: at(0, 11) }).over, false, 'no kind, no limit');
-// last week's attempts do not count
+assert.strictEqual(fr.post({ id: 'f5', code: '9001', scope: 'Напитки', score: 10, total: 10, ts: at(0, 12) }).over, false, 'no kind, no limit');
+// last week's tests do not count
 const wk = env({ notifyAll: false, now: NOW });
-for (const d of [8, 9, 10, 11]) wk.results.data.push([new Date(at(d)), '9002', 'Тест-2', 'White City', 'x', 10, 10, '', '', '', 'ru', '1.9', 'w' + d, '', '', '', '', 'drinks']);
-assert.strictEqual(wk.me('9002').week.drinks, 0, 'attempts of the previous week are not counted');
-assert.strictEqual(wk.me('9002').plan.testsDone, 0);
-const wr1 = wk.post({ id: 'w1', code: '9002', scope: 'x', kind: 'drinks', score: 10, total: 10, ts: at(0, 8) });
-assert.ok(wr1.over === false && wr1.xp > 0 && wk.me('9002').week.drinks === 1, 'a new week starts from zero');
+for (const d of [8, 9, 10, 11]) wk.results.data.push([new Date(at(d)), '9002', 'Тест-2', 'White City', 'x', 10, 10, '', '', '', 'ru', '1.9', 'w' + d, '', '', '', '', 'mixed']);
+assert.strictEqual(wk.me('9002').week.test, 0, 'last week\u2019s tests are not counted');
+assert.strictEqual(wk.post({ id: 'w1', code: '9002', scope: 'x', kind: 'mixed', score: 10, total: 10, ts: at(0, 8) }).over, false, 'a new week starts from zero');
+// a trainee takes 5 tests a week; a promotion in the sheet makes it 3
+const tr = env({ notifyAll: false, now: NOW });
+tr.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажер', true], ['9010', 'Тест-10', 'Port II', 'Бариста', true]);
+for (const d of [11, 10, 9, 8]) tr.results.data.push([new Date(at(d)), '9004', 'Тест-4', 'Port II', 'x', 8, 10, '', '', '', 'ru', '1.9', 'tr' + d, '', '', '', '', 'mixed']);
+for (const d of [11, 10, 9]) tr.results.data.push([new Date(at(d)), '9010', 'Тест-10', 'Port II', 'x', 8, 10, '', '', '', 'ru', '1.9', 'bs' + d, '', '', '', '', 'mixed']);
+const tr5 = tr.post({ id: 't5', code: '9004', scope: 'x', kind: 'mixed', score: 8, total: 10, ts: at(6, 8) }), tr6 = tr.post({ id: 't6', code: '9004', scope: 'x', kind: 'mixed', score: 8, total: 10, ts: at(5, 8) });
+const b4 = tr.post({ id: 'b4', code: '9010', scope: 'x', kind: 'mixed', score: 8, total: 10, ts: at(6, 8) });
+assert.deepStrictEqual([tr5.over, tr6.over, b4.over], [false, true, true], 'a trainee\u2019s fifth test counts and the sixth is over; a barista\u2019s fourth is over');
+assert.deepStrictEqual([tr.me('9004').limits, tr.me('9004').plan.testsNeed, tr.me('9010').limits], [{ test: 5 }, 5, { test: 3 }], 'the quota follows the role in the sheet');
+tr.staff.data[tr.staff.data.findIndex(r => r[0] === '9004')][3] = 'Бариста';
+assert.deepStrictEqual([tr.me('9004').limits, tr.me('9004').plan.testsNeed], [{ test: 3 }, 3], 'promoted: 3 tests a week');
+const tz = env({ notifyAll: false, now: NOW });
+tz.staff.data.push(['9011', 'Тест-11', 'Port II', '', true]);
+assert.deepStrictEqual(tz.me('9011').limits, { test: 3 }, 'an empty role: the usual 3');
 // progress (v5.5): read lessons and card boxes live on the sheet «Прогресс», per code
 const pg = env({ notifyAll: false, now: NOW });
 assert.deepStrictEqual(pg.me('9001').progress, { read: [], box: {}, ts: 0, readAt: {} }, 'nothing stored yet: an empty progress, no sheet needed');
@@ -346,11 +364,11 @@ cap.sheets['Совы'].data.push([new Date(at(3)), '9003', 'Тест-3', 'Port I
 const capR = cap.post({ id: 'c2', code: '9003', scope: 'Экзамен месяца', kind: 'exam', score: 20, total: 20 });
 assert.deepStrictEqual(capR.owls, [{ why: 'Экзамен месяца 100%', n: 1 }], 'at most 50 a month');
 // what the app shows
-const m = g.me('9001');
+const m = g.me('9001'); assert.deepStrictEqual(m.limits, { test: 3 }, 'a barista: 3 tests a week');
 console.log('--- me ---\n' + JSON.stringify(m));
 assert.strictEqual(m.ok, true); assert.strictEqual(m.name, 'Тест-1');
 assert.strictEqual(m.owlsMonth, 20); assert.strictEqual(m.owlsCap, 50); assert.strictEqual(m.streak, 1, 'this week is full: 5 tests and 2 lessons');
-assert.deepStrictEqual(m.plan, { tests: { drinks: 1, preps: 1, vitrina: 1, theory: 2 }, tried: { drinks: 0, preps: 0, vitrina: 0, theory: 0 }, testsDone: 5, testsNeed: 5, lessons: 2, lessonsNeed: 2, full: true });
+assert.deepStrictEqual(m.plan, { tests: { test: 3 }, tried: { test: 0 }, testsDone: 3, testsNeed: 3, lessons: 2, lessonsNeed: 2, full: true });
 assert.deepStrictEqual(m.progress.readAt, { 'cf-origin': '2026-10-28', 'cf-farm': '2026-10-29' }, 'the days of the lessons come back');
 assert.ok(m.badges.includes('first') && m.badges.includes('perfect') && m.badges.includes('exam100') && !m.badges.includes('streak4'));
 assert.deepStrictEqual(m.exam, { score: 20, total: 20, aborted: false, month: '2026-10' });
@@ -364,7 +382,7 @@ g.api.weeklyReport();
 const wr = g.sent[g.sent.length - 1];
 console.log('--- weekly with game ---\n' + wr);
 assert.ok(wr.includes('🏆 Рейтинг недели:') && wr.includes('🦉 Начислить в Sensum OS:') && wr.includes('Тест-1 (Central Park): +20') && !wr.includes('Тренер'));
-assert.ok(wr.includes('🏅 Полная неделя (5 тестов и 2 урока): 1 из 3'), 'the weekly report counts the full weeks');
+assert.ok(wr.includes('🏅 Полная неделя (тесты и 2 урока): 1 из 3'), 'the weekly report counts the full weeks');
 g.api.monthlyReport_(new Date('2026-11-01T17:00:00Z'));
 const mr = g.sent[g.sent.length - 1];
 console.log('--- monthly ---\n' + mr);
@@ -388,7 +406,7 @@ dq.post({ id: 'q6', code: '9001', kind: 'daily', score: 3, total: 3, ts: at(3) }
 const dm = dq.me('9001');
 assert.deepStrictEqual(dm.daily, { done: true, streak: 2 }, 'today and yesterday; the aborted day breaks the run');
 assert.strictEqual(dm.xp, 50 + 10 + 0 + 50, 'XP of the first of each day, none for an aborted one');
-assert.deepStrictEqual(dm.week, { drinks: 0, preps: 0, vitrina: 0, theory: 0 }, 'not a weekly attempt');
+assert.deepStrictEqual(dm.week, { test: 0 }, 'not a weekly attempt');
 assert.strictEqual(dm.weekTests, 0, 'not a test of the study week'); assert.strictEqual(dm.streak, 0);
 assert.ok(!dm.badges.includes('first'), '«Вопрос дня» is not a first test');
 assert.strictEqual(dm.board.people[0].xp, 110, 'its XP counts on the weekly board');
@@ -442,7 +460,7 @@ assert.strictEqual(recover.sheets['Совы'].getLastRow(), 2);
 
 // Two rules earned by one attempt: retry completes the missing row after a partial write.
 const partial = env({ now: NOW, notifyAll: true });
-['drinks', 'preps', 'vitrina', 'theory'].forEach((kind, i) => partial.post({ id: 'qualify-' + i, code: '9001', kind, score: 7, total: 10, ts: at(4 - i, 8) }));
+['mixed', 'mixed'].forEach((kind, i) => partial.post({ id: 'qualify-' + i, code: '9001', kind, score: 7, total: 10, ts: at(4 - i, 8) }));
 partial.post({ action: 'progress', code: '9001', read: ['cf-origin', 'cf-farm'], box: {}, ts: NOW - 1000, readAt: { 'cf-origin': '2026-10-28', 'cf-farm': '2026-10-29' } });
 const partialLedger = makeSheet([ledger.data[0]]), nativeRange = partialLedger.getRange;
 partial.sheets['Совы'] = partialLedger;
@@ -457,7 +475,7 @@ partialLedger.getRange = function(r, c, nr = 1, nc = 1) {
   };
   return range;
 };
-const partialEvent = { id: 'partial-1', code: '9001', kind: 'theory', score: 10, total: 10, ts: at(0, 10) };
+const partialEvent = { id: 'partial-1', code: '9001', kind: 'mixed', score: 10, total: 10, ts: at(2, 10) };
 assert.strictEqual(partial.post(partialEvent).error, 'reward_pending');
 assert.strictEqual(partialLedger.getLastRow(), 2, 'only the first award committed');
 simulateFailure = false;
@@ -590,7 +608,7 @@ let rows = kRows(k0);
 assert.deepStrictEqual(rows.map(r => r[1]), ['9001', '9002', '9003', '9005', '9007', '9008'], 'everyone scored, the trainer’s account and a newcomer excused all month are not');
 assert.deepStrictEqual(byCode(rows, '9001').slice(0, 12), ['2026-10', '9001', 'Тест-1', 'Central Park', 100, 100, 100, 100, 100, 0, 0, 'Пробный месяц'], 'a full plan: 100%, nothing lost');
 assert.deepStrictEqual(byCode(rows, '9002').slice(4, 12), [0, 0, 0, 0, 0, 0, 30, 'Пробный месяц'], 'nothing done: 0%, the loss stops at the cap of 30');
-assert.deepStrictEqual(byCode(rows, '9003').slice(4, 12), [66, 43, 100, 100, 100, 0, 14, 'Пробный месяц'], '3 steps of 7 a week: 66%, 80 - 65.7 = 14');
+assert.deepStrictEqual(byCode(rows, '9003').slice(4, 12), [76, 60, 100, 100, 100, 0, 4, 'Пробный месяц'], '3 of the 5 steps of a barista\u2019s week: 76%, 80 - 76 = 4');
 assert.deepStrictEqual(byCode(rows, '9005').slice(4, 12), [80, 100, 0, 100, 100, 18, 0, 'Пробный месяц'], 'a newcomer: the weeks before the start and the grace days are excused; exactly 80% loses nothing');
 assert.deepStrictEqual(byCode(rows, '9007').slice(4, 11), [94, 100, 71, 100, 100, 0, 0], 'an exam of 10 of 20 earns 10/20 / 70% of its weight');
 assert.deepStrictEqual(byCode(rows, '9008').slice(4, 11), [63, 50, 100, 100, 29, 0, 17], 'two empty weeks and 22 idle days: weeks 50%, regularity 29%');
@@ -614,17 +632,23 @@ assert.strictEqual(byCode(kRows(k2), '9002')[11], 'Пробный месяц', '
 const k3 = kenv(); kfill(k3);
 k3.sheets['Отсутствия'] = makeSheet([['Код', 'С', 'По', 'Причина', 'Комментарий'], ['9003', '2026-10-12', '2026-10-18', 'отпуск', ''], ['9003', '2026-10-21', '2026-10-23', 'больничный', '']]);
 k3.api.kpiMonths();
-assert.deepStrictEqual(byCode(kRows(k3), '9003').slice(4, 11), [72, 54, 100, 100, 100, 10, 7], '(3/7 + 3/7 + 3/4) / 3 = 54%; the leave week is skipped; 10 days away; 72% loses 7');
+assert.deepStrictEqual(byCode(kRows(k3), '9003').slice(4, 11), [84, 73, 100, 100, 100, 10, 0], '(3/5 + 3/5 + 2 of the 2 steps left) / 3 = 73%; the leave week is skipped; 10 days away; 84% loses nothing');
 const k4 = kenv(); kfill(k4);
 k4.sheets['Отсутствия'] = makeSheet([['Код', 'С', 'По'], ['9002', '2026-09-28', '2026-11-02']]);
 k4.api.kpiMonths();
 assert.ok(!byCode(kRows(k4), '9002'), 'away for the whole month: not scored, nothing to lose');
+// a trainee's week needs 7 steps (5 tests and 2 lessons), so the same 3 tests are worth less
+const ktr = kenv(); kfill(ktr);
+ktr.staff.data.push(['9012', 'Тест-12', 'Port II', 'Стажёр', true, '']);
+kweeks(ktr, '9012', 3, 0, MON, { gapx: '2026-10-28' }); krow(ktr, '9012', '2026-10-21', 'exam', 18, 20);
+ktr.api.kpiMonths();
+assert.deepStrictEqual(byCode(kRows(ktr), '9012').slice(4, 8), [66, 43, 100, 100], 'a trainee: 3 of 7 steps = 43% for the weeks, 66% in all');
 // the message on the 1st: the trial says nothing is lost; the names and the percents are for the trainer only
 const m1 = kenv({ now: Date.parse('2026-11-01T17:00:00Z') }); kfill(m1);
 m1.api.dailyDigest({ triggerUid: 1 });
 const km = m1.sent.find(x => x.startsWith('📉 KPI обучения за 10.2026'));
 console.log('--- KPI monthly ---\n' + km);
-assert.ok(km && km.includes('пробный месяц, ничего не списывается') && km.includes('План выполнен на 80% и больше: 3 из 6') && km.includes('Тест-2 (White City): 0% → −30%') && km.includes('Тест-3 (Port II): 66% → −14%') && !km.includes('Тренер'));
+assert.ok(km && km.includes('пробный месяц, ничего не списывается') && km.includes('План выполнен на 80% и больше: 3 из 6') && km.includes('Тест-2 (White City): 0% → −30%') && km.includes('Тест-3 (Port II): 76% → −4%') && !km.includes('Тренер'));
 assert.ok(m1.sheets['Списания KPI'].getLastRow() === 7, 'the 1st builds the rows by itself');
 const m2 = kenv({ now: Date.parse('2026-11-01T17:00:00Z'), kpiStart: '2026-09-01' }); kfill(m2); m2.api.dailyDigest({ triggerUid: 1 });
 assert.ok(m2.sent.find(x => x.startsWith('📉 KPI обучения')).includes('предложения по списанию, подтвердите на листе «Списания KPI»'));

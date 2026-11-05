@@ -33,6 +33,11 @@
  * теста в день (Баку); тест ниже 70% раздел не закрывает, но занимает день; полная неделя = 5 тестов от 70% + 2 урока
  * (даты уроков приходят в readAt). Совы: полная неделя, тест 90%+ (до 2 в неделю), «Вопрос дня» 7 дней подряд, все уроки категории.
  *
+ * С v5.10 один общий тест вместо тестов по разделам: 10 вопросов (3 напитка, 2 заготовки, 2 витрина, 3 теория), вид mixed.
+ * Зачётных тестов в неделю 3, а у стажёра (роль в столбце D листа «Сотрудники») 5; не больше одного в день. Тест от 70% (или
+ * прерванный) закрывает один слот недели, завершённый ниже 70% слот не закрывает. Прежние виды (drinks, preps, vitrina, theory)
+ * делят ту же квоту, поэтому старые приложения продолжают работать. Полная неделя = квота тестов + 2 урока.
+ *
  * С v5.9 KPI обучения: процент выполнения плана за месяц (недели 60%, экзамен 20%, качество 10%, регулярность 10%) и
  * предложение «минус % KPI обучения» на листе «Списания KPI» (80% и выше без потерь, ниже — 1 к 1, не больше KPI_CAP).
  * Отпуск и больничный тренер вносит на лист «Отсутствия», льготу новичка даёт колонка «Начало работы» листа «Сотрудники».
@@ -60,15 +65,17 @@ const PROGRESS_MAX = { read: 300, box: 800 };  // ids of lessons and of cards ke
 const RESULT_COLS = 18;  // A–R
 const ID_COL = 13;        // M: attempt id, used to drop repeats
 const CHECK_HEADERS = ['Время теста', 'Время вышло', 'Выходы из приложения', 'Прерван', 'Тип'];  // N–R
-const KINDS = ['drinks', 'preps', 'vitrina', 'exam', 'mix', 'theory'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
+const KINDS = ['drinks', 'preps', 'vitrina', 'exam', 'mix', 'theory', 'mixed'];  // R: what the test was about; exam = «Экзамен месяца», theory = вопросы раздела «Теория»
 const OWLS_MONTH_CAP = 50;
 // Уровень сотрудника: столбец D листа «Сотрудники». Приложение получает его кодом и показывает вопросы «Теории» до этого уровня включительно.
 const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бариста': 'barista', 'старший': 'senior' };
-// Ритм недели (пн–вс, время Баку). Зачётные группы: напитки, заготовки, витрина — по одному тесту в неделю, теория — 2.
-// Раздел закрывает тест от 70% (или прерванный: он сжигает раздел); завершённый тест ниже 70% раздел не закрывает.
+// Ритм недели (пн–вс, время Баку). Зачётный тест один общий (kind mixed; прежние виды по разделам считаются так же); в неделю
+// TESTS_WEEK.trainee тестов, пока в столбце D листа «Сотрудники» стоит «стажёр», иначе TESTS_WEEK.other.
+// Тест от 70% (или прерванный) закрывает один слот недели; завершённый тест ниже 70% слот не закрывает, но занимает день.
 // Не больше DAY_LIMIT зачётных тестов в календарный день. «Экзамен месяца», «Повторить ошибки» (mix) и «Вопрос дня» не считаются.
-// Тест сверх лимита раздела или дня сохраняется, но без XP, сов и зачёта в неделю. Приложение читает лимиты отсюда (?action=me).
-const WEEK_LIMITS = { drinks: 1, preps: 1, vitrina: 1, theory: 2 };
+// Тест сверх квоты недели или дня сохраняется, но без XP, сов и зачёта в неделю. Приложение читает квоту отсюда (?action=me).
+const TESTS_WEEK = { trainee: 5, other: 3 };
+const TEST_KINDS = ['mixed', 'drinks', 'preps', 'vitrina', 'theory'];
 const DAY_LIMIT = 1;
 const LESSONS_WEEK = 2;                      // lessons (counted by the app's check) that make a full week together with the tests
 const LESSON_TOTALS = { cf: 17, sv: 12, sn: 3, br: 14 };   // lessons per category = id prefix; audit.py checks it against lessons.json
@@ -89,7 +96,7 @@ const KPI_HEADERS = ['Месяц', 'Код', 'Сотрудник', 'Филиал
   'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ'];
 const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.9';
+const SCRIPT_VERSION = 'v5.10';
 
 /* ---------- меню в таблице ---------- */
 
@@ -217,7 +224,7 @@ function doPost(e) {
     if (away) checks.push(`📵 выходы из приложения: ${away}`);
     if (checks.length) lines.push(checks.join(' · '));
     if (owls.length) lines.push(`🦉 +${owls.reduce((s, o) => s + o.n, 0)}: ${owls.map(o => o.why).join(', ')}`);
-    if (over) lines.push('⚠️ Сверх лимита (раздел недели уже сдан или это второй тест за день): XP и совы не начислены');
+    if (over) lines.push('⚠️ Сверх лимита (квота тестов недели закрыта или это второй тест за день): XP и совы не начислены');
     if (mistakes.length) lines.push('', 'Ошибки:', ...mistakes.slice(0, 10).map(m => `• ${m}`));
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
@@ -301,8 +308,8 @@ function weeklyReport() {
   }
   const lastWeek = weekKey_(new Date(now.getTime() - 864e5)), allAt = readAtMap_(), allTests = withXp_(results_());
   const real = staff.filter(s => s.branch !== TEST_BRANCH);
-  const fullN = real.filter(s => weekPlan_(allTests.filter(r => r.code === s.code), allAt[s.code] || {}, lastWeek).full).length;
-  if (real.length) lines.push('', `🏅 Полная неделя (5 тестов и ${LESSONS_WEEK} урока): ${fullN} из ${real.length}`);
+  const fullN = real.filter(s => weekPlan_(allTests.filter(r => r.code === s.code), allAt[s.code] || {}, lastWeek, quotaOf_(s.role)).full).length;
+  if (real.length) lines.push('', `🏅 Полная неделя (тесты и ${LESSONS_WEEK} урока): ${fullN} из ${real.length}`);
   try {
     const risk = kpiRisk_(now);
     if (risk.length) {
@@ -477,22 +484,33 @@ function topMistakes_(rows, n) {
 
 /* XP per test: 10 per right answer (15 in the exam), +50 for a flawless test of 10+ questions,
    nothing for an aborted one; only the first 5 tests of a day count, so grinding doesn't win the board */
-function limitGroup_(kind) { return Object.prototype.hasOwnProperty.call(WEEK_LIMITS, kind) ? kind : ''; }
+function limitGroup_(kind) { return TEST_KINDS.indexOf(kind) >= 0 ? 'test' : ''; }
 
-/* Walks the tests of everyone oldest first. A test of a counted group is `over` when its section of the week is already closed
-   or it is not the first one of its day; a test that is not over closes the section when it is aborted or reaches PASS_RATIO (`burns`),
-   otherwise it is `tried`: finished below the line, the section stays open for another day. */
+/* tests a week: a trainee (column D of «Сотрудники») takes more, everyone else the usual number */
+function quotaOf_(role) { return levelOf_(role) === 'trainee' ? TESTS_WEEK.trainee : TESTS_WEEK.other; }
+
+/* {code: tests a week} of everyone on «Сотрудники» (an unknown code has the usual quota) */
+function quotaMap_() {
+  const sh = sheet_(SHEET_STAFF), last = sh.getLastRow(), out = {};
+  if (last < 2) return out;
+  sh.getRange(2, 1, last - 1, 4).getValues().forEach(r => { const c = String(r[0]).trim(); if (c) out[c] = quotaOf_(r[3]); });
+  return out;
+}
+
+/* Walks the tests of everyone oldest first. A test of the counted group is `over` when the week's quota of this person is already
+   used up or it is not the first one of its day; a test that is not over uses a slot of the week when it is aborted or reaches
+   PASS_RATIO (`burns`), otherwise it is `tried`: finished below the line, no slot is used, the person can take another one on another day. */
 function withXp_(rows) {
-  const perDay = {}, closed = {}, slot = {};
+  const quota = quotaMap_(), perDay = {}, closed = {}, slot = {};
   return rows.slice().sort((a, b) => a.date - b.date).map(r => {
     const k = r.code + ' ' + dayKey_(r.date);
     perDay[k] = (perDay[k] || 0) + 1;
     const g = limitGroup_(r.kind);
     let over = false, burns = false, tried = false;
     if (g) {
-      const wk = r.code + ' ' + weekKey_(r.date) + ' ' + g;
+      const wk = r.code + ' ' + weekKey_(r.date);
       slot[k] = (slot[k] || 0) + 1;
-      over = (closed[wk] || 0) >= WEEK_LIMITS[g] || slot[k] > DAY_LIMIT;
+      over = (closed[wk] || 0) >= (quota[r.code] || TESTS_WEEK.other) || slot[k] > DAY_LIMIT;
       burns = !over && (r.aborted || r.ratio >= PASS_RATIO);
       tried = !over && !burns;
       if (burns) closed[wk] = (closed[wk] || 0) + 1;
@@ -540,7 +558,7 @@ function grantOwls_(staff, date, attemptId, build) {
 
 /* the owl of a full week, once a week: asked after every test and after a lesson is counted, because either can be the last step */
 function planCandidate_(staff, week, mineTests) {
-  return weekPlan_(mineTests, readAtOf_(staff.code), week).full ? [{ key: 'plan:' + week, why: 'Полная учебная неделя', n: PLAN_OWLS }] : [];
+  return weekPlan_(mineTests, readAtOf_(staff.code), week, quotaOf_(staff.role)).full ? [{ key: 'plan:' + week, why: 'Полная учебная неделя', n: PLAN_OWLS }] : [];
 }
 
 /* owls for the test just saved (`self`, one of `mine`): a test of 90%+ (two a week at most), a full week, the exam */
@@ -624,12 +642,12 @@ function streaks_(weeks, now) {
 
 function badges_(mine, best, dayBest) {
   const done = mine.filter(r => !r.aborted);
-  const good = kind => done.filter(r => r.kind === kind && r.ratio >= 0.9).length >= 10;
+  const goodN = done.filter(r => r.group && !r.over && r.ratio >= 0.9).length;
   return [
     done.length > 0 && 'first',
     done.some(r => r.total >= 10 && r.score === r.total) && 'perfect',
-    good('drinks') && 'drinks',
-    good('preps') && 'preps',
+    goodN >= 10 && 'tests10',
+    goodN >= 30 && 'tests30',
     best >= 4 && 'streak4',
     done.some(r => r.kind === 'exam' && r.score === r.total) && 'exam100',
     dayBest >= 7 && 'days7'
@@ -646,7 +664,7 @@ function me_(code) {
   const myDaily = daily.filter(r => r.code === s.code), ds = dayStreak_(myDaily, now);
   const ledger = owls_().filter(o => o.code === s.code);
   const prog = progressOf_(s.code), readAt = prog.readAt || {};
-  const st = streaks_(fullWeeks_(myTests, readAt), now);
+  const quota = quotaOf_(s.role), st = streaks_(fullWeeks_(myTests, readAt, quota), now);
   const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === month)[0];
   const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
   const thisWeek = all.filter(r => weekKey_(r.date) === week && r.branch !== TEST_BRANCH);
@@ -666,8 +684,8 @@ function me_(code) {
     owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(myTests, st.best, ds.best),
     daily: { done: myDaily.some(r => dayKey_(r.date) === dayKey_(now)), streak: ds.cur },
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
-    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, perDay: DAY_LIMIT, todayUsed: todayUsed_(myTests, now),
-    plan: weekPlan_(myTests, readAt, week), kpi: kpiPublic_(kpiMonth_(s, month, { tests, dailies: daily, readAt: { [s.code]: readAt }, absence: absenceMap_() }, now)),
+    week: weekAttempts_(myTests, week), limits: { test: quota }, perDay: DAY_LIMIT, todayUsed: todayUsed_(myTests, now),
+    plan: weekPlan_(myTests, readAt, week, quota), kpi: kpiPublic_(kpiMonth_(s, month, { tests, dailies: daily, readAt: { [s.code]: readAt }, absence: absenceMap_() }, now)),
     passThreshold: setting_('PassThreshold', 0.7),
     progressProtocol: 2, progress: prog,
     board: {
@@ -879,15 +897,16 @@ function kpiMonth_(staff, mk, ctx, now) {
   const away = ctx.absence[staff.code] || new Set(), graceEnd = staff.start ? addDays_(staff.start, KPI_GRACE_DAYS) : '';
   const excused = { has: d => away.has(d) || (!!graceEnd && d < graceEnd) };  // leave, and for a newcomer the days before the start and the grace days
   const monthAbsent = days.every(d => excused.has(d));
+  const quota = quotaOf_(staff.role), req = quota + LESSONS_WEEK;  // steps of a full week
   let sum = 0, n = 0, weeksDone = 0;
   weeks.forEach(w => {
     if (addDays_(w, 6) >= today) return;
     weeksDone++;
     let off = 0;
     for (let i = 0; i < 7; i++) if (excused.has(addDays_(w, i))) off++;
-    if (off >= 7) return;
-    const p = weekPlan_(mine, readAt, w), done = p.testsDone + Math.min(p.lessons, LESSONS_WEEK);
-    sum += Math.min(done, 7 - off) / (7 - off); n++;
+    if (off >= 7 || req - off <= 0) return;
+    const p = weekPlan_(mine, readAt, w, quota), done = p.testsDone + Math.min(p.lessons, LESSONS_WEEK);
+    sum += Math.min(done, req - off) / (req - off); n++;
   });
   const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === mk)[0];
   const examPending = cur && !exam && !monthAbsent;
@@ -1111,12 +1130,11 @@ function saveProgress_(staff, d) {
   }
 }
 
-/* attempts that closed their section this week, by group: the app blocks a section at the limit */
+/* the slots of the week used so far (a test from 70% or an aborted one): the app blocks the test when the quota is used up */
 function weekAttempts_(mine, week) {
-  const used = {};
-  Object.keys(WEEK_LIMITS).forEach(g => { used[g] = 0; });
-  mine.forEach(r => { if (r.burns && weekKey_(r.date) === week) used[r.group]++; });
-  return used;
+  let n = 0;
+  mine.forEach(r => { if (r.burns && weekKey_(r.date) === week) n++; });
+  return { test: n };
 }
 
 /* tests of a counted group taken today (any result, aborted too): the app blocks the next one at DAY_LIMIT */
@@ -1131,25 +1149,24 @@ function weekOfDay_(day) {
   return new Date(t - dow * 864e5).toISOString().slice(0, 10);
 }
 
-/* The week of one person: tests counted per group (at most the limit), finished-below-the-line ones, lessons counted that week.
-   `full` = every section closed (5 tests) and LESSONS_WEEK lessons. */
-function weekPlan_(mine, readAt, week) {
-  const tests = {}, tried = {};
-  Object.keys(WEEK_LIMITS).forEach(g => { tests[g] = 0; tried[g] = 0; });
+/* The week of one person: counted tests (at most the quota), those finished below the line, lessons counted that week.
+   `full` = the quota of tests (3, a trainee 5) and LESSONS_WEEK lessons. */
+function weekPlan_(mine, readAt, week, quota) {
+  const need = quota || TESTS_WEEK.other;
+  let got = 0, low = 0;
   mine.forEach(r => {
     if (!r.group || weekKey_(r.date) !== week) return;
-    if (counts_(r)) tests[r.group]++; else if (r.tried) tried[r.group]++;
+    if (counts_(r)) got++; else if (r.tried) low++;
   });
-  let done = 0, need = 0;
-  Object.keys(WEEK_LIMITS).forEach(g => { tests[g] = Math.min(tests[g], WEEK_LIMITS[g]); done += tests[g]; need += WEEK_LIMITS[g]; });
+  const done = Math.min(got, need), tests = { test: done }, tried = { test: low };
   const lessons = Object.keys(readAt || {}).filter(id => weekOfDay_(readAt[id]) === week).length;
   return { tests, tried, testsDone: done, testsNeed: need, lessons, lessonsNeed: LESSONS_WEEK, full: done >= need && lessons >= LESSONS_WEEK };
 }
 
 /* the weeks of a person in which the plan was complete */
-function fullWeeks_(mine, readAt) {
+function fullWeeks_(mine, readAt, quota) {
   const weeks = new Set(mine.filter(r => r.group).map(r => weekKey_(r.date)).concat(Object.keys(readAt || {}).map(id => weekOfDay_(readAt[id]))));
-  return new Set([...weeks].filter(w => weekPlan_(mine, readAt, w).full));
+  return new Set([...weeks].filter(w => weekPlan_(mine, readAt, w, quota).full));
 }
 
 /* {code: readAt} of everyone, one pass over the sheet «Прогресс» */
