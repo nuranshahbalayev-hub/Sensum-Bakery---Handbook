@@ -1,0 +1,32 @@
+name: Application checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 tools/audit.py
+      - run: node tools/apps-script/test.js
+      - run: node tools/sw-test.js
+      - run: node tools/training-test.js
+      - name: Install browser test dependency
+        run: npm install --no-save --package-lock=false playwright@1.63.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke checks (mock results server)
+        run: node tools/smoke.js

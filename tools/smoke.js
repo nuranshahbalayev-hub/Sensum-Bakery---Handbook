@@ -33,7 +33,7 @@ const server = http.createServer((req, res) => {
 
   /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
   let mockOver = false;  /* the sheet says the result was over the weekly limit */
-  const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
+  const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', progressProtocol: 2, passThreshold: 0.7, xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
     badges: ['first', 'perfect', 'exam100'], exam: null,
     board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
       branches: [{ branch: 'Central Park', xp: 70, staff: 5 }] } };
@@ -42,10 +42,15 @@ const server = http.createServer((req, res) => {
     let body;
     if (req.method() === 'POST') {
       const d = JSON.parse(req.postData());
-      if (d.action === 'progress') {  /* the sheet «Прогресс»: lessons are merged, the newer boxes win whole */
+      if (d.action === 'progress') {  /* protocol 2: patch changed cards, keep other devices' cards */
         progPosts.push(d);
-        const old = progressDb[d.code] || { read: [], box: {}, ts: 0 }, newer = d.ts >= old.ts;
-        progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box: newer ? d.box : old.box, ts: newer ? d.ts : old.ts };
+        const old = progressDb[d.code] || { read: [], box: {}, ts: 0, clocks: {} };
+        const box = Object.assign({}, old.box), clocks = Object.assign({}, old.clocks);
+        Object.entries(d.changes || {}).forEach(([k, c]) => {
+          if (c.ifAbsent && k in box) return;
+          if (c.ts > (clocks[k] || 0) || (c.ts === clocks[k] && c.v < box[k])) { box[k] = c.v; clocks[k] = c.ts; }
+        });
+        progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box, clocks, ts: Math.max(Date.now(), old.ts + 1, d.ts) };
         route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, progress: progressDb[d.code] }) });
         return;
       }
@@ -442,7 +447,7 @@ const server = http.createServer((req, res) => {
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exit"]');
   await page.waitForTimeout(300);
-  await page.evaluate(() => { levelSet('trainee').forEach(t => { LS.box[boxKey(t)] = 2; }); L.dir = 'all'; L.topic = 'all'; renderLearn(); });
+  await page.evaluate(() => { levelSet('trainee').forEach(t => { const k = boxKey(t); LS.box[k] = 2; touchProgress(k); }); L.dir = 'all'; L.topic = 'all'; renderLearn(); });
   check((await page.locator('#learnroot').innerText()).includes('Ты готов к уровню «Бариста»'), 'levels: 80% of the level learned = «ready for the next level»');
   ME.level = 'senior';
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
@@ -454,7 +459,7 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot [data-l="lvl"]').count() === 0 && await lvlCount() === 101 && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'),
     'levels: no level (an older sheet script, an empty cell) = all questions, no level chips, no panel');
   ME.level = 'barista';
-  await page.evaluate(() => { LS.box = {}; saveLearn(); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
+  await page.evaluate(() => { Object.keys(LS.box).forEach(k => { LS.box[k] = 0; touchProgress(k); }); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
   await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
 
@@ -731,9 +736,9 @@ const server = http.createServer((req, res) => {
   await page.waitForSelector('#learnroot .idrow', { timeout: 5000 }).catch(() => {});
   check(await page.evaluate(() => LS.me && LS.me.code === '5678' && Object.keys(LS.read).length === 0 && Object.keys(LS.box).length === 0 && LS.quiz.length === 0 && LS.att.length === 0 && !passedTopics().has('CF-8')),
     'progress: the second code starts clean: nothing read, nothing learned, no history, the coffee topics closed');
-  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:latte'] = 2; touchProgress(); pushProgress(); });
+  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:latte'] = 2; touchProgress('d:latte'); pushProgress(); });
   await page.waitForTimeout(500);
-  check(progPosts.some(d => d.code === '5678' && d.read.join() === 'cf-milk' && d.box['d:latte'] === 2), 'progress: the second code’s progress goes to the sheet under its own code');
+  check(progPosts.some(d => d.code === '5678' && d.read.join() === 'cf-milk' && d.protocol === 2 && d.changes['d:latte'] && d.changes['d:latte'].v === 2), 'progress: the second code’s progress goes to the sheet under its own code');
   await page.click('#learnroot [data-l="logout"]');
   await page.fill('#lcode', '1234');
   await page.click('#learnroot [data-l="login"]');
@@ -777,7 +782,7 @@ const server = http.createServer((req, res) => {
     ep: JSON.parse(localStorage.getItem('sensum_learn')).epoch, buckets: Object.keys(localStorage).filter(k => k.indexOf('sensum_learn_u_') === 0), lang: localStorage.getItem('sensum_lang') }));
   check(rs.me === '5678' && !rs.box && !rs.read && !rs.quiz && !rs.att && !rs.out && !rs.live && rs.ep === 1 && !rs.buckets.some(k => k !== 'sensum_learn_u_5678') && rs.lang === 'ru',
     'reset epoch: progress, history, queue and the other buckets are gone once, the login and the settings stay (' + JSON.stringify(rs) + ')');
-  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:new'] = 1; saveLearn(); });
+  await page.evaluate(() => { LS.read['cf-milk'] = 1; LS.box['d:new'] = 1; touchProgress('d:new'); });
   await page.reload();
   await page.waitForTimeout(300);
   check(await page.evaluate(() => LS.read['cf-milk'] === 1 && LS.box['d:new'] === 1), 'reset epoch: the next start keeps what was made after it');
