@@ -160,7 +160,7 @@ const server = http.createServer((req, res) => {
       setLang(lang);
       for (const scope of ['drinks', 'preps']) {
         L.scope = scope; L.cat = 'all'; L.kind = 'all';
-        for (let i = 0; i < 40; i++) for (const q of buildQuiz(learnItems())) {
+        for (let i = 0; i < 40; i++) for (const q of buildQuiz(scope === 'drinks' ? trainable(drinks) : trainable(preps), scope)) {
           total++;
           if (q.opts.length !== 4 || new Set(q.opts).size !== 4 || !q.opts.includes(q.correct) || q.opts.some(o => !o || /undefined|NaN/.test(o))) bad++;
           /* a photo question must not offer another drink that shows the very same picture */
@@ -185,7 +185,7 @@ const server = http.createServer((req, res) => {
     for (const lang of ['ru', 'az']) {
       setLang(lang); L.scope = 'drinks'; L.cat = 'all';
       const by = Object.fromEntries(drinks.map(d => [d.name, d]));
-      for (let i = 0; i < 60; i++) for (const q of buildQuiz(learnItems())) {
+      for (let i = 0; i < 60; i++) for (const q of buildQuiz(trainable(drinks), 'drinks')) {
         if (!NEW.includes(q.type)) continue;
         out.n[lang + q.type] = (out.n[lang + q.type] || 0) + 1;
         const ds = q.opts.map(o => by[o]), right = by[q.correct], m = q.meta || {};
@@ -255,7 +255,7 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#learnroot .score').count() === 1, 'quiz reaches the result screen');
   const p = posted[0] || {};
   check(posted.length === 1 && p.code === '1234' && p.total > 0 && Array.isArray(p.mistakes) && p.ver, 'result is sent once with code, score, mistakes, version');
-  check(p.kind === 'drinks' && (await page.locator('#learnroot #sendstat').innerText()).includes('+90 XP'), 'result says what kind of test it was and shows the XP it earned');
+  check(p.kind === 'mixed' && (await page.locator('#learnroot #sendstat').innerText()).includes('+90 XP'), 'result says what kind of test it was and shows the XP it earned');
   check(Number.isInteger(p.secs) && p.timeouts === 0 && p.away === 0 && p.aborted === false, 'result carries time, timeouts, exits, aborted');
 
   /* honesty of a test: the countdown, leaving the app, aborting, a test closed half-way */
@@ -311,16 +311,15 @@ const server = http.createServer((req, res) => {
   check(th.total > 0 && th.bad.length === 0 && ['one', 'multi', 'order', 'num'].every(k => th.types[k]),
     `theory questions: ${th.total} built in both languages, ${th.bad.length} broken${th.bad.length ? ' (' + th.bad.slice(0, 3).join(', ') + ')' : ''}`);
 
+
   await page.click('nav.tabs button[data-tab="learn"]');
-  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
-  /* the theory test takes only the topics whose lessons were all read; a topic without lessons (the brand) is open */
+  /* the general test takes theory only from the topics whose lessons were all counted; a topic without lessons is open from the start */
   await page.evaluate(() => { LS.read = {}; saveLearn(); L.lvlAll = true; renderLearn(); });
   const openTopics = () => page.evaluate(() => [...passedTopics()].sort());
   const LESSON_TOPICS = new Set(await page.evaluate(() => LES.map(l => l.topic)));
   const noRead = await openTopics();
   /* every topic with questions has lessons now: until something is read, only the topics without any lesson (here MN-1: the recipes are generated) are open */
-  check(noRead.every(k => !LESSON_TOPICS.has(k)) && await page.locator('#learnroot [data-l="dir"]').count() === 1 && (await page.locator('#learnroot').innerText()).includes('Открыто тем: 0')
-    && (await page.locator('#learnroot').innerText()).includes('Прочитай уроки'), 'theory: nothing read, no theory topic is open, and the screen says so');
+  check(noRead.every(k => !LESSON_TOPICS.has(k)) && (await page.locator('#learnroot').innerText()).includes('открыто тем 0 из'), 'theory: nothing read, no theory topic is open, and the home says so');
   /* the brand needs its lessons like every other topic */
   await page.evaluate(() => { LES.filter(l => l.topic === 'BR-1').slice(0, 5).forEach(l => { LS.read[l.id] = 1; }); });
   check(!(await openTopics()).includes('BR-1'), 'theory: five of the six brand lessons do not open BR-1');
@@ -331,24 +330,39 @@ const server = http.createServer((req, res) => {
   check(!(await openTopics()).includes('CF-1'), 'theory: one of the two lessons of a topic does not open it');
   await page.evaluate(() => { LS.read['cf-farm'] = 1; });
   check((await openTopics()).includes('CF-1') && !(await openTopics()).includes('CF-2'), 'theory: all lessons of a topic read: that topic opens, the others stay closed');
-  check(await page.evaluate(() => theoryItems().every(t => passedTopics().has(t.topic))), 'theory: the test takes questions only from open topics');
-  await page.evaluate(() => { LES.forEach(l => { LS.read[l.id] = 1; }); L.lvlAll = false; saveLearn(); renderLearn(); });
-  check(await page.locator('#learnroot [data-l="dir"]').count() === 5 && await page.locator('#learnroot [data-l="cards"]').count() === 0
-    && await page.locator('#learnroot [data-l="quiz"]').count() === 1, 'theory: a chip per direction, a test, no flashcards');
-  await page.click('#learnroot [data-l="dir"][data-v="CF"]');
-  check(await page.locator('#learnroot [data-l="topic"]').count() === 11, 'theory: a direction shows its topics');
-  await page.click('#learnroot [data-l="topic"][data-v="CF-8"]');
-  await page.click('#learnroot [data-l="quiz"]');
-  check(await page.evaluate(() => L.qz.qs.length === Math.min(10, TH.filter(t => t.topic === 'CF-8' && LVL_RANK[t.lvl] <= LVL_RANK[myLvl() || 'senior']).length) && L.qz.qs.every(q => TH.find(t => t.id === q.id).topic === 'CF-8') && L.qz.scope.includes('Молоко')),
-    'theory: a topic test takes only that topic and names it');
+  check(await page.evaluate(() => theoryPool().every(t => passedTopics().has(t.topic))), 'theory: the pool of the test holds questions only from open topics');
+  await page.evaluate(() => { L.lvlAll = false; saveLearn(); renderLearn(); });
+  /* the composition of the general test: 3 drinks, 2 preps, 2 vitrina, 3 theory of open topics (10 in all); the theory that is missing is made up from the recipes in turn */
+  const mixComp = () => page.evaluate(() => { const qs = composeQuestions(MIX_N, true);
+    return { n: qs.length, th: qs.filter(q => q.isTheory).length, d: qs.filter(q => !q.isTheory && !q.isPrep && !q.isVit).length, p: qs.filter(q => q.isPrep).length, v: qs.filter(q => q.isVit).length,
+      topics: [...new Set(qs.filter(q => q.isTheory).map(q => TH.find(t => t.id === q.id).topic))] }; });
+  await page.evaluate(() => { LS.read = {}; });
+  let mc = await mixComp();
+  check(mc.n === 10 && mc.th === 0 && mc.d === 4 && mc.p === 3 && mc.v === 3, 'general test: nothing read: no theory, the three missing are made up from the recipes (4 + 3 + 3) (' + JSON.stringify(mc) + ')');
+  await page.evaluate(() => { LES.forEach(l => { LS.read[l.id] = 1; }); });
+  let okMix = true; for (let i = 0; i < 15; i++) { mc = await mixComp(); okMix = okMix && mc.n === 10 && mc.th === 3 && mc.d === 3 && mc.p === 2 && mc.v === 2; }
+  check(okMix, 'general test: 10 questions = 3 drinks + 2 preps + 2 vitrina + 3 theory, every time');
+  await page.evaluate(() => { LS.read = {}; LES.filter(l => l.topic === 'CF-8').forEach(l => { LS.read[l.id] = 1; }); });
+  const cf8n = await page.evaluate(() => TH.filter(t => t.topic === 'CF-8' && LVL_RANK[t.lvl] <= LVL_RANK[myLvl() || 'senior']).length);
+  mc = await mixComp();
+  check(mc.n === 10 && mc.th === Math.min(3, cf8n) && mc.topics.every(k => k === 'CF-8'), 'general test: one topic read: its theory only (' + JSON.stringify(mc) + ')');
+  await page.evaluate(() => { LES.forEach(l => { LS.read[l.id] = 1; }); LS.att = []; LS.lastTest = null; saveLearn(); renderLearn(); });
+  check(await page.locator('#learnroot [data-l="scope"], #learnroot [data-l="dir"], #learnroot [data-l="topic"], #learnroot [data-l="lvl"]').count() === 0
+    && await page.locator('#learnroot [data-l="quiz"]').count() === 1, 'general test: one tile «Тест недели»: no chips of sections, directions, topics or levels');
+  await page.locator('#learnroot [data-l="quiz"]').click();
+  const gq = await page.evaluate(() => ({ kind: L.qz.kind, n: L.qz.qs.length, scope: L.qz.scope, th: L.qz.qs.filter(q => q.isTheory).length, att: LS.att.map(a => a.g).join() }));
+  check(gq.kind === 'mixed' && gq.n === 10 && gq.scope === 'Общий тест' && gq.th === 3 && gq.att === 'test', 'general test: the tile starts one counted test of 10 questions (' + JSON.stringify(gq) + ')');
+  /* each question keeps its own time: a recipe question 15 s, theory 20 / 30 / 25 s */
+  check(await page.evaluate(() => { const qs = composeQuestions(MIX_N, true); return qs.every(q => qsec(q) === (q.isTheory ? ({ one: 20, multi: 30, order: 30, num: 25 })[q.tt] : 15)); }), 'general test: the time of a question follows its type (recipe 15 s, theory 20 / 30 / 25 s)');
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exit"]');
   await page.waitForTimeout(300);
   const nTheoryBefore = posted.length;
-  check(posted[nTheoryBefore - 1].aborted === true && posted[nTheoryBefore - 1].kind === 'theory', 'theory: an aborted test is sent as a theory test');
+  check(posted[nTheoryBefore - 1].aborted === true && posted[nTheoryBefore - 1].kind === 'mixed' && posted[nTheoryBefore - 1].total === 10, 'general test: an aborted test is sent as kind «mixed»');
+  await page.evaluate(() => { LS.att = []; LS.lastTest = null; saveLearn(); });
 
   /* all four kinds of question, answered right through the screen */
-  const startTheory = ids => page.evaluate(ids => { L.scope = 'theory'; beginQuiz(ids.map(id => mkTheoryQ(TH.find(t => t.id === id))), 'theory', scopeLabel()); }, ids);
+  const startTheory = ids => page.evaluate(ids => { beginQuiz(ids.map(id => mkTheoryQ(TH.find(t => t.id === id))), 'theory', 'Теория · smoke'); }, ids);
   const opt = txt => page.locator('#learnroot .opt', { hasText: txt }).first();
   const nextBtn = () => page.click('#learnroot [data-l="next"]');
   const verdict = async () => (await page.locator('#learnroot .fb').first().getAttribute('class')) || '';
@@ -408,47 +422,34 @@ const server = http.createServer((req, res) => {
   check(await page.evaluate(() => ['CF-06', 'CF-05', 'CF-11', 'CF-02'].every(id => boxOf(TH.find(t => t.id === id)) === 0) && boxOf(TH.find(t => t.id === 'SV-17')) === 1),
     'theory: a wrong answer sends the question back to box 0, a right one keeps its box');
 
+
   /* AZ */
   await page.click('#langbtn');
-  /* the «last test» line keeps the scope in the language it was taken in, so only the chips and the test tile are checked */
-  const azHome = (await page.locator('#learnroot .lchips').allInnerTexts()).join(' ') + ' ' + await page.locator('#learnroot [data-l="quiz"]').innerText();
-  check(azHome.includes('Qəhvə: nəzəriyyə') && azHome.includes('Nəzəriyyə') && azHome.includes('Mənim səviyyəm') && !/[А-Яа-яЁё]/.test(azHome)
-    && (await page.locator('#learnroot').innerText()).includes('Sənin səviyyən: Barista'), 'AZ: theory chips, level chips, level panel and test tile are Azerbaijani');
-  await page.click('#learnroot [data-l="dir"][data-v="SV"]');
-  await page.click('#learnroot [data-l="quiz"]');
-  check(await page.locator('#learnroot .qtext').count() === 1 && !/[А-Яа-яЁё]/.test(await page.locator('#learnroot .qtext').innerText()), 'AZ: a theory question is in Azerbaijani');
+  const azHome = await page.locator('#learnroot [data-l="quiz"]').innerText();
+  const azTitle = await page.evaluate(() => T('quiz_week_t'));
+  check(azHome.includes(azTitle) && /[a-zə]/i.test(azTitle) && !/[А-Яа-яЁё]/.test(azHome) && (await page.locator('#learnroot').innerText()).includes('Sənin səviyyən: Barista'),
+    'AZ: the test tile and the level panel are Azerbaijani (' + azTitle + ')');
+  await page.locator('#learnroot [data-l="quiz"]').click();
+  check(await page.evaluate(() => L.qz.qs.length === 10 && L.qz.qs.every(q => !/[А-Яа-яЁё]/.test(q.text + (q.opts || []).join(' ')))), 'AZ: all ten questions of the general test are in Azerbaijani');
   page.once('dialog', d => d.accept());
   await page.click('#learnroot [data-l="exit"]');
   await page.waitForTimeout(300);
   await page.click('#langbtn');
-  await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
+  await page.evaluate(() => { LS.att = []; LS.lastTest = null; saveLearn(); renderLearn(); });
 
   /* levels: cumulative, taken from the staff sheet at login */
-  const lvlCount = () => page.evaluate(() => theoryItems().length);
-  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
+  const lvlCount = () => page.evaluate(() => levelSet(myLvl()).length);
   const home1 = await page.locator('#learnroot').innerText();
-  check(home1.includes('Smoke Test · Test · Бариста') && home1.includes('Твой уровень: Бариста') && await page.locator('#learnroot [data-l="lvl"]').count() === 2,
-    'levels: the login shows the level; the theory home shows the level panel and the two level chips');
+  check(home1.includes('Smoke Test · Test · Бариста') && home1.includes('Твой уровень: Бариста'), 'levels: the login shows the level and the level panel');
   const nAll = await page.evaluate(() => TH.length), nTrainee = await page.evaluate(() => TH.filter(t => t.lvl === 'trainee').length), nBarista = await page.evaluate(() => TH.filter(t => t.lvl !== 'senior').length);
-  check(await lvlCount() === nBarista && nBarista < nAll && await page.evaluate(() => theoryItems().every(t => t.lvl !== 'senior')), 'levels: a barista gets the trainee and barista questions (' + nBarista + '), none of the senior ones');
-  await page.click('#learnroot [data-l="lvl"][data-v="all"]');
-  check(await lvlCount() === nAll, 'levels: «Все уровни» shows all ' + nAll);
-  await page.click('#learnroot [data-l="lvl"][data-v="my"]');
+  check(await lvlCount() === nBarista && nBarista < nAll && await page.evaluate(() => levelSet(myLvl()).every(t => t.lvl !== 'senior')), 'levels: a barista gets the trainee and barista questions (' + nBarista + '), none of the senior ones');
   ME.level = 'trainee';  /* the trainer sets the level in the sheet; the app picks it up with the next stats refresh */
-  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); L.dir = 'all'; L.topic = 'all'; });
+  await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
-  check(await lvlCount() === nTrainee && await page.evaluate(() => theoryItems().every(t => t.lvl === 'trainee')), 'levels: a trainee gets only the ' + nTrainee + ' trainee questions');
-  await page.click('#learnroot [data-l="dir"][data-v="CF"]');
-  const cfTopics = await page.locator('#learnroot [data-l="topic"]').count();
-  const cfExpected = await page.evaluate(() => new Set(TH.filter(t => t.lvl === 'trainee' && t.topic.startsWith('CF-')).map(t => t.topic)).size + 1);
-  check(cfTopics === cfExpected && cfTopics < 11, `levels: a trainee sees only the coffee topics that have trainee questions (${cfTopics - 1} of 10)`);
-  await page.click('#learnroot [data-l="quiz"]');
-  check(await page.evaluate(() => L.qz.qs.length > 0 && L.qz.qs.every(q => TH.find(t => t.id === q.id).lvl === 'trainee') && L.qz.scope.includes('Стажёр')),
-    'levels: the test takes only trainee questions and names the level in its scope');
-  page.once('dialog', d => d.accept());
-  await page.click('#learnroot [data-l="exit"]');
-  await page.waitForTimeout(300);
-  await page.evaluate(() => { levelSet('trainee').forEach(t => { const k = boxKey(t); LS.box[k] = 2; touchProgress(k); }); L.dir = 'all'; L.topic = 'all'; renderLearn(); });
+  check(await lvlCount() === nTrainee, 'levels: a trainee gets only the ' + nTrainee + ' trainee questions');
+  check(await page.evaluate(() => { let ok = true; for (let i = 0; i < 10; i++) composeQuestions(MIX_N, true).filter(q => q.isTheory).forEach(q => { ok = ok && TH.find(t => t.id === q.id).lvl === 'trainee'; }); return ok; }),
+    'levels: the theory of the general test takes only trainee questions for a trainee');
+  await page.evaluate(() => { levelSet('trainee').forEach(t => { const k = boxKey(t); LS.box[k] = 2; touchProgress(k); }); renderLearn(); });
   check((await page.locator('#learnroot').innerText()).includes('Ты готов к уровню «Бариста»'), 'levels: 80% of the level learned = «ready for the next level»');
   ME.level = 'senior';
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
@@ -457,40 +458,39 @@ const server = http.createServer((req, res) => {
   ME.level = '';
   await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
-  check(await page.locator('#learnroot [data-l="lvl"]').count() === 0 && await lvlCount() === nAll && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'),
-    'levels: no level (an older sheet script, an empty cell) = all questions, no level chips, no panel');
+  check(await lvlCount() === nAll && !(await page.locator('#learnroot').innerText()).includes('Твой уровень'), 'levels: no level (an older sheet script, an empty cell) = all questions, no panel');
   ME.level = 'barista';
-  await page.evaluate(() => { Object.keys(LS.box).forEach(k => { LS.box[k] = 0; touchProgress(k); }); L.lvlAll = false; LS.stats = null; statsBusy = false; fetchStats(); });
+  await page.evaluate(() => { Object.keys(LS.box).forEach(k => { LS.box[k] = 0; touchProgress(k); }); LS.stats = null; statsBusy = false; fetchStats(); });
   await page.waitForTimeout(500);
-  await page.click('#learnroot [data-l="scope"][data-v="drinks"]');
 
-  /* weekly limit of attempts: the sheet's script says how many; aborted tests count, retries and the exam do not */
+  /* the quota of tests a week: the sheet's script says how many (3, a trainee 5); aborted tests count, retries and the exam do not */
   const refreshStats = async () => { await page.evaluate(() => { LS.stats = null; statsBusy = false; fetchStats(); }); await page.waitForTimeout(500); };
   const tile = () => page.locator('#learnroot [data-l="quiz"]');
-  ME.limits = { recipes: 3, theory: 2 }; ME.week = { recipes: 0, theory: 0 };
-  await page.evaluate(() => { LS.att = []; L.scope = 'drinks'; L.cat = 'all'; });
+  ME.limits = { test: 3 }; ME.week = { test: 0 };
+  await page.evaluate(() => { LS.att = []; LS.lastTest = null; });
   await refreshStats();
-  check((await tile().innerText()).includes('Попыток на неделе: 0 / 3') && await tile().isEnabled(), 'limit: the test tile shows the attempts of the week');
+  check((await tile().innerText()).includes('На этой неделе: 0 / 3') && await tile().isEnabled(), 'limit: the test tile shows the tests of the week (0 / 3)');
   for (let i = 0; i < 3; i++) {
     await tile().click();
     page.once('dialog', d => d.accept());
     await page.click('#learnroot [data-l="exit"]');
     await page.waitForTimeout(250);
   }
-  check(await tile().isDisabled() && (await page.locator('#learnroot .att-full').innerText()).includes('3 / 3'), 'limit: three attempts (aborted ones too) use the week up; the tile locks and says why');
+  check(await tile().isDisabled() && (await page.locator('#learnroot .att-full').innerText()).includes('3 / 3'), 'limit: three tests (aborted ones too) use the week up; the tile locks and says why');
   check(await page.evaluate(() => { startQuiz(); return L.view !== 'quiz'; }), 'limit: a start at the limit does nothing');
   check(await page.locator('#learnroot [data-l="mat"]').isEnabled(), 'limit: materials and cards stay open');
-  await page.click('#learnroot [data-l="scope"][data-v="preps"]');
-  check(await tile().isDisabled(), 'limit: preps share the limit of the recipe tests');
-  await page.click('#learnroot [data-l="scope"][data-v="theory"]');
-  check((await tile().innerText()).includes('Попыток на неделе: 0 / 2') && await tile().isEnabled(), 'limit: theory has its own limit of two');
-  check((await page.locator('#learnroot .rules').textContent()).includes('3 по рецептам (напитки, заготовки, витрина) и 2 по теории') && (await page.locator('#learnroot .rules').textContent()).includes('Тренировки из «Материалов»'), 'limit: the rules list says the limits and that practice does not count');
-  await page.evaluate(() => { LS.att = []; L.scope = 'drinks'; renderLearn(); });
-  ME.week = { recipes: 3, theory: 0 }; await refreshStats();
+  const rulesT = await page.locator('#learnroot .rules').textContent();
+  check(rulesT.includes('Тестов в неделю: 3') && rulesT.includes('новичку 5') && rulesT.includes('Тренировки из «Материалов»'), 'limit: the rules say 3 tests a week, 5 for a trainee, and that practice does not count');
+  await page.evaluate(() => { LS.att = []; renderLearn(); });
+  ME.week = { test: 3 }; await refreshStats();
   check(await tile().isDisabled(), 'limit: the sheet’s count blocks the test even if the phone forgot its own');
-  ME.week = { recipes: 0, theory: 0 }; await refreshStats();
-  await page.evaluate(() => { LS.att = [1, 2, 3].map(() => ({ g: 'recipes', ts: weekStartTs() - 60000 })); renderLearn(); });
-  check(await tile().isEnabled() && (await tile().innerText()).includes('0 / 3'), 'limit: attempts of the previous week do not count');
+  ME.week = { test: 0 }; await refreshStats();
+  await page.evaluate(() => { LS.att = [1, 2, 3].map(() => ({ g: 'test', ts: weekStartTs() - 60000 })); renderLearn(); });
+  check(await tile().isEnabled() && (await tile().innerText()).includes('0 / 3'), 'limit: tests of the previous week do not count');
+  ME.limits = { test: 5 }; await refreshStats();
+  check((await tile().innerText()).includes('На этой неделе: 0 / 5'), 'limit: a trainee’s quota of five comes from the sheet');
+  ME.limits = { test: 3 }; await refreshStats();
+  await page.evaluate(() => { LS.read = {}; renderLearn(); });  /* nothing read: no theory in the test, every question is a plain tap */
   mockOver = true;
   await tile().click();
   for (let i = 0; i < 15 && await page.locator('#learnroot [data-l="ans"]').count(); i++) { await page.locator('#learnroot [data-l="ans"]').first().click(); await page.click('#learnroot [data-l="next"]'); }
@@ -499,10 +499,9 @@ const server = http.createServer((req, res) => {
   mockOver = false;
   await page.click('#learnBack');
   delete ME.limits; delete ME.week;
-  await page.evaluate(() => { LS.att = []; });
+  await page.evaluate(() => { LS.att = []; LS.lastTest = null; });
   await refreshStats();
-  check(!(await tile().innerText()).includes('Попыток на неделе') && await tile().isEnabled(), 'limit: a sheet script without limits (older) means no limit');
-
+  check(!(await tile().innerText()).includes('На этой неделе') && await tile().isEnabled(), 'limit: a sheet script without limits (older) means no limit');
   /* the game: level, owls, board and badges come from the sheet; the monthly exam */
   await page.click('nav.tabs button[data-tab="learn"]');
   await page.waitForTimeout(400);
@@ -540,11 +539,11 @@ const server = http.createServer((req, res) => {
   }, right);
   /* «План на сегодня»: the next lesson of the level, a counted test, ticked when done today; the dot on the tab says nothing was done today */
   const keepLim = await page.evaluate(() => JSON.stringify({ limits: LS.stats.limits, week: LS.stats.week }));
-  await page.evaluate(() => { LS.read = {}; LS.today = null; LS.att = []; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.week = { recipes: 1, theory: 0 }; LS.stats.at = Date.now(); saveLearn(); renderLearn(); });
+  await page.evaluate(() => { LS.read = {}; LS.today = null; LS.att = []; LS.stats.limits = { test: 3 }; LS.stats.week = { test: 1 }; LS.stats.at = Date.now(); saveLearn(); renderLearn(); });
   const plan = async () => page.evaluate(() => [...document.querySelectorAll('#learnroot .plan .tile')].map(b => ({ v: b.dataset.v, done: b.classList.contains('read'), next: b.classList.contains('next'), t: b.innerText })));
   let pl = await plan();
   const dotOn = () => page.evaluate(() => getComputedStyle(document.getElementById('learndot')).display !== 'none');
-  check(pl.length === 2 && pl[0].v.startsWith('les:') && pl[0].next && pl[1].v.startsWith('test:') && /Осталось попыток: \d из \d/.test(pl[1].t) && await dotOn(),
+  check(pl.length === 2 && pl[0].v.startsWith('les:') && pl[0].next && pl[1].v.startsWith('test:') && /На этой неделе: \d \/ \d/.test(pl[1].t) && await dotOn(),
     'plan: a lesson to read first, then a counted test with the attempts left; the dot is on (' + JSON.stringify(pl) + ')');
   const firstLes = pl[0].v.slice(4);
   check(await page.evaluate(id => { const my = new Set(levelSet(myLvl()).map(t => t.topic)); return my.has(LES.find(l => l.id === id).topic); }, firstLes), 'plan: the lesson is of a topic of the person’s level');
@@ -563,7 +562,7 @@ const server = http.createServer((req, res) => {
   pl = await plan();
   check(pl[0].v.startsWith('cards:'), 'plan: with every lesson read, the weakest card deck is offered');
   /* the week used up: the exam, or practice */
-  await page.evaluate(() => { LS.stats.week = { recipes: 4, theory: 2 }; renderLearn(); });
+  await page.evaluate(() => { LS.stats.week = { test: 3 }; renderLearn(); });
   pl = await plan();
   check(pl[1].v === 'exam' || pl[1].v === 'mat', 'plan: no attempts left, the exam or practice is offered (' + pl[1].v + ')');
   check(await page.locator('#learnroot .att-full').count() === 0 || await page.locator('#learnroot [data-l="plan"][data-v="mat"].lbtn').count() === 1, 'limit: a used-up week offers practice in «Материалы»');
@@ -913,71 +912,58 @@ const server = http.createServer((req, res) => {
   check(lowExam.none.n === 20 && lowExam.none.th === 0 && lowExam.none.d === 8 && lowExam.none.p === 6 && lowExam.none.v === 6, 'exam: nothing read, no theory, the recipes make up the 20 (8 drinks, 6 preps, 6 vitrina)');
   const cf8 = await page.evaluate(() => TH.filter(t => t.topic === 'CF-8' && LVL_RANK[t.lvl] <= LVL_RANK[myLvl() || 'senior']).length);
   check(lowExam.one.n === 20 && lowExam.one.th === Math.min(6, cf8) && lowExam.one.topics.join() === 'CF-8', 'exam: one topic read: its ' + Math.min(6, cf8) + ' questions are taken (at most 6), the rest comes from the recipes (' + JSON.stringify(lowExam.one) + ')');
-  /* the vitrina test of the training home counts as a recipe attempt */
-  await page.evaluate(() => { LS.att = []; if (LS.stats) { LS.stats.week = { recipes: 0, theory: 0 }; LS.stats.limits = { recipes: 4, theory: 2 }; LS.stats.at = Date.now(); } L.nav = []; L.view = 'home'; L.scope = 'drinks'; renderLearn(); });
-  await page.click('#learnroot [data-l="scope"][data-v="vitrina"]');
-  check(await page.locator('#learnroot [data-l="vcat"]').count() === 4 && (await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе: 0 / 4'), 'vitrina test: the chip has its categories and the tile shows the recipe attempts of the week');
-  await page.click('#learnroot [data-l="vcat"][data-v="sandwich"]');
-  await page.click('#learnroot [data-l="quiz"]');
-  const vt = await page.evaluate(() => ({ kind: L.qz.kind, rec: L.qz.rec && L.qz.rec.kind, scope: L.qz.scope, n: L.qz.qs.length, att: LS.att.map(a => a.g), cats: [...new Set(L.qz.qs.map(q => vitById[q.id].cat))] }));
-  check(vt.kind === 'vitrina' && vt.rec === 'vitrina' && vt.scope.includes('Витрина') && vt.att.join() === 'recipes' && vt.cats.join() === 'sandwich' && vt.n > 0, 'vitrina test: a counted test of the chosen category, one recipe attempt used (' + JSON.stringify(vt) + ')');
-  ME.limits = { recipes: 4, theory: 2 }; ME.week = { recipes: 1, theory: 0 };  /* what the sheet answers after the aborted vitrina test */
-  page.once('dialog', d => d.accept());
-  await page.click('#learnBack');
-  await page.waitForTimeout(500);
-  check((await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе: 1 / 4'), 'vitrina test: after it the tile shows 1 / 4');
+  /* the vitrina is part of the general test (checked above); a deck of vitrina cards ends with a practice test as before */
 
-  /* ---- the rhythm of the week (script v5.8): each section once, one counted test a day, the strip of the week ---- */
-  const keepOld = { limits: ME.limits, week: ME.week };
-  const zero = () => ({ drinks: 0, preps: 0, vitrina: 0, theory: 0 });
-  const setRhythm = async (over = {}, planOver = {}) => {
-    Object.assign(ME, { limits: { drinks: 1, preps: 1, vitrina: 1, theory: 2 }, perDay: 1, week: zero(), todayUsed: 0,
-      plan: Object.assign({ tests: zero(), tried: zero(), testsDone: 0, testsNeed: 5, lessons: 0, lessonsNeed: 2, full: false }, planOver) }, over);
-    await page.evaluate(m => { LS.att = []; LS.lastTest = null; LS.read = {}; LS.today = null; LS.stats = Object.assign({}, m, { at: Date.now() }); L.nav = []; L.view = 'home'; L.scope = 'drinks'; saveLearn(); renderLearn(); }, ME);
+  /* ---- the rhythm of the week (script v5.10): 3 tests a week (a trainee 5), one counted test a day, the strip of the week ---- */
+  const setRhythm = async (over = {}, planOver = {}, N = 3) => {
+    Object.assign(ME, { limits: { test: N }, perDay: 1, week: { test: 0 }, todayUsed: 0,
+      plan: Object.assign({ tests: { test: 0 }, tried: { test: 0 }, testsDone: 0, testsNeed: N, lessons: 0, lessonsNeed: 2, full: false }, planOver) }, over);
+    await page.evaluate(m => { LS.att = []; LS.lastTest = null; LS.read = {}; LS.today = null; LS.stats = Object.assign({}, m, { at: Date.now() }); L.nav = []; L.view = 'home'; saveLearn(); renderLearn(); }, ME);
   };
+  const stripN = () => page.locator('#learnroot .wstrip .ws').count();
   await setRhythm();
-  check((await tile().innerText()).includes('На этой неделе: 0 / 1') && await tile().isEnabled() && !(await page.locator('#learnroot [data-l="scope"][data-v="drinks"]').innerText()).includes('✓'),
-    'rhythm: an open section shows «0 / 1» and no tick');
-  check(await page.locator('#learnroot .wstrip .ws').count() === 7 && (await page.locator('#learnroot .wstrip small').innerText()).includes('0 из 7'), 'rhythm: the strip of the week has seven steps');
-  check((await page.locator('#learnroot .gstats').innerText()).includes('0 / 5'), 'rhythm: the rank card counts the tests of the week out of five');
-  await setRhythm({ week: Object.assign(zero(), { drinks: 1 }) }, { tests: Object.assign(zero(), { drinks: 1 }), testsDone: 1 });
-  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('уже закрыт') && (await page.locator('#learnroot [data-l="scope"][data-v="drinks"]').innerText()).includes('✓'),
-    'rhythm: a closed section: tile locked, the reason, a tick on its chip');
-  check(await page.evaluate(() => planTest().scope !== 'drinks') && await page.locator('#learnroot .wstrip .ws.done').count() === 1, 'rhythm: the plan offers another section, the strip ticks the closed one');
-  await setRhythm({}, { tried: Object.assign(zero(), { vitrina: 1 }) });
-  check(await page.evaluate(() => planTest().scope === 'vitrina' && planTest().att.tried === true), 'rhythm: a section taken below 70% is offered first for another try');
-  await page.click('#learnroot [data-l="scope"][data-v="vitrina"]');
-  check((await tile().innerText()).includes('ниже 70%') && await tile().isEnabled(), 'rhythm: the tile says the section can be taken again');
+  check((await tile().innerText()).includes('На этой неделе: 0 / 3') && await tile().isEnabled(), 'rhythm: an open week shows «0 / 3»');
+  check(await stripN() === 5 && (await page.locator('#learnroot .wstrip small').innerText()).includes('0 из 5'), 'rhythm: for a barista the strip of the week has 3 tests + 2 lessons');
+  check((await page.locator('#learnroot .gstats').innerText()).includes('0 / 3'), 'rhythm: the rank card counts the tests of the week out of three');
+  await setRhythm({}, {}, 5);
+  check((await tile().innerText()).includes('На этой неделе: 0 / 5') && await stripN() === 7 && (await page.locator('#learnroot .wstrip small').innerText()).includes('0 из 7') && (await page.locator('#learnroot .gstats').innerText()).includes('0 / 5'),
+    'rhythm: for a trainee (quota 5) the tile, the strip (5 + 2) and the rank card say five');
+  await setRhythm({ week: { test: 3 } }, { tests: { test: 3 }, testsDone: 3 });
+  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('сданы (3 / 3)') && await page.locator('#learnroot .wstrip .ws.done').count() === 3, 'rhythm: all three tests done: the tile is locked with the reason, the strip ticks them');
+  check(await page.evaluate(() => planTest() === null), 'rhythm: the plan has no counted test left');
+  await setRhythm({}, { tried: { test: 1 } });
+  check(await page.evaluate(() => planTest().att.tried === true) && (await tile().innerText()).includes('ниже 70%') && await tile().isEnabled() && await page.locator('#learnroot .wstrip .ws.tried').count() === 1,
+    'rhythm: a test taken below 70% does not use a slot: the tile says it can be taken again, the strip shows a ring');
   /* one counted test a day */
   await setRhythm({ todayUsed: 1 });
-  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('Сегодня зачётный тест уже сдан'), 'rhythm: a test already taken today: the tile is locked until tomorrow');
+  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('Сегодня зачётный тест уже сдан'), 'rhythm: a test already taken today locks the tile with the reason');
   check(await page.evaluate(() => { startQuiz(); return L.view === 'home'; }), 'rhythm: startQuiz refuses on that day');
-  check((await page.locator('#learnroot .plan').innerText()).includes('откроется завтра') && await page.locator('#learnroot [data-l="plan"][data-v="mat"].lbtn, #learnroot .att-full + .lbtns [data-l="plan"]').count() >= 1,
+  check((await page.locator('#learnroot .plan').innerText()).includes('откроется завтра') && await page.locator('#learnroot [data-l="plan"][data-v="mat"].lbtn, #learnroot .att-full + .lbtns [data-v="mat"]').count() >= 1,
     'rhythm: the plan says the next test opens tomorrow; practice stays on offer');
   await setRhythm();
   await page.evaluate(() => { LS.lastTest = bakuDay(); renderLearn(); });
   check(!(await tile().isEnabled()), 'rhythm: this phone remembers the test of today even when the stats are old');
   await page.evaluate(() => { LS.lastTest = bakuDay(Date.now() - 864e5); renderLearn(); });
-  check(await tile().isEnabled(), 'rhythm: the next day the section opens again');
-  /* starting and finishing: a test below 70% gives the section back, the day stays taken */
+  check(await tile().isEnabled(), 'rhythm: the next day the test opens again');
+  /* starting and finishing: a test below 70% gives the slot back, the day stays taken */
   await setRhythm();
   await tile().click();
-  check(await page.evaluate(() => L.view === 'quiz' && LS.att.length === 1 && LS.att[0].g === 'drinks' && LS.lastTest === bakuDay()), 'rhythm: a started test takes the section and the day');
+  check(await page.evaluate(() => L.view === 'quiz' && LS.att.length === 1 && LS.att[0].g === 'test' && LS.lastTest === bakuDay()), 'rhythm: a started test takes a slot and the day');
   await playQuiz(3);
-  check(await page.evaluate(() => LS.att.length === 0 && LS.lastTest === bakuDay()), 'rhythm: finished below 70%: the section is given back, the day stays taken');
+  check(await page.evaluate(() => LS.att.length === 0 && LS.lastTest === bakuDay()), 'rhythm: finished below 70%: the slot is given back, the day stays taken');
   await page.evaluate(() => { L.nav = []; L.view = 'home'; renderLearn(); });
   await setRhythm();
   await tile().click();
   await playQuiz(9);
-  check(await page.evaluate(() => LS.att.length === 1), 'rhythm: finished from 70%: the section stays closed');
+  check(await page.evaluate(() => LS.att.length === 1), 'rhythm: finished from 70%: the slot stays used');
   /* the strip: counted tests, a retry ring, lessons also from this phone */
-  await setRhythm({}, { tests: { drinks: 1, preps: 1, vitrina: 0, theory: 1 }, tried: Object.assign(zero(), { vitrina: 1 }), testsDone: 3, lessons: 1 });
+  await setRhythm({}, { tests: { test: 2 }, tried: { test: 1 }, testsDone: 2, lessons: 1 });
   await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); LS.read['cf-farm'] = bakuDay(); renderLearn(); });
-  check(await page.locator('#learnroot .wstrip .ws.done').count() === 5 && await page.locator('#learnroot .wstrip .ws.tried').count() === 1 && (await page.locator('#learnroot .wstrip small').innerText()).includes('5 из 7'),
-    'rhythm: the strip shows 3 tests and 2 lessons done and the vitrina ring (lessons counted from this phone too)');
-  check((await page.locator('#learnroot .gstats').innerText()).includes('3 / 5'), 'rhythm: the rank card shows 3 / 5');
+  check(await page.locator('#learnroot .wstrip .ws.done').count() === 4 && await page.locator('#learnroot .wstrip .ws.tried').count() === 1 && (await page.locator('#learnroot .wstrip small').innerText()).includes('4 из 5'),
+    'rhythm: the strip shows 2 tests and 2 lessons done and the ring of a test below 70% (lessons counted from this phone too)');
+  check((await page.locator('#learnroot .gstats').innerText()).includes('2 / 3'), 'rhythm: the rank card shows 2 / 3');
   const rulesTxt = await page.locator('#learnroot details.rules').textContent();
-  check(rulesTxt.includes('не больше 2 в неделю') && rulesTxt.includes('раздел не закрывает') && rulesTxt.includes('+3 — полная неделя'), 'rhythm: the rules tell the new rhythm');
+  check(rulesTxt.includes('Не больше одного зачётного теста в день') && rulesTxt.includes('прерванный засчитывает') && rulesTxt.includes('+3 — полная неделя'), 'rhythm: the rules list explains the quota, the day and the full week');
   /* the days of the lessons go to the sheet, and come back */
   const nProg = progPosts.length;
   await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); LS.read['cf-old'] = 1; touchProgress(); pushProgress(); });
@@ -985,10 +971,11 @@ const server = http.createServer((req, res) => {
   const lp = progPosts[progPosts.length - 1];
   check(progPosts.length > nProg && lp.readAt && lp.readAt['cf-milk'] === (await page.evaluate(() => bakuDay())) && !('cf-old' in lp.readAt) && lp.read.includes('cf-old'), 'progress: the day of a counted lesson is sent, a lesson without a day only as read');
   check(await page.evaluate(() => { LS.read['zz-x'] = 1; applyProgress({ read: ['zz-x'], readAt: { 'zz-x': '2026-10-01' }, box: {}, ts: Date.now() + 5000 }); return LS.read['zz-x'] === '2026-10-01'; }), 'progress: a lesson known without a day gets its day from the sheet');
-  /* an older script (the two pools) still works: the previous checks above and below use it */
-  delete ME.perDay; delete ME.todayUsed; delete ME.plan; ME.limits = keepOld.limits; ME.week = keepOld.week;
-  await page.evaluate(m => { delete LS.stats.perDay; delete LS.stats.plan; LS.stats.limits = m.limits; LS.stats.week = m.week; LS.stats.at = Date.now(); LS.att = []; LS.lastTest = null; LS.read = {}; L.nav = []; L.view = 'home'; renderLearn(); }, keepOld);
-  check(await page.locator('#learnroot .wstrip').count() === 0 && (await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе'), 'rhythm: with the older script no strip, the old attempt counter');
+  /* an older script (no `limits.test`: the two pools or none) still works: a test without a limit and without the strip */
+  delete ME.perDay; delete ME.todayUsed; delete ME.plan; ME.limits = { recipes: 4, theory: 2 }; ME.week = { recipes: 1, theory: 0 };
+  await page.evaluate(m => { delete LS.stats.perDay; delete LS.stats.plan; LS.stats.limits = m.limits; LS.stats.week = m.week; LS.stats.at = Date.now(); LS.att = []; LS.lastTest = null; LS.read = {}; L.nav = []; L.view = 'home'; renderLearn(); }, ME);
+  check(await page.locator('#learnroot .wstrip').count() === 0 && !(await tile().innerText()).includes('На этой неделе') && await tile().isEnabled(), 'rhythm: with the older script no strip and no limit on the general test');
+  delete ME.limits; delete ME.week;
 
   /* ---- «План месяца» (script v5.9): the share of the plan, what it costs, the trial month, the warning ---- */
   const kpiBase = { month: '2026-11', state: 'trial', pct: 74, parts: { weeks: 79, exam: null, quality: 100, regularity: 100 }, weeksDone: 2, weeksTotal: 5, absentDays: 0, graceUntil: '',
