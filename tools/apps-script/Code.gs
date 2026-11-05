@@ -29,6 +29,10 @@
  * в таблицу не приходят вовсе. Прогресс сотрудника (прочитанные уроки и ящики карточек) хранится на листе
  * «Прогресс»: приложение отправляет его действием progress, ?action=me отдаёт обратно (progress).
  *
+ * С v5.8 ритм недели: 5 зачётных тестов (напитки, заготовки, витрина — по одному, теория — 2), не больше одного зачётного
+ * теста в день (Баку); тест ниже 70% раздел не закрывает, но занимает день; полная неделя = 5 тестов от 70% + 2 урока
+ * (даты уроков приходят в readAt). Совы: полная неделя, тест 90%+ (до 2 в неделю), «Вопрос дня» 7 дней подряд, все уроки категории.
+ *
  * С v5.6 «Вопрос дня»: 3 вопроса раз в день (тип daily). Они пишутся на свой лист «Вопрос дня», а не в «Результаты»,
  * поэтому не попадают в «Сводку», KPI, лимиты и мгновенные уведомления; XP (10 за верный, +20 за все верные) только
  * за первый за день, сов не дают; ?action=me отдаёт daily: {done, streak}. Каждый понедельник (и из меню) скрипт
@@ -54,12 +58,20 @@ const KINDS = ['drinks', 'preps', 'vitrina', 'exam', 'mix', 'theory'];  // R: wh
 const OWLS_MONTH_CAP = 50;
 // Уровень сотрудника: столбец D листа «Сотрудники». Приложение получает его кодом и показывает вопросы «Теории» до этого уровня включительно.
 const LEVELS = { 'стажёр': 'trainee', 'стажер': 'trainee', 'бариста': 'barista', 'старший': 'senior' };
-// Попыток в неделю (пн–вс, время Баку): рецептурные тесты (напитки, заготовки и витрина вместе) и тесты по теории.
-// Прерванный тест — попытка. «Экзамен месяца» и «Повторить ошибки» (mix) не считаются. Сверх лимита результат
-// сохраняется, но без XP, сов и зачёта в «учебную неделю». Приложение читает лимит отсюда (?action=me).
-const WEEK_LIMITS = { recipes: 4, theory: 2 };
+// Ритм недели (пн–вс, время Баку). Зачётные группы: напитки, заготовки, витрина — по одному тесту в неделю, теория — 2.
+// Раздел закрывает тест от 70% (или прерванный: он сжигает раздел); завершённый тест ниже 70% раздел не закрывает.
+// Не больше DAY_LIMIT зачётных тестов в календарный день. «Экзамен месяца», «Повторить ошибки» (mix) и «Вопрос дня» не считаются.
+// Тест сверх лимита раздела или дня сохраняется, но без XP, сов и зачёта в неделю. Приложение читает лимиты отсюда (?action=me).
+const WEEK_LIMITS = { drinks: 1, preps: 1, vitrina: 1, theory: 2 };
+const DAY_LIMIT = 1;
+const LESSONS_WEEK = 2;                      // lessons (counted by the app's check) that make a full week together with the tests
+const LESSON_TOTALS = { cf: 17, sv: 12, sn: 3, br: 14 };   // lessons per category = id prefix; audit.py checks it against lessons.json
+const CAT_OWLS = { cf: 3, sv: 2, sn: 1, br: 3 };           // once, for all the lessons of a category
+const CAT_NAMES = { cf: 'Кофе', sv: 'Сервис и продажи', sn: 'Санитария', br: 'Бренд' };
+const PLAN_OWLS = 3, GOOD_OWLS_WEEK = 2, DAILY7_OWLS = 1, DAILY_STREAK_OWL = 7;
+const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.7';
+const SCRIPT_VERSION = 'v5.8';
 
 /* ---------- меню в таблице ---------- */
 
@@ -104,7 +116,14 @@ function doPost(e) {
   try { d = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad_json' }); }
   const staff = findStaff_(d.code);
   if (!staff) return json_({ ok: false, error: 'unknown_code' });
-  if (d.action === 'progress') return json_(saveProgress_(staff, d));
+  if (d.action === 'progress') {
+    const r = saveProgress_(staff, d);
+    if (r.ok && r.lessonsAdded) {
+      try { r.owls = underLock_(() => awardProgressOwls_(staff)); } catch (err) { console.warn('progress owls: ' + err.message); }
+    }
+    delete r.lessonsAdded;
+    return json_(r);
+  }
   if (d.kind === 'daily') return json_(saveDaily_(staff, d));
   const score = Number(d.score), total = Number(d.total);
   if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= MAX_QUESTIONS && score >= 0 && score <= total)) {
@@ -179,7 +198,7 @@ function doPost(e) {
     if (away) checks.push(`📵 выходы из приложения: ${away}`);
     if (checks.length) lines.push(checks.join(' · '));
     if (owls.length) lines.push(`🦉 +${owls.reduce((s, o) => s + o.n, 0)}: ${owls.map(o => o.why).join(', ')}`);
-    if (over) lines.push('⚠️ Сверх недельного лимита попыток: XP и совы не начислены');
+    if (over) lines.push('⚠️ Сверх лимита (раздел недели уже сдан или это второй тест за день): XP и совы не начислены');
     if (mistakes.length) lines.push('', 'Ошибки:', ...mistakes.slice(0, 10).map(m => `• ${m}`));
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
@@ -258,6 +277,10 @@ function weeklyReport() {
     lines.push('', `📅 Вопрос дня: ${dWeek.length} ${plural_(dWeek.length, 'ответ', 'ответа', 'ответов')}, ` +
       `сотрудников: ${new Set(dWeek.map(r => r.code)).size}`);
   }
+  const lastWeek = weekKey_(new Date(now.getTime() - 864e5)), allAt = readAtMap_(), allTests = withXp_(results_());
+  const real = staff.filter(s => s.branch !== TEST_BRANCH);
+  const fullN = real.filter(s => weekPlan_(allTests.filter(r => r.code === s.code), allAt[s.code] || {}, lastWeek).full).length;
+  if (real.length) lines.push('', `🏅 Полная неделя (5 тестов и ${LESSONS_WEEK} урока): ${fullN} из ${real.length}`);
   const hard = rebuildHard_(now).filter(h => h.n > 1).slice(0, 5);
   if (hard.length) {
     lines.push('', '❓ Сложные вопросы недели (лист «Сложные вопросы»):');
@@ -424,45 +447,52 @@ function topMistakes_(rows, n) {
 
 /* XP per test: 10 per right answer (15 in the exam), +50 for a flawless test of 10+ questions,
    nothing for an aborted one; only the first 5 tests of a day count, so grinding doesn't win the board */
-function limitGroup_(kind) { return kind === 'drinks' || kind === 'preps' || kind === 'vitrina' ? 'recipes' : kind === 'theory' ? 'theory' : ''; }
+function limitGroup_(kind) { return Object.prototype.hasOwnProperty.call(WEEK_LIMITS, kind) ? kind : ''; }
 
+/* Walks the tests of everyone oldest first. A test of a counted group is `over` when its section of the week is already closed
+   or it is not the first one of its day; a test that is not over closes the section when it is aborted or reaches PASS_RATIO (`burns`),
+   otherwise it is `tried`: finished below the line, the section stays open for another day. */
 function withXp_(rows) {
-  const perDay = {}, perWeek = {};
+  const perDay = {}, closed = {}, slot = {};
   return rows.slice().sort((a, b) => a.date - b.date).map(r => {
     const k = r.code + ' ' + dayKey_(r.date);
     perDay[k] = (perDay[k] || 0) + 1;
-    /* attempts of the week, oldest first: whatever comes after the limit is «over» */
     const g = limitGroup_(r.kind);
-    let over = false;
-    if (g) { const wk = r.code + ' ' + weekKey_(r.date) + ' ' + g; perWeek[wk] = (perWeek[wk] || 0) + 1; over = perWeek[wk] > WEEK_LIMITS[g]; }
+    let over = false, burns = false, tried = false;
+    if (g) {
+      const wk = r.code + ' ' + weekKey_(r.date) + ' ' + g;
+      slot[k] = (slot[k] || 0) + 1;
+      over = (closed[wk] || 0) >= WEEK_LIMITS[g] || slot[k] > DAY_LIMIT;
+      burns = !over && (r.aborted || r.ratio >= PASS_RATIO);
+      tried = !over && !burns;
+      if (burns) closed[wk] = (closed[wk] || 0) + 1;
+    }
     const xp = r.aborted || over || perDay[k] > 5 ? 0
       : r.score * (r.kind === 'exam' ? 15 : 10) + (r.total >= 10 && r.score === r.total ? 50 : 0);
-    return Object.assign({}, r, { xp, over });
+    return Object.assign({}, r, { xp, over, group: g, burns, tried });
   });
 }
 
-/* a test that counts for the study week: finished, 10+ questions, 70% or more */
-function counts_(r) { return !r.aborted && !r.over && r.total >= 10 && r.ratio >= 0.7; }
+/* a test that counts for the week: finished, 10+ questions, 70% or more, not over */
+function counts_(r) { return !r.aborted && !r.over && r.total >= 10 && r.ratio >= PASS_RATIO; }
 
-/* owls for the test just saved (`self`, one of `mine`), at most OWLS_MONTH_CAP a month; each rule once per its period */
-function awardOwls_(staff, self, mine) {
-  if (!self || self.aborted || self.over || self.total < 10) return [];
-  const month = monthKey_(self.date), ledger = owls_().filter(o => o.code === staff.code);
+function underLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+/* Writes the owls of the candidates `build(ledger)` returns ([{key, why, n}]), each key once ever, within OWLS_MONTH_CAP a month.
+   Call under the script lock. Returns the owls of this attempt, new ones and those an earlier try of it already wrote
+   (a lost response or a partial write is retried without crediting twice). */
+function grantOwls_(staff, date, attemptId, build) {
+  const month = monthKey_(date), ledger = owls_().filter(o => o.code === staff.code);
   let left = OWLS_MONTH_CAP - ledger.filter(o => monthKey_(o.date) === month).reduce((s, o) => s + o.n, 0);
   const out = [];
-  const give = (key, why, n) => {
-    if (left <= 0 || n <= 0 || ledger.some(o => o.key === key)) return;
-    n = Math.min(n, left); left -= n; out.push({ key, why, n });
-  };
-  if (self.kind === 'exam') {
-    give('exam:' + month, `Экзамен месяца ${pct_(self.ratio)}`, self.ratio === 1 ? 15 : self.ratio >= 0.9 ? 10 : self.ratio >= 0.8 ? 5 : 0);
-  } else if (!self.away && self.ratio >= 0.9) {
-    give('day:' + dayKey_(self.date), 'Тест на 90%+', 1);
-  }
-  const week = weekKey_(self.date);
-  if (counts_(self) && mine.filter(r => weekKey_(r.date) === week && counts_(r)).length >= 3) {
-    give('week:' + week, 'Учебная неделя', 2);
-  }
+  build(ledger).forEach(c => {
+    if (left <= 0 || !(c.n > 0) || ledger.some(o => o.key === c.key)) return;
+    const n = Math.min(c.n, left); left -= n; out.push({ key: c.key, why: c.why, n });
+  });
   if (out.length) {
     const sh = owlsSheet_();
     let row = nextRow_(sh);
@@ -470,13 +500,47 @@ function awardOwls_(staff, self, mine) {
       if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
       sh.getRange(row, 2).setNumberFormat('@');
       sh.getRange(row, 9).setNumberFormat('@');
-      sh.getRange(row, 1, 1, 9).setValues([[self.date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key, self.id]]);
+      sh.getRange(row, 1, 1, 9).setValues([[date, staff.code, staff.name, staff.branch, o.why, o.n, false, o.key, attemptId || '']]);
       sh.getRange(row, 7).insertCheckboxes();
       row++;
     });
   }
-  // A lost response or partial write returns the same award on retry, without crediting it twice.
-  return ledger.filter(o => self.id && o.attemptId === self.id).concat(out).map(o => ({ why: o.why, n: o.n }));
+  return ledger.filter(o => attemptId && o.attemptId === attemptId).concat(out).map(o => ({ why: o.why, n: o.n }));
+}
+
+/* the owl of a full week, once a week: asked after every test and after a lesson is counted, because either can be the last step */
+function planCandidate_(staff, week, mineTests) {
+  return weekPlan_(mineTests, readAtOf_(staff.code), week).full ? [{ key: 'plan:' + week, why: 'Полная учебная неделя', n: PLAN_OWLS }] : [];
+}
+
+/* owls for the test just saved (`self`, one of `mine`): a test of 90%+ (two a week at most), a full week, the exam */
+function awardOwls_(staff, self, mine) {
+  if (!self || self.aborted || self.over || self.total < 10) return [];
+  const month = monthKey_(self.date), week = weekKey_(self.date);
+  return grantOwls_(staff, self.date, self.id, ledger => {
+    const c = [];
+    if (self.kind === 'exam') {
+      c.push({ key: 'exam:' + month, why: `Экзамен месяца ${pct_(self.ratio)}`, n: self.ratio === 1 ? 15 : self.ratio >= 0.9 ? 10 : self.ratio >= 0.8 ? 5 : 0 });
+    } else if (self.group && !self.away && self.ratio >= 0.9 && ledger.filter(o => o.key.indexOf('good:' + week + ':') === 0).length < GOOD_OWLS_WEEK) {
+      c.push({ key: 'good:' + week + ':' + dayKey_(self.date), why: 'Тест на 90%+', n: 1 });
+    }
+    return c.concat(planCandidate_(staff, week, mine));
+  });
+}
+
+/* after a lesson is counted: a full week, or every lesson of a category */
+function awardProgressOwls_(staff) {
+  const now = new Date(), week = weekKey_(now), mine = withXp_(results_().filter(r => r.code === staff.code));
+  const read = progressOf_(staff.code).read;
+  return grantOwls_(staff, now, '', () => {
+    const c = planCandidate_(staff, week, mine);
+    Object.keys(LESSON_TOTALS).forEach(cat => {
+      if (read.filter(id => id.indexOf(cat + '-') === 0).length >= LESSON_TOTALS[cat]) {
+        c.push({ key: 'cat:' + cat.toUpperCase(), why: `Все уроки: ${CAT_NAMES[cat]}`, n: CAT_OWLS[cat] });
+      }
+    });
+    return c;
+  });
 }
 
 /* the row under the last filled date: unticked checkboxes further down count as content for getLastRow() */
@@ -511,11 +575,8 @@ function owls_() {
       n: Number(r[5]), done: r[6] === true, key: String(r[7]), attemptId: String(r[8] || '') }));
 }
 
-/* study weeks in a row up to now; the current week counts once it has 3 tests, until then the streak runs to last week */
-function streaks_(mine, now) {
-  const totals = new Map();
-  mine.filter(counts_).forEach(r => { const k = weekKey_(r.date); totals.set(k, (totals.get(k) || 0) + 1); });
-  const weeks = new Set([...totals].filter(([, n]) => n >= 3).map(([k]) => k));
+/* full weeks (5 tests and 2 lessons) in a row up to now; the current week counts once it is full, until then the streak runs to last week */
+function streaks_(weeks, now) {
   const back = k => new Date(Date.parse(k + 'T00:00:00Z') - 7 * 864e5).toISOString().slice(0, 10);
   let k = weekKey_(now);
   if (!weeks.has(k)) k = back(k);
@@ -554,7 +615,8 @@ function me_(code) {
   const all = tests.concat(daily), mine = all.filter(r => r.code === s.code), myTests = tests.filter(r => r.code === s.code);
   const myDaily = daily.filter(r => r.code === s.code), ds = dayStreak_(myDaily, now);
   const ledger = owls_().filter(o => o.code === s.code);
-  const st = streaks_(myTests, now);
+  const prog = progressOf_(s.code), readAt = prog.readAt || {};
+  const st = streaks_(fullWeeks_(myTests, readAt), now);
   const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === month)[0];
   const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
   const thisWeek = all.filter(r => weekKey_(r.date) === week && r.branch !== TEST_BRANCH);
@@ -574,8 +636,9 @@ function me_(code) {
     owlsTotal: sum(ledger, o => o.n), owlsCap: OWLS_MONTH_CAP, badges: badges_(myTests, st.best, ds.best),
     daily: { done: myDaily.some(r => dayKey_(r.date) === dayKey_(now)), streak: ds.cur },
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
-    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, passThreshold: setting_('PassThreshold', 0.7),
-    progressProtocol: 2, progress: progressOf_(s.code),
+    week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, perDay: DAY_LIMIT, todayUsed: todayUsed_(myTests, now),
+    plan: weekPlan_(myTests, readAt, week), passThreshold: setting_('PassThreshold', 0.7),
+    progressProtocol: 2, progress: prog,
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
@@ -658,7 +721,14 @@ function saveDaily_(staff, d) {
   }
   const mine = dailyXp_(dailies_().filter(r => r.code === staff.code));
   const self = mine.filter(r => id ? r.id === id : true).pop();
-  return { ok: true, xp: self ? self.xp : 0, owls: [], daily: { done: true, streak: dayStreak_(mine, new Date()).cur } };
+  const ds = dayStreak_(mine, new Date());
+  let owls = [];
+  if (self && !self.aborted && ds.cur > 0 && ds.cur % DAILY_STREAK_OWL === 0) {
+    try {
+      owls = underLock_(() => grantOwls_(staff, when, id, () => [{ key: 'daily7:' + dayKey_(when), why: `«Вопрос дня» ${ds.cur} дней подряд`, n: DAILY7_OWLS }]));
+    } catch (err) { console.warn('daily owl: ' + err.message); }
+  }
+  return { ok: true, xp: self ? self.xp : 0, owls, daily: { done: true, streak: ds.cur } };
 }
 
 /* ---------- «Сложные вопросы»: на чём ошибались за 7 дней ---------- */
@@ -716,22 +786,29 @@ function progressSheet_() {
 /* the stored progress of one code and the row it lives in (0 = none yet) */
 function progressRow_(sh, code) {
   const last = sh.getLastRow();
-  if (last < 2) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, protocol: 0 };
+  if (last < 2) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, readAt: {}, protocol: 0 };
   const rows = sh.getRange(2, 1, last - 1, 6).getValues();
   const i = rows.findIndex(r => String(r[0]).trim() === code);
-  if (i < 0) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, protocol: 0 };
+  if (i < 0) return { row: 0, read: [], box: {}, ts: 0, clocks: {}, readAt: {}, protocol: 0 };
   const parse = (v, def) => { try { const x = JSON.parse(String(v || '')); return x && typeof x === 'object' ? x : def; } catch (err) { return def; } };
   const read = parse(rows[i][3], []), box = parse(rows[i][4], {}), meta = parse(rows[i][5], {});
   return { row: i + 2, read: Array.isArray(read) ? read : [], box: Array.isArray(box) ? {} : box,
     ts: Number(rows[i][2]) || 0, protocol: meta.v === 2 ? 2 : 0,
-    clocks: meta.clocks && typeof meta.clocks === 'object' && !Array.isArray(meta.clocks) ? meta.clocks : {} };
+    clocks: meta.clocks && typeof meta.clocks === 'object' && !Array.isArray(meta.clocks) ? meta.clocks : {},
+    readAt: meta.readAt && typeof meta.readAt === 'object' && !Array.isArray(meta.readAt) ? meta.readAt : {} };
+}
+
+/* the days (Baku) the lessons were counted: {lesson id: 'YYYY-MM-DD'}; a lesson without a day is counted but dated to no week */
+function readAtOf_(code) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_PROGRESS);
+  return sh ? progressRow_(sh, code).readAt : {};
 }
 
 function progressOf_(code) {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_PROGRESS);
-  if (!sh) return { read: [], box: {}, ts: 0 };
+  if (!sh) return { read: [], box: {}, ts: 0, readAt: {} };
   const p = progressRow_(sh, code);
-  return { read: p.read, box: p.box, ts: p.ts };
+  return { read: p.read, box: p.box, ts: p.ts, readAt: p.readAt };
 }
 
 /* Lessons grow by union. Protocol 2 sends only changed cards, including explicit zero resets.
@@ -755,9 +832,19 @@ function saveProgress_(staff, d) {
     const modern = d.protocol === 2;
     if (old.protocol === 2 && !modern) return { ok: false, error: 'progress_update_required' };
     const mergedRead = Array.from(new Set(old.read.concat(read))).slice(0, PROGRESS_MAX.read);
+    /* the day of each lesson: only for lessons that are read, earlier day wins, never later than today in Baku */
+    const today = dayKey_(new Date(now)), readAt = Object.assign({}, old.readAt);
+    const sent = d.readAt && typeof d.readAt === 'object' && !Array.isArray(d.readAt) ? d.readAt : {};
+    Object.keys(sent).forEach(id => {
+      const day = String(sent[id]);
+      if (mergedRead.indexOf(id) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today) return;
+      if (!readAt[id] || day < readAt[id]) readAt[id] = day;
+    });
+    const lessonsAdded = mergedRead.length > old.read.length || Object.keys(readAt).some(id => readAt[id] !== old.readAt[id]);
     const newer = ts >= old.ts;
     const out = { read: mergedRead, box: newer ? box : old.box, ts: newer ? ts : old.ts };
     let meta = '';
+    const metaOf = clocks => JSON.stringify({ v: 2, clocks, readAt });
     if (modern) {
       out.ts = Math.max(now, old.ts + 1, out.ts);
       out.box = Object.assign({}, old.box);
@@ -776,22 +863,69 @@ function saveProgress_(staff, d) {
         }
         out.ts = Math.max(out.ts, at);
       });
-      meta = JSON.stringify({ v: 2, clocks });
+      meta = metaOf(clocks);
+    } else if (Object.keys(readAt).length) {
+      meta = JSON.stringify({ readAt });  // a snapshot client: no protocol mark, so it can still be told to update
     }
     const row = old.row || Math.max(2, sh.getLastRow() + 1);
     sh.getRange(row, 1).setNumberFormat('@');
     sh.getRange(row, 1, 1, 6).setValues([[staff.code, staff.name, out.ts, JSON.stringify(out.read), JSON.stringify(out.box), meta]]);
-    return { ok: true, progress: out };
+    out.readAt = readAt;
+    return { ok: true, progress: out, lessonsAdded };
   } finally {
     lock.releaseLock();
   }
 }
 
-/* attempts this week by group (aborted ones too): the app blocks the test at the limit */
+/* attempts that closed their section this week, by group: the app blocks a section at the limit */
 function weekAttempts_(mine, week) {
-  const used = { recipes: 0, theory: 0 };
-  mine.forEach(r => { const g = limitGroup_(r.kind); if (g && weekKey_(r.date) === week) used[g]++; });
+  const used = {};
+  Object.keys(WEEK_LIMITS).forEach(g => { used[g] = 0; });
+  mine.forEach(r => { if (r.burns && weekKey_(r.date) === week) used[r.group]++; });
   return used;
+}
+
+/* tests of a counted group taken today (any result, aborted too): the app blocks the next one at DAY_LIMIT */
+function todayUsed_(mine, now) {
+  const day = dayKey_(now);
+  return mine.filter(r => r.group && dayKey_(r.date) === day).length;
+}
+
+/* Monday of the week a day string 'YYYY-MM-DD' falls in */
+function weekOfDay_(day) {
+  const t = Date.parse(day + 'T00:00:00Z'), dow = (new Date(t).getUTCDay() + 6) % 7;
+  return new Date(t - dow * 864e5).toISOString().slice(0, 10);
+}
+
+/* The week of one person: tests counted per group (at most the limit), finished-below-the-line ones, lessons counted that week.
+   `full` = every section closed (5 tests) and LESSONS_WEEK lessons. */
+function weekPlan_(mine, readAt, week) {
+  const tests = {}, tried = {};
+  Object.keys(WEEK_LIMITS).forEach(g => { tests[g] = 0; tried[g] = 0; });
+  mine.forEach(r => {
+    if (!r.group || weekKey_(r.date) !== week) return;
+    if (counts_(r)) tests[r.group]++; else if (r.tried) tried[r.group]++;
+  });
+  let done = 0, need = 0;
+  Object.keys(WEEK_LIMITS).forEach(g => { tests[g] = Math.min(tests[g], WEEK_LIMITS[g]); done += tests[g]; need += WEEK_LIMITS[g]; });
+  const lessons = Object.keys(readAt || {}).filter(id => weekOfDay_(readAt[id]) === week).length;
+  return { tests, tried, testsDone: done, testsNeed: need, lessons, lessonsNeed: LESSONS_WEEK, full: done >= need && lessons >= LESSONS_WEEK };
+}
+
+/* the weeks of a person in which the plan was complete */
+function fullWeeks_(mine, readAt) {
+  const weeks = new Set(mine.filter(r => r.group).map(r => weekKey_(r.date)).concat(Object.keys(readAt || {}).map(id => weekOfDay_(readAt[id]))));
+  return new Set([...weeks].filter(w => weekPlan_(mine, readAt, w).full));
+}
+
+/* {code: readAt} of everyone, one pass over the sheet «Прогресс» */
+function readAtMap_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_PROGRESS), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues().forEach(r => {
+    try { const m = JSON.parse(String(r[5] || '')); if (m && m.readAt && typeof m.readAt === 'object') out[String(r[0]).trim()] = m.readAt; } catch (err) { /* no dates yet */ }
+  });
+  return out;
 }
 
 function dayKey_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }

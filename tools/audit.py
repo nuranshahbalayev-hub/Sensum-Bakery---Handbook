@@ -359,6 +359,24 @@ def check_meta(D, changelog, version, cache):
                 err(f'CHANGELOG {c["id"]}: missing {lang} title')
 
 
+def check_lesson_totals(D):
+    """The script pays an owl for all the lessons of a category, so its LESSON_TOTALS must be the real number of lessons per id prefix."""
+    gs = os.path.join(ROOT, 'tools', 'apps-script', 'Code.gs')
+    if not os.path.exists(gs):
+        return
+    m = re.search(r'const LESSON_TOTALS = \{([^}]*)\}', open(gs, encoding='utf-8').read())
+    if not m:
+        err('Code.gs: LESSON_TOTALS not found')
+        return
+    totals = {k: int(v) for k, v in re.findall(r'(\w+)\s*:\s*(\d+)', m.group(1))}
+    real = {}
+    for x in D.get('lessons_ru', []):
+        p = x['id'].split('-')[0]
+        real[p] = real.get(p, 0) + 1
+    if totals != real:
+        err(f'Code.gs LESSON_TOTALS {totals} differs from the lessons in index.html {real}')
+
+
 def main():
     D, images, changelog, version, cache = load()
     check_parity(D)
@@ -366,6 +384,7 @@ def main():
     check_triggers(D)
     check_theory(D)
     check_lessons(D)
+    check_lesson_totals(D)
     check_meta(D, changelog, version, cache)
 
     print(f'v{version}: {len(D["drinks_ru"])} drinks, {len(D["preps_ru"])} preps, '
