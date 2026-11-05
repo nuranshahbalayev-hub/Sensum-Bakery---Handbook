@@ -924,6 +924,69 @@ const server = http.createServer((req, res) => {
   await page.click('#learnBack');
   await page.waitForTimeout(500);
   check((await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе: 1 / 4'), 'vitrina test: after it the tile shows 1 / 4');
+
+  /* ---- the rhythm of the week (script v5.8): each section once, one counted test a day, the strip of the week ---- */
+  const keepOld = { limits: ME.limits, week: ME.week };
+  const zero = () => ({ drinks: 0, preps: 0, vitrina: 0, theory: 0 });
+  const setRhythm = async (over = {}, planOver = {}) => {
+    Object.assign(ME, { limits: { drinks: 1, preps: 1, vitrina: 1, theory: 2 }, perDay: 1, week: zero(), todayUsed: 0,
+      plan: Object.assign({ tests: zero(), tried: zero(), testsDone: 0, testsNeed: 5, lessons: 0, lessonsNeed: 2, full: false }, planOver) }, over);
+    await page.evaluate(m => { LS.att = []; LS.lastTest = null; LS.read = {}; LS.today = null; LS.stats = Object.assign({}, m, { at: Date.now() }); L.nav = []; L.view = 'home'; L.scope = 'drinks'; saveLearn(); renderLearn(); }, ME);
+  };
+  await setRhythm();
+  check((await tile().innerText()).includes('На этой неделе: 0 / 1') && await tile().isEnabled() && !(await page.locator('#learnroot [data-l="scope"][data-v="drinks"]').innerText()).includes('✓'),
+    'rhythm: an open section shows «0 / 1» and no tick');
+  check(await page.locator('#learnroot .wstrip .ws').count() === 7 && (await page.locator('#learnroot .wstrip small').innerText()).includes('0 из 7'), 'rhythm: the strip of the week has seven steps');
+  check((await page.locator('#learnroot .gstats').innerText()).includes('0 / 5'), 'rhythm: the rank card counts the tests of the week out of five');
+  await setRhythm({ week: Object.assign(zero(), { drinks: 1 }) }, { tests: Object.assign(zero(), { drinks: 1 }), testsDone: 1 });
+  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('уже закрыт') && (await page.locator('#learnroot [data-l="scope"][data-v="drinks"]').innerText()).includes('✓'),
+    'rhythm: a closed section: tile locked, the reason, a tick on its chip');
+  check(await page.evaluate(() => planTest().scope !== 'drinks') && await page.locator('#learnroot .wstrip .ws.done').count() === 1, 'rhythm: the plan offers another section, the strip ticks the closed one');
+  await setRhythm({}, { tried: Object.assign(zero(), { vitrina: 1 }) });
+  check(await page.evaluate(() => planTest().scope === 'vitrina' && planTest().att.tried === true), 'rhythm: a section taken below 70% is offered first for another try');
+  await page.click('#learnroot [data-l="scope"][data-v="vitrina"]');
+  check((await tile().innerText()).includes('ниже 70%') && await tile().isEnabled(), 'rhythm: the tile says the section can be taken again');
+  /* one counted test a day */
+  await setRhythm({ todayUsed: 1 });
+  check(!(await tile().isEnabled()) && (await page.locator('#learnroot .att-full').innerText()).includes('Сегодня зачётный тест уже сдан'), 'rhythm: a test already taken today: the tile is locked until tomorrow');
+  check(await page.evaluate(() => { startQuiz(); return L.view === 'home'; }), 'rhythm: startQuiz refuses on that day');
+  check((await page.locator('#learnroot .plan').innerText()).includes('откроется завтра') && await page.locator('#learnroot [data-l="plan"][data-v="mat"].lbtn, #learnroot .att-full + .lbtns [data-l="plan"]').count() >= 1,
+    'rhythm: the plan says the next test opens tomorrow; practice stays on offer');
+  await setRhythm();
+  await page.evaluate(() => { LS.lastTest = bakuDay(); renderLearn(); });
+  check(!(await tile().isEnabled()), 'rhythm: this phone remembers the test of today even when the stats are old');
+  await page.evaluate(() => { LS.lastTest = bakuDay(Date.now() - 864e5); renderLearn(); });
+  check(await tile().isEnabled(), 'rhythm: the next day the section opens again');
+  /* starting and finishing: a test below 70% gives the section back, the day stays taken */
+  await setRhythm();
+  await tile().click();
+  check(await page.evaluate(() => L.view === 'quiz' && LS.att.length === 1 && LS.att[0].g === 'drinks' && LS.lastTest === bakuDay()), 'rhythm: a started test takes the section and the day');
+  await playQuiz(3);
+  check(await page.evaluate(() => LS.att.length === 0 && LS.lastTest === bakuDay()), 'rhythm: finished below 70%: the section is given back, the day stays taken');
+  await page.evaluate(() => { L.nav = []; L.view = 'home'; renderLearn(); });
+  await setRhythm();
+  await tile().click();
+  await playQuiz(9);
+  check(await page.evaluate(() => LS.att.length === 1), 'rhythm: finished from 70%: the section stays closed');
+  /* the strip: counted tests, a retry ring, lessons also from this phone */
+  await setRhythm({}, { tests: { drinks: 1, preps: 1, vitrina: 0, theory: 1 }, tried: Object.assign(zero(), { vitrina: 1 }), testsDone: 3, lessons: 1 });
+  await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); LS.read['cf-farm'] = bakuDay(); renderLearn(); });
+  check(await page.locator('#learnroot .wstrip .ws.done').count() === 5 && await page.locator('#learnroot .wstrip .ws.tried').count() === 1 && (await page.locator('#learnroot .wstrip small').innerText()).includes('5 из 7'),
+    'rhythm: the strip shows 3 tests and 2 lessons done and the vitrina ring (lessons counted from this phone too)');
+  check((await page.locator('#learnroot .gstats').innerText()).includes('3 / 5'), 'rhythm: the rank card shows 3 / 5');
+  const rulesTxt = await page.locator('#learnroot details.rules').textContent();
+  check(rulesTxt.includes('не больше 2 в неделю') && rulesTxt.includes('раздел не закрывает') && rulesTxt.includes('+3 — полная неделя'), 'rhythm: the rules tell the new rhythm');
+  /* the days of the lessons go to the sheet, and come back */
+  const nProg = progPosts.length;
+  await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); LS.read['cf-old'] = 1; touchProgress(); pushProgress(); });
+  await page.waitForTimeout(500);
+  const lp = progPosts[progPosts.length - 1];
+  check(progPosts.length > nProg && lp.readAt && lp.readAt['cf-milk'] === (await page.evaluate(() => bakuDay())) && !('cf-old' in lp.readAt) && lp.read.includes('cf-old'), 'progress: the day of a counted lesson is sent, a lesson without a day only as read');
+  check(await page.evaluate(() => { LS.read['zz-x'] = 1; applyProgress({ read: ['zz-x'], readAt: { 'zz-x': '2026-10-01' }, box: {}, ts: Date.now() + 5000 }); return LS.read['zz-x'] === '2026-10-01'; }), 'progress: a lesson known without a day gets its day from the sheet');
+  /* an older script (the two pools) still works: the previous checks above and below use it */
+  delete ME.perDay; delete ME.todayUsed; delete ME.plan; ME.limits = keepOld.limits; ME.week = keepOld.week;
+  await page.evaluate(m => { delete LS.stats.perDay; delete LS.stats.plan; LS.stats.limits = m.limits; LS.stats.week = m.week; LS.stats.at = Date.now(); LS.att = []; LS.lastTest = null; LS.read = {}; L.nav = []; L.view = 'home'; renderLearn(); }, keepOld);
+  check(await page.locator('#learnroot .wstrip').count() === 0 && (await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе'), 'rhythm: with the older script no strip, the old attempt counter');
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));
