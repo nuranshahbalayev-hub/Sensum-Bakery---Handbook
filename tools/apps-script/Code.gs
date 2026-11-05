@@ -33,6 +33,12 @@
  * теста в день (Баку); тест ниже 70% раздел не закрывает, но занимает день; полная неделя = 5 тестов от 70% + 2 урока
  * (даты уроков приходят в readAt). Совы: полная неделя, тест 90%+ (до 2 в неделю), «Вопрос дня» 7 дней подряд, все уроки категории.
  *
+ * С v5.9 KPI обучения: процент выполнения плана за месяц (недели 60%, экзамен 20%, качество 10%, регулярность 10%) и
+ * предложение «минус % KPI обучения» на листе «Списания KPI» (80% и выше без потерь, ниже — 1 к 1, не больше KPI_CAP).
+ * Отпуск и больничный тренер вносит на лист «Отсутствия», льготу новичка даёт колонка «Начало работы» листа «Сотрудники».
+ * Пока KPI_START пуст, всё считается «в тени»: показывается сотрудникам и тренеру, но ничего не предлагается к списанию.
+ * Скрипт ничего не списывает сам: решение принимает тренер (колонка «Решение тренера»).
+ *
  * С v5.6 «Вопрос дня»: 3 вопроса раз в день (тип daily). Они пишутся на свой лист «Вопрос дня», а не в «Результаты»,
  * поэтому не попадают в «Сводку», KPI, лимиты и мгновенные уведомления; XP (10 за верный, +20 за все верные) только
  * за первый за день, сов не дают; ?action=me отдаёт daily: {done, streak}. Каждый понедельник (и из меню) скрипт
@@ -69,9 +75,21 @@ const LESSON_TOTALS = { cf: 17, sv: 12, sn: 3, br: 14 };   // lessons per catego
 const CAT_OWLS = { cf: 3, sv: 2, sn: 1, br: 3 };           // once, for all the lessons of a category
 const CAT_NAMES = { cf: 'Кофе', sv: 'Сервис и продажи', sn: 'Санитария', br: 'Бренд' };
 const PLAN_OWLS = 3, GOOD_OWLS_WEEK = 2, DAILY7_OWLS = 1, DAILY_STREAK_OWL = 7;
+// KPI обучения. Процент выполнения плана за календарный месяц (Баку) и «минус KPI» за невыполнение; решает тренер.
+const SHEET_ABSENCE = 'Отсутствия';          // code, from, to, reason, comment: leave and sick days, ends included
+const SHEET_KPI = 'Списания KPI';            // one row per person and month
+const KPI_START = '';                        // 'YYYY-MM-DD' of the real start; empty = every month is a trial (shown, nothing proposed)
+const KPI_SHADOW_MONTHS = 1;                 // full months after KPI_START that stay a trial
+const KPI_THRESHOLD = 80;                    // % of the plan from which nothing is lost
+const KPI_CAP = 30;                          // the most lost in a month, % of the part of the KPI that is for training
+const KPI_GRACE_DAYS = 14;                   // a newcomer's days without deductions, counted from «Начало работы»
+const KPI_WEIGHTS = { weeks: 0.6, exam: 0.2, quality: 0.1, regularity: 0.1 };
+const KPI_IDLE_RUN = 7;                      // days in a row with no activity that count against regularity
+const KPI_HEADERS = ['Месяц', 'Код', 'Сотрудник', 'Филиал', '% выполнения', 'Недели %', 'Экзамен %', 'Качество %', 'Регулярность %',
+  'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ'];
 const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.8';
+const SCRIPT_VERSION = 'v5.9';
 
 /* ---------- меню в таблице ---------- */
 
@@ -84,6 +102,7 @@ function onOpen() {
     .addItem('Отправить тестовое уведомление', 'testNotify')
     .addItem('Отправить сводку за сутки сейчас', 'dailyDigest')
     .addItem('Обновить «Сложные вопросы»', 'hardQuestions')
+    .addItem('KPI обучения: подготовить листы и пересчитать прошлый месяц', 'kpiMonths')
     .addToUi();
 }
 
@@ -213,7 +232,10 @@ function doPost(e) {
 function dailyDigest(e) {
   /* the last 24 hours, so tests taken after the evening digest show up in the next one */
   const now = new Date(), from = new Date(now.getTime() - 864e5);
-  if (e && Utilities.formatDate(now, TZ, 'dd') === '01') monthlyReport_(now);
+  if (e && Utilities.formatDate(now, TZ, 'dd') === '01') {
+    monthlyReport_(now);
+    try { kpiMonthly_(now); } catch (err) { console.warn('kpi: ' + err.message); }  // never blocks the digest
+  }
   const rows = results_().filter(r => r.date > from);
   if (!rows.length) {
     if (!e) SpreadsheetApp.getUi().alert('За последние сутки тестов не было, сводку отправлять не о чем.');
@@ -281,6 +303,13 @@ function weeklyReport() {
   const real = staff.filter(s => s.branch !== TEST_BRANCH);
   const fullN = real.filter(s => weekPlan_(allTests.filter(r => r.code === s.code), allAt[s.code] || {}, lastWeek).full).length;
   if (real.length) lines.push('', `🏅 Полная неделя (5 тестов и ${LESSONS_WEEK} урока): ${fullN} из ${real.length}`);
+  try {
+    const risk = kpiRisk_(now);
+    if (risk.length) {
+      lines.push('', `⚠️ Риск минуса KPI обучения в этом месяце (по прошедшим неделям${risk.shadow ? ', пробный месяц: ничего не списывается' : ''}):`);
+      risk.forEach(x => lines.push(`• ${x.name} (${x.branch}): ${x.pct}% → −${x.loss}%`));
+    }
+  } catch (err) { console.warn('kpi risk: ' + err.message); }
   const hard = rebuildHard_(now).filter(h => h.n > 1).slice(0, 5);
   if (hard.length) {
     lines.push('', '❓ Сложные вопросы недели (лист «Сложные вопросы»):');
@@ -404,9 +433,10 @@ function levelOf_(role) {
 function activeStaff_() {
   const sh = sheet_(SHEET_STAFF), last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, 5).getValues()
+  const cols = Math.min(6, sh.getMaxColumns ? sh.getMaxColumns() : 5);  // column F «Начало работы» is optional
+  return sh.getRange(2, 1, last - 1, cols).getValues()
     .filter(r => String(r[0]).trim() && r[4] === true)
-    .map(r => ({ code: String(r[0]).trim(), name: String(r[1]), branch: String(r[2]), role: String(r[3]) }));
+    .map(r => ({ code: String(r[0]).trim(), name: String(r[1]), branch: String(r[2]), role: String(r[3]), start: cols > 5 ? dayStr_(r[5]) : '' }));
 }
 
 function results_() {
@@ -637,7 +667,8 @@ function me_(code) {
     daily: { done: myDaily.some(r => dayKey_(r.date) === dayKey_(now)), streak: ds.cur },
     exam: exam ? { score: exam.score, total: exam.total, aborted: exam.aborted, month } : null,
     week: weekAttempts_(myTests, week), limits: WEEK_LIMITS, perDay: DAY_LIMIT, todayUsed: todayUsed_(myTests, now),
-    plan: weekPlan_(myTests, readAt, week), passThreshold: setting_('PassThreshold', 0.7),
+    plan: weekPlan_(myTests, readAt, week), kpi: kpiPublic_(kpiMonth_(s, month, { tests, dailies: daily, readAt: { [s.code]: readAt }, absence: absenceMap_() }, now)),
+    passThreshold: setting_('PassThreshold', 0.7),
     progressProtocol: 2, progress: prog,
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
@@ -766,6 +797,209 @@ function rebuildHard_(now) {
 function hardQuestions() {
   const n = rebuildHard_(new Date()).length;
   SpreadsheetApp.getUi().alert(n ? `Лист «${SHEET_HARD}» обновлён: ${n} ${plural_(n, 'вопрос', 'вопроса', 'вопросов')}.` : 'За 7 дней ошибок не было.');
+}
+
+/* ---------- KPI обучения: процент выполнения плана за месяц и «минус KPI» ---------- */
+
+function addDays_(day, n) { return new Date(Date.parse(day + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+
+/* a date cell (a Date) or text «YYYY-MM-DD» / «DD.MM.YYYY» → 'YYYY-MM-DD', '' when it is none of them */
+function dayStr_(v) {
+  if (v instanceof Date) return dayKey_(v);
+  const s = String(v == null ? '' : v).trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/.exec(s);
+  return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
+}
+
+function monthDays_(mk) {
+  const out = [];
+  for (let d = mk + '-01'; d.slice(0, 7) === mk; d = addDays_(d, 1)) out.push(d);
+  return out;
+}
+
+/* the weeks (Mondays) that belong to a month: those whose Sunday falls in it, so a week is over when its month is */
+function weeksOfMonth_(mk) {
+  return monthDays_(mk).filter(d => new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay() === 0).map(d => addDays_(d, -6));
+}
+
+function absenceSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_ABSENCE);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_ABSENCE);
+    sh.getRange(1, 1, 1, 5).setValues([['Код', 'С', 'По', 'Причина (отпуск / больничный / другое)', 'Комментарий']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/* {code: Set of days} the trainer marked as leave or sick days; both ends included */
+function absenceMap_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ABSENCE), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(r => {
+    const code = String(r[0]).trim(), a = dayStr_(r[1]), b = dayStr_(r[2]) || a;
+    if (!code || !a || b < a) return;
+    const set = out[code] || (out[code] = new Set());
+    for (let d = a, i = 0; d <= b && i < 366; d = addDays_(d, 1), i++) set.add(d);
+  });
+  return out;
+}
+
+function kpiCtx_() {
+  return { tests: withXp_(results_()), dailies: dailies_(), readAt: readAtMap_(), absence: absenceMap_() };
+}
+
+/* 'trial' (shown, nothing proposed) or 'live' (a loss is proposed): live from KPI_SHADOW_MONTHS full months after the first full month at or after KPI_START */
+function kpiState_(mk) {
+  if (!KPI_START) return 'trial';
+  const s = dayStr_(KPI_START), first = s.slice(8) === '01' ? s.slice(0, 7) : addDays_(s.slice(0, 7) + '-28', 4).slice(0, 7);
+  const idx = k => Number(k.slice(0, 4)) * 12 + Number(k.slice(5, 7));
+  return idx(mk) >= idx(first) + KPI_SHADOW_MONTHS ? 'live' : 'trial';
+}
+
+function kpiLoss_(pct) { return pct == null ? 0 : Math.min(KPI_CAP, Math.max(0, Math.floor(KPI_THRESHOLD - pct + 1e-9))); }
+
+function kpiPct_(parts) {
+  let w = 0, s = 0;
+  Object.keys(KPI_WEIGHTS).forEach(k => { if (parts[k] != null) { w += KPI_WEIGHTS[k]; s += KPI_WEIGHTS[k] * parts[k]; } });
+  return w ? s / w * 100 : null;
+}
+
+/* One person, one month (Baku). The weeks that are over count (all of them in a finished month); the exam counts once taken
+   (until then `examPending`, and `lossIfExamMissed` says what missing it would cost); days of leave and a newcomer's grace days
+   are excused: they shorten the week's required steps, an excused week is skipped, they break no run of idle days.
+   parts: weeks = average of done/required steps (5 counted tests + 2 lessons = 7), exam = score/70% at most 1, quality = average of the
+   counted tests' scores (an aborted one is 0) / 70% at most 1, regularity = 1 − days in runs of 7+ idle days / days so far. */
+function kpiMonth_(staff, mk, ctx, now) {
+  const today = dayKey_(now), cur = monthKey_(now) === mk, days = monthDays_(mk), weeks = weeksOfMonth_(mk);
+  const mine = ctx.tests.filter(r => r.code === staff.code), readAt = ctx.readAt[staff.code] || {};
+  const away = ctx.absence[staff.code] || new Set(), graceEnd = staff.start ? addDays_(staff.start, KPI_GRACE_DAYS) : '';
+  const excused = { has: d => away.has(d) || (!!graceEnd && d < graceEnd) };  // leave, and for a newcomer the days before the start and the grace days
+  const monthAbsent = days.every(d => excused.has(d));
+  let sum = 0, n = 0, weeksDone = 0;
+  weeks.forEach(w => {
+    if (addDays_(w, 6) >= today) return;
+    weeksDone++;
+    let off = 0;
+    for (let i = 0; i < 7; i++) if (excused.has(addDays_(w, i))) off++;
+    if (off >= 7) return;
+    const p = weekPlan_(mine, readAt, w), done = p.testsDone + Math.min(p.lessons, LESSONS_WEEK);
+    sum += Math.min(done, 7 - off) / (7 - off); n++;
+  });
+  const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === mk)[0];
+  const examPending = cur && !exam && !monthAbsent;
+  const qt = mine.filter(r => r.group && !r.over && monthKey_(r.date) === mk);
+  const act = new Set(mine.filter(r => monthKey_(r.date) === mk).map(r => dayKey_(r.date)));
+  ctx.dailies.filter(r => r.code === staff.code).forEach(r => act.add(dayKey_(r.date)));
+  Object.keys(readAt).forEach(id => act.add(readAt[id]));
+  const past = days.filter(d => d < today);
+  let idle = 0, run = 0;
+  past.forEach(d => { if (act.has(d) || excused.has(d)) { if (run >= KPI_IDLE_RUN) idle += run; run = 0; } else run++; });
+  if (run >= KPI_IDLE_RUN) idle += run;
+  const parts = {
+    weeks: n ? sum / n : null,
+    exam: monthAbsent || examPending ? null : exam && !exam.aborted ? Math.min(1, exam.ratio / PASS_RATIO) : 0,
+    quality: monthAbsent ? null : qt.length ? Math.min(1, qt.reduce((s, r) => s + (r.aborted ? 0 : r.ratio), 0) / qt.length / PASS_RATIO) : (cur && !weeksDone ? null : 0),
+    regularity: monthAbsent || !past.length ? null : Math.max(0, 1 - idle / past.length)
+  };
+  const pct = kpiPct_(parts), state = kpiState_(mk);
+  const loss = kpiLoss_(pct), missed = examPending ? kpiLoss_(kpiPct_(Object.assign({}, parts, { exam: 0 }))) : loss;
+  return { month: mk, state, pct, parts, weeksDone, weeksTotal: weeks.length, absentDays: days.filter(d => excused.has(d)).length,
+    graceUntil: staff.start ? addDays_(staff.start, KPI_GRACE_DAYS - 1) : '', examPending, loss, lossIfExamMissed: missed };
+}
+
+/* what the app gets: whole percents, nothing about other people */
+function kpiPublic_(k) {
+  const r = x => x == null ? null : Math.round(x * 100);
+  return { month: k.month, state: k.state, pct: k.pct == null ? null : Math.round(k.pct),
+    parts: { weeks: r(k.parts.weeks), exam: r(k.parts.exam), quality: r(k.parts.quality), regularity: r(k.parts.regularity) },
+    weeksDone: k.weeksDone, weeksTotal: k.weeksTotal, absentDays: k.absentDays, graceUntil: k.graceUntil, examPending: k.examPending,
+    loss: k.loss, lossIfExamMissed: k.lossIfExamMissed, threshold: KPI_THRESHOLD, cap: KPI_CAP };
+}
+
+function kpiSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_KPI);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_KPI);
+    sh.getRange(1, 1, 1, KPI_HEADERS.length).setValues([KPI_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/* column F «Начало работы» of «Сотрудники»: made once, so the trainer can type a newcomer's first day there */
+function ensureStaffStartColumn_() {
+  const sh = sheet_(SHEET_STAFF);
+  if (sh.getMaxColumns() < 6) sh.insertColumnAfter(sh.getMaxColumns());
+  if (!String(sh.getRange(1, 6).getValue()).trim()) sh.getRange(1, 6).setValues([['Начало работы']]);
+}
+
+/* The rows of a finished month on «Списания KPI». A row the trainer has decided on (column M) or marked as entered (O) is never touched again;
+   the others are recomputed. Returns [{staff, kpi}] of everyone who was scored. */
+function kpiRebuild_(mk, now) {
+  const staff = activeStaff_().filter(s => s.branch !== TEST_BRANCH), ctx = kpiCtx_(), scored = [];
+  staff.forEach(s => { const k = kpiMonth_(s, mk, ctx, now); if (k.pct != null) scored.push({ staff: s, kpi: k }); });
+  underLock_(() => {
+    const sh = kpiSheet_(), last = sh.getLastRow();
+    const have = last < 2 ? [] : sh.getRange(2, 1, last - 1, KPI_HEADERS.length).getValues();
+    scored.forEach(({ staff: s, kpi: k }) => {
+      const key = mk + ':' + s.code, i = have.findIndex(r => String(r[15]) === key), pc = x => x == null ? '' : Math.round(x * 100);
+      const status = k.state === 'trial' ? 'Пробный месяц' : k.loss > 0 ? 'Предложено' : 'Без списания';
+      const vals = [mk, s.code, s.name, s.branch, Math.round(k.pct), pc(k.parts.weeks), pc(k.parts.exam), pc(k.parts.quality), pc(k.parts.regularity), k.absentDays, k.loss, status];
+      if (i >= 0) {
+        if (String(have[i][12]).trim() || have[i][14] === true) return;
+        sh.getRange(i + 2, 1, 1, vals.length).setValues([vals]);
+        return;
+      }
+      let row = nextRow_(sh);
+      if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 200);
+      sh.getRange(row, 2).setNumberFormat('@');
+      sh.getRange(row, 1, 1, vals.length).setValues([vals]);
+      sh.getRange(row, 15).insertCheckboxes();
+      sh.getRange(row, 16).setValues([[key]]);
+    });
+  });
+  return scored;
+}
+
+/* the 1st of the month: the rows of the month that ended, and a message to the trainer */
+function kpiMonthly_(now) {
+  const mk = monthKey_(new Date(now.getTime() - 2 * 864e5)), scored = kpiRebuild_(mk, now);
+  if (!scored.length) return;
+  const trial = scored[0].kpi.state === 'trial', hit = scored.filter(x => x.kpi.loss > 0).sort((a, b) => b.kpi.loss - a.kpi.loss);
+  const lines = [`📉 KPI обучения за ${mk.slice(5)}.${mk.slice(0, 4)}: ` + (trial ? 'пробный месяц, ничего не списывается' : `предложения по списанию, подтвердите на листе «${SHEET_KPI}»`),
+    `План выполнен на ${KPI_THRESHOLD}% и больше: ${scored.length - hit.length} из ${scored.length}`];
+  if (hit.length) {
+    lines.push('', trial ? 'Ниже порога (так бы выглядело списание):' : 'Предложено к списанию:');
+    hit.slice(0, 30).forEach(x => lines.push(`• ${x.staff.name} (${x.staff.branch}): ${Math.round(x.kpi.pct)}% → −${x.kpi.loss}%`));
+    if (hit.length > 30) lines.push(`…и ещё ${hit.length - 30}`);
+  }
+  send_(lines.join('\n'));
+}
+
+/* the people below the threshold in the current month by the weeks that are over (the Monday report), best-effort: nothing is proposed from it */
+function kpiRisk_(now) {
+  const mk = monthKey_(now), ctx = kpiCtx_(), out = [];
+  activeStaff_().filter(s => s.branch !== TEST_BRANCH).forEach(s => {
+    const k = kpiMonth_(s, mk, ctx, now);
+    if (k.weeksDone >= 1 && k.pct != null && k.loss > 0) out.push({ name: s.name, branch: s.branch, pct: Math.round(k.pct), loss: k.loss });
+  });
+  out.sort((a, b) => b.loss - a.loss);
+  out.shadow = kpiState_(mk) === 'trial';
+  return out;
+}
+
+/* menu item: make the sheets and column, and (re)build the last finished month */
+function kpiMonths() {
+  const ui = SpreadsheetApp.getUi(), now = new Date();
+  absenceSheet_(); kpiSheet_(); ensureStaffStartColumn_();
+  const mk = monthKey_(new Date(Date.parse(monthKey_(now) + '-01T12:00:00Z') - 864e5)), scored = kpiRebuild_(mk, now);
+  ui.alert(`Листы «${SHEET_ABSENCE}» и «${SHEET_KPI}» готовы, в «Сотрудники» есть колонка F «Начало работы». ` +
+    `За ${mk.slice(5)}.${mk.slice(0, 4)} посчитано сотрудников: ${scored.length}` + (scored.length && scored[0].kpi.state === 'trial' ? ' (пробный месяц: ничего не списывается).' : '.'));
 }
 
 /* ---------- прогресс сотрудника: прочитанные уроки и ящики карточек ---------- */

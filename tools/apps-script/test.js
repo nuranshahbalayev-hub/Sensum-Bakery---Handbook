@@ -4,10 +4,12 @@ const SRC = fs.readFileSync(__dirname + '/Code.gs', 'utf8');
 /* built at runtime so no token-shaped literal sits in the repo; it only has to pass setupTelegram's format check */
 const FAKE_TOKEN = '1:' + 'x'.repeat(36);
 
-function makeSheet(rows, maxRows) {
+function makeSheet(rows, maxRows, cols) {
   const data = rows.map(r => r.slice());
   const sh = {
-    data, maxRows: maxRows || 1000, formats: {},
+    data, maxRows: maxRows || 1000, formats: {}, cols: cols || 0,
+    getMaxColumns() { return this.cols || Math.max(1, ...data.map(r => r.length)); },
+    insertColumnAfter() { this.cols = this.getMaxColumns() + 1; },
     getLastRow() { for (let i = data.length - 1; i >= 0; i--) if (data[i].some(v => v !== '' && v != null)) return i + 1; return 0; },
     getMaxRows() { return this.maxRows; },
     insertRowsAfter(_, n) { this.maxRows += n; },
@@ -32,7 +34,7 @@ function env(opts = {}) {
   const staff = makeSheet([['Код', 'Имя', 'Филиал', 'Должность', 'Активен'],
     ['9001', 'Тест-1', 'Central Park', 'Бариста', true], ['9002', 'Тест-2', 'White City', 'Бариста', true],
     ['1111', 'Ушёл', 'White City', 'Бариста', false], ['9003', 'Тест-3', 'Port II', 'Бариста', true],
-    ['9009', 'Тренер', 'Тест', 'Тренинг-менеджер', true]]);
+    ['9009', 'Тренер', 'Тест', 'Тренинг-менеджер', true]], 100, 5);
   const results = makeSheet([['Дата и время', 'Код', 'Сотрудник', 'Филиал', 'Раздел', 'Правильных', 'Вопросов', 'Результат', 'Сдан', 'Ошибки', 'Язык', 'Версия', 'ID']]);
   const sheets = { 'Результаты': results, 'Сотрудники': staff };
   const named = { PassThreshold: opts.threshold ?? 0.7, DigestHour: 21, WeeklyHour: 10 };
@@ -79,7 +81,9 @@ function env(opts = {}) {
       newTrigger(h) { const b = { timeBased: () => b, everyDays: () => b, onWeekDay: () => b, atHour: x => { b.h = x; return b; }, inTimezone: () => b, create: () => triggers.push(h + '@' + b.h) }; return b; } }
   };
   vm.createContext(ctx);
-  vm.runInContext(SRC + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions};', ctx);
+  let code = SRC;
+  if (opts.kpiStart) { assert.ok(code.includes("const KPI_START = '';")); code = code.replace("const KPI_START = '';", `const KPI_START = '${opts.kpiStart}';`); }
+  vm.runInContext(code + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions,kpiMonths};', ctx);
   const api = ctx.__api;
   const post = d => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(d) } }).text);
   const me = code => JSON.parse(api.doGet({ parameter: { action: 'me', code } }).text);
@@ -164,9 +168,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.8'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.9'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.8');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.9');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -543,6 +547,108 @@ change({ 'bad:key': { v: 1, ts: 7000 }, 'd:bad': { v: 6, ts: 7000 }, 'd:future':
 assert.deepStrictEqual(delta.me('9001').progress.box, beforeLegacy.box);
 assert.deepStrictEqual(delta.me('9001').progress.read, ['cf-origin', 'cf-milk']);
 assert.deepStrictEqual(delta.me('9002').progress, { read: [], box: {}, ts: 0, readAt: {} }, 'changes remain scoped to the employee');
+
+
+// 8h. KPI обучения (v5.9): the plan of a month in percent, a loss from the threshold, leave and a newcomer's grace, the rows for the trainer
+const NOW2 = Date.parse('2026-11-05T09:00:00Z');  // a Thursday; October is over
+const kenv = o => env(Object.assign({ notifyAll: false, now: NOW2 }, o));
+const addDay = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const MON = ['2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19'];  // the weeks whose Sunday is in October
+const K5 = ['drinks', 'preps', 'vitrina', 'theory', 'theory'];
+const krow = (e, code, day, kind, score, total, aborted) => e.results.data.push([new Date(day + 'T08:00:00Z'), code, 'x', 'Central Park', 'x', score, total,
+  '', '', '', 'ru', '1.9', 'k' + e.results.data.length, '', '', '', aborted ? 'да' : '', kind]);
+/* `tests` counted tests and `lessons` counted lessons in each of the given weeks; the lessons are sent as progress with their days */
+const kweeks = (e, code, tests, lessons, mons = MON, extra = {}) => {
+  const read = [], at = Object.assign({}, extra);
+  mons.forEach((m, wi) => {
+    for (let i = 0; i < tests; i++) krow(e, code, addDay(m, i), K5[i], 8, 10);
+    for (let i = 0; i < lessons; i++) { const id = 'l-' + code + '-' + m + '-' + i; read.push(id); at[id] = addDay(m, i); }
+  });
+  Object.keys(extra).forEach(id => read.push(id));
+  if (read.length) e.post({ action: 'progress', code, read, box: {}, ts: NOW2 - 1000, readAt: at });
+};
+const kfill = e => {
+  e.staff.cols = 6;
+  e.staff.data.push(['9005', 'Тест-5', 'Port II', 'Бариста', true, '2026-10-05'], ['9006', 'Тест-6', 'Port II', 'Бариста', true, '2026-10-20'],
+    ['9007', 'Тест-7', 'White City', 'Бариста', true, ''], ['9008', 'Тест-8', 'White City', 'Бариста', true, '']);
+  const gap = { ['gap' + 0]: '2026-10-28' };  // a lesson late in the month so that nobody has a run of idle days at its end
+  kweeks(e, '9001', 5, 2, MON, { gap1: '2026-10-28' }); krow(e, '9001', '2026-10-20', 'exam', 18, 20);
+  kweeks(e, '9003', 3, 0, MON, { gap3: '2026-10-28' }); krow(e, '9003', '2026-10-21', 'exam', 18, 20);
+  kweeks(e, '9005', 5, 2, [MON[3]], { gap5: '2026-10-28' });
+  kweeks(e, '9007', 5, 2, MON, { gap7: '2026-10-28' }); krow(e, '9007', '2026-10-22', 'exam', 10, 20);
+  kweeks(e, '9008', 5, 2, MON.slice(0, 2)); krow(e, '9008', '2026-10-06', 'exam', 20, 20);
+  kweeks(e, '9009', 5, 2);  // the trainer's test account
+};
+const kRows = e => e.sheets['Списания KPI'].data.slice(1).map(r => r.slice(0, 12)).concat([]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+const byCode = (rows, c) => rows.find(r => r[1] === c);
+const k0 = kenv(); kfill(k0);
+k0.api.kpiMonths();
+assert.ok(k0.alerts[k0.alerts.length - 1].includes('посчитано сотрудников: 6') && k0.alerts[k0.alerts.length - 1].includes('пробный месяц'), 'the menu item reports the month it built');
+assert.strictEqual(k0.staff.data[0][5], 'Начало работы', 'column F of «Сотрудники» is made'); assert.ok(k0.sheets['Отсутствия'] && k0.sheets['Списания KPI']);
+assert.deepStrictEqual(k0.sheets['Списания KPI'].data[0], ['Месяц', 'Код', 'Сотрудник', 'Филиал', '% выполнения', 'Недели %', 'Экзамен %', 'Качество %', 'Регулярность %', 'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ']);
+let rows = kRows(k0);
+assert.deepStrictEqual(rows.map(r => r[1]), ['9001', '9002', '9003', '9005', '9007', '9008'], 'everyone scored, the trainer’s account and a newcomer excused all month are not');
+assert.deepStrictEqual(byCode(rows, '9001').slice(0, 12), ['2026-10', '9001', 'Тест-1', 'Central Park', 100, 100, 100, 100, 100, 0, 0, 'Пробный месяц'], 'a full plan: 100%, nothing lost');
+assert.deepStrictEqual(byCode(rows, '9002').slice(4, 12), [0, 0, 0, 0, 0, 0, 30, 'Пробный месяц'], 'nothing done: 0%, the loss stops at the cap of 30');
+assert.deepStrictEqual(byCode(rows, '9003').slice(4, 12), [66, 43, 100, 100, 100, 0, 14, 'Пробный месяц'], '3 steps of 7 a week: 66%, 80 - 65.7 = 14');
+assert.deepStrictEqual(byCode(rows, '9005').slice(4, 12), [80, 100, 0, 100, 100, 18, 0, 'Пробный месяц'], 'a newcomer: the weeks before the start and the grace days are excused; exactly 80% loses nothing');
+assert.deepStrictEqual(byCode(rows, '9007').slice(4, 11), [94, 100, 71, 100, 100, 0, 0], 'an exam of 10 of 20 earns 10/20 / 70% of its weight');
+assert.deepStrictEqual(byCode(rows, '9008').slice(4, 11), [63, 50, 100, 100, 29, 0, 17], 'two empty weeks and 22 idle days: weeks 50%, regularity 29%');
+assert.strictEqual(k0.sheets['Списания KPI'].data[1][15], '2026-10:9001', 'the key is month:code'); assert.strictEqual(k0.sheets['Списания KPI'].formats['2:2'], '@');
+assert.ok(k0.sheets['Списания KPI'].checkboxes.length === 6, 'a checkbox «Внесено в Sensum OS» in each row');
+// a decision of the trainer is never overwritten; the rest is recomputed, no row is added twice
+const dr = k0.sheets['Списания KPI'].data.findIndex(r => r[1] === '9002');
+k0.sheets['Списания KPI'].data[dr][12] = 'Снять';
+krow(k0, '9002', '2026-10-20', 'drinks', 8, 10); krow(k0, '9003', '2026-10-13', 'exam', 5, 20);
+k0.api.kpiMonths();
+assert.strictEqual(k0.sheets['Списания KPI'].data.length, 7, 'recomputed, not appended');
+assert.deepStrictEqual(k0.sheets['Списания KPI'].data[dr].slice(4, 13), [0, 0, 0, 0, 0, 0, 30, 'Пробный месяц', 'Снять'], 'a row with a decision is left as it was');
+// live months: the loss becomes a proposal
+const k1 = kenv({ kpiStart: '2026-09-01' }); kfill(k1); k1.api.kpiMonths();
+rows = kRows(k1);
+assert.deepStrictEqual([byCode(rows, '9001')[11], byCode(rows, '9002')[11], byCode(rows, '9005')[11]], ['Без списания', 'Предложено', 'Без списания'], 'a month after the trial: proposed only where something is lost');
+assert.ok(k1.alerts[k1.alerts.length - 1].endsWith('посчитано сотрудников: 6.'));
+const k2 = kenv({ kpiStart: '2026-09-15' }); kfill(k2); k2.api.kpiMonths();
+assert.strictEqual(byCode(kRows(k2), '9002')[11], 'Пробный месяц', 'a start in the middle of September: October is the first full month, a trial');
+// leave and sick days shorten the week they fall in; a whole week of leave is skipped
+const k3 = kenv(); kfill(k3);
+k3.sheets['Отсутствия'] = makeSheet([['Код', 'С', 'По', 'Причина', 'Комментарий'], ['9003', '2026-10-12', '2026-10-18', 'отпуск', ''], ['9003', '2026-10-21', '2026-10-23', 'больничный', '']]);
+k3.api.kpiMonths();
+assert.deepStrictEqual(byCode(kRows(k3), '9003').slice(4, 11), [72, 54, 100, 100, 100, 10, 7], '(3/7 + 3/7 + 3/4) / 3 = 54%; the leave week is skipped; 10 days away; 72% loses 7');
+const k4 = kenv(); kfill(k4);
+k4.sheets['Отсутствия'] = makeSheet([['Код', 'С', 'По'], ['9002', '2026-09-28', '2026-11-02']]);
+k4.api.kpiMonths();
+assert.ok(!byCode(kRows(k4), '9002'), 'away for the whole month: not scored, nothing to lose');
+// the message on the 1st: the trial says nothing is lost; the names and the percents are for the trainer only
+const m1 = kenv({ now: Date.parse('2026-11-01T17:00:00Z') }); kfill(m1);
+m1.api.dailyDigest({ triggerUid: 1 });
+const km = m1.sent.find(x => x.startsWith('📉 KPI обучения за 10.2026'));
+console.log('--- KPI monthly ---\n' + km);
+assert.ok(km && km.includes('пробный месяц, ничего не списывается') && km.includes('План выполнен на 80% и больше: 3 из 6') && km.includes('Тест-2 (White City): 0% → −30%') && km.includes('Тест-3 (Port II): 66% → −14%') && !km.includes('Тренер'));
+assert.ok(m1.sheets['Списания KPI'].getLastRow() === 7, 'the 1st builds the rows by itself');
+const m2 = kenv({ now: Date.parse('2026-11-01T17:00:00Z'), kpiStart: '2026-09-01' }); kfill(m2); m2.api.dailyDigest({ triggerUid: 1 });
+assert.ok(m2.sent.find(x => x.startsWith('📉 KPI обучения')).includes('предложения по списанию, подтвердите на листе «Списания KPI»'));
+// a failure in the KPI never costs the digest
+const m3 = kenv({ now: Date.parse('2026-11-01T17:00:00Z') }); m3.sheets['Списания KPI'] = { getLastRow() { throw new Error('boom'); } };
+assert.doesNotThrow(() => m3.api.dailyDigest({ triggerUid: 1 }));
+// the month in progress, for the app: only the weeks that are over, the exam pending, what missing it would cost
+const r1 = kenv({ now: Date.parse('2026-11-12T09:00:00Z') }); kfill(r1);
+kweeks(r1, '9001', 5, 2, ['2026-10-26', '2026-11-02']);
+const kv = r1.me('9001').kpi, kv2 = r1.me('9002').kpi;
+assert.deepStrictEqual([kv.month, kv.state, kv.weeksDone, kv.weeksTotal, kv.pct, kv.parts.weeks, kv.parts.exam, kv.examPending, kv.loss, kv.threshold, kv.cap], ['2026-11', 'trial', 2, 5, 100, 100, null, true, 0, 80, 30]);
+assert.deepStrictEqual([kv2.pct, kv2.loss, kv2.lossIfExamMissed, kv2.examPending], [0, 30, 30, true], 'an idle person in the middle of a month: 0%');
+assert.strictEqual(r1.me('9001').kpi.lossIfExamMissed, 0, 'missing the exam would still leave 80%');
+const early = kenv({ now: Date.parse('2026-11-01T09:00:00Z') });
+assert.deepStrictEqual([early.me('9001').kpi.pct, early.me('9001').kpi.loss, early.me('9001').kpi.weeksDone], [null, 0, 0], 'no week is over yet: no percent, nothing to lose');
+r1.api.weeklyReport();
+const wrk = r1.sent[r1.sent.length - 1];
+console.log('--- weekly with KPI risk ---\n' + wrk);
+assert.ok(wrk.includes('⚠️ Риск минуса KPI обучения в этом месяце') && wrk.includes('пробный месяц') && wrk.includes('• Тест-2 (White City): 0% → −30%') && !wrk.includes('Тест-1 (Central Park): 100%'), 'the Monday report lists who is below the threshold so far');
+assert.ok(r1.isLocked() === false);
+// the settings of the plan: weights add up to 100%, the threshold and the cap are the owner's numbers
+const consts = /const KPI_WEIGHTS = (\{[^}]*\})/.exec(SRC)[1]; const wts = eval('(' + consts + ')');
+assert.ok(Math.abs(Object.values(wts).reduce((a, b) => a + b, 0) - 1) < 1e-9, 'the weights make 100%');
+assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SRC) && /const KPI_GRACE_DAYS = 14;/.test(SRC));
 
 // 9. menu flows
 const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });

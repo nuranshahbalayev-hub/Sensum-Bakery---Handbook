@@ -989,6 +989,46 @@ const server = http.createServer((req, res) => {
   delete ME.perDay; delete ME.todayUsed; delete ME.plan; ME.limits = keepOld.limits; ME.week = keepOld.week;
   await page.evaluate(m => { delete LS.stats.perDay; delete LS.stats.plan; LS.stats.limits = m.limits; LS.stats.week = m.week; LS.stats.at = Date.now(); LS.att = []; LS.lastTest = null; LS.read = {}; L.nav = []; L.view = 'home'; renderLearn(); }, keepOld);
   check(await page.locator('#learnroot .wstrip').count() === 0 && (await page.locator('#learnroot [data-l="quiz"]').innerText()).includes('Попыток на неделе'), 'rhythm: with the older script no strip, the old attempt counter');
+
+  /* ---- «План месяца» (script v5.9): the share of the plan, what it costs, the trial month, the warning ---- */
+  const kpiBase = { month: '2026-11', state: 'trial', pct: 74, parts: { weeks: 79, exam: null, quality: 100, regularity: 100 }, weeksDone: 2, weeksTotal: 5, absentDays: 0, graceUntil: '',
+    examPending: true, loss: 6, lossIfExamMissed: 12, threshold: 80, cap: 30 };
+  const setKpi = async (k, now) => page.evaluate(([kk, n]) => {
+    if (n) { if (!window.__dn) window.__dn = Date.now.bind(Date); Date.now = () => n; }
+    LS.stats = Object.assign(LS.stats || {}, { kpi: kk, at: Date.now() }); L.nav = []; L.view = 'home'; renderLearn();
+  }, [k, now || 0]);
+  await setKpi(kpiBase, Date.parse('2026-11-11T10:00:00Z'));  // a Wednesday in the middle of the month
+  const kc = () => page.locator('#learnroot .lpanel.kpi');
+  const ktxt = async () => (await kc().innerText()).replace(/\s+/g, ' ');
+  let kt = await ktxt();
+  check(await kc().count() === 1 && kt.includes('План месяца') && kt.includes('74% · нужно 80%') && kt.includes('Недели') && kt.includes('Качество тестов') && kt.includes('Регулярность') && kt.includes('Экзамен месяца ещё не сдан'),
+    '«План месяца»: the percent against the threshold and the four parts, the exam still to be taken (' + kt.slice(0, 120) + ')');
+  check(kt.includes('Пробный месяц: ничего не списывается.') && kt.includes('Так выглядел бы минус: −6% KPI обучения.') && kt.includes('без него минус KPI обучения будет до −12%'), '«План месяца»: a trial month shows what the loss would be, and what missing the exam would add');
+  check(await page.evaluate(() => { const u = document.querySelector('.kbar u'), i = document.querySelector('.kbar i'); return u.style.left === '80%' && i.style.width === '74%'; }), '«План месяца»: the bar fills to the percent and shows the threshold');
+  check(await kc().evaluate(el => !el.classList.contains('warn')), '«План месяца»: no warning in the middle of the month on a Wednesday');
+  check(await page.evaluate(() => { const r = document.getElementById('learnroot'), y = e => e.getBoundingClientRect().top; return y(r.querySelector('.lpanel.plan')) < y(r.querySelector('.lpanel.kpi')) && y(r.querySelector('.lpanel.kpi')) < y(r.querySelector('.lpanel.game')); }), '«План месяца»: under «План на сегодня», above the rank card');
+  await setKpi(Object.assign({}, kpiBase, { state: 'live', examPending: false, parts: { weeks: 79, exam: 100, quality: 100, regularity: 100 } }), Date.parse('2026-11-11T10:00:00Z'));
+  kt = await ktxt();
+  check(!kt.includes('Пробный месяц') && kt.includes('Если ничего не менять: −6% KPI обучения.') && !kt.includes('без него'), '«План месяца»: after the trial the loss is stated as a loss');
+  await setKpi(Object.assign({}, kpiBase, { pct: 90, loss: 0, lossIfExamMissed: 0, examPending: false, state: 'live' }), Date.parse('2026-11-11T10:00:00Z'));
+  check((await ktxt()).includes('Потерь нет: план выполнен на 80% и больше.'), '«План месяца»: from the threshold nothing is lost');
+  await setKpi(Object.assign({}, kpiBase, { pct: null, parts: { weeks: null, exam: null, quality: null, regularity: null }, loss: 0 }), Date.parse('2026-11-02T10:00:00Z'));
+  check((await ktxt()).includes('Месяц только начался'), '«План месяца»: before the first week is over there is no percent');
+  await setKpi(Object.assign({}, kpiBase, { graceUntil: '2026-11-14', absentDays: 5 }), Date.parse('2026-11-11T10:00:00Z'));
+  kt = await ktxt();
+  check(kt.includes('Льгота новичка до 14 ноября: списаний нет.') && kt.includes('Отсутствие: 5 дн. не считаются.'), '«План месяца»: a newcomer’s grace and the days of leave are named');
+  // the warning: on a Friday, or in the last two days of the month, when something would be lost
+  await setKpi(kpiBase, Date.parse('2026-11-13T10:00:00Z'));
+  check(await kc().evaluate(el => el.classList.contains('warn')) && (await ktxt()).includes('Внимание: до конца месяца 17 дн., план выполнен на 74% из 80%.'), '«План месяца»: a warning on Friday');
+  await setKpi(kpiBase, Date.parse('2026-11-29T10:00:00Z'));
+  check(await kc().evaluate(el => el.classList.contains('warn')) && (await ktxt()).includes('до конца месяца 1 дн.'), '«План месяца»: a warning in the last days of the month');
+  await setKpi(Object.assign({}, kpiBase, { loss: 0, lossIfExamMissed: 0, pct: 95 }), Date.parse('2026-11-13T10:00:00Z'));
+  check(await kc().evaluate(el => !el.classList.contains('warn')), '«План месяца»: nothing to be warned of when nothing would be lost');
+  const rulesTxt2 = await page.locator('#learnroot details.rules').textContent();
+  check(rulesTxt2.includes('План месяца: недели 60%, экзамен 20%') && rulesTxt2.includes('От 80% потерь нет') && rulesTxt2.includes('не больше 30%'), '«План месяца»: the rules panel tells how the percent is made');
+  await page.evaluate(() => { delete LS.stats.kpi; renderLearn(); });
+  check(await kc().count() === 0, '«План месяца»: an older script (no kpi) means no card');
+  await page.evaluate(() => { Date.now = window.__dn; });
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));
