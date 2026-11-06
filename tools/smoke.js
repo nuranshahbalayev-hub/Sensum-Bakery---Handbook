@@ -102,6 +102,14 @@ const server = http.createServer((req, res) => {
   await page.keyboard.press('Escape');
   await page.fill('#q', 'zzzz');
   check(await page.locator('#spot-drinks .spot').count() === 0, 'spotlight banner hides while searching');
+  check(await page.locator('#promos-drinks').isHidden(), 'drinks: the promos hide while searching');
+  await page.evaluate(() => tickPromos());
+  check(await page.locator('#promos-drinks').isHidden(), 'drinks: a promo tick does not bring them back during a search');
+  await page.fill('#q', '');
+  check(await page.locator('#promos-drinks .promo').first().isVisible(), 'drinks: the promos are back when the search is cleared');
+  await page.fill('#q', 'zzzz');
+  await page.click('#clr');
+  check(await page.locator('#promos-drinks .promo').first().isVisible(), 'drinks: the clear button brings the promos back');
   await page.fill('#q', '');
   await page.evaluate(() => { SPOTLIGHT[0].end = '2000-01-02'; renderDrinks(); });
   check(await page.locator('#spot-drinks .spot').count() === 0, 'spotlight banner disappears after its end date');
@@ -144,6 +152,16 @@ const server = http.createServer((req, res) => {
   };
   const vr = await vitSheet();
   check(['220 г', 'от +2 до +5 °C', '48 часов', '290 ккал', '~3,5 г'].every(s => vr.includes(s)), 'vitrina card: weight, storage, shelf life, nutrition (RU)');
+  /* the vitrina promos give way to a search too, and a search of one tab does not hide the other tab's promos */
+  check(await page.locator('#promos-vit .promo').first().isVisible(), 'vitrina: the promos show without a search');
+  await page.fill('#q', 'zzzz');
+  check(await page.locator('#promos-vit').isHidden() && await page.locator('#vitgrid .card').count() === 0, 'vitrina: the promos hide while searching');
+  await page.click('nav.tabs button[data-tab="drinks"]');
+  check(await page.locator('#promos-drinks .promo').first().isVisible(), 'a search in the vitrina leaves the drinks promos alone');
+  await page.click('nav.tabs button[data-tab="vitrina"]');
+  check(await page.locator('#promos-vit').isHidden(), 'vitrina: the search and the hidden promos survive a tab switch');
+  await page.fill('#q', '');
+  check(await page.locator('#promos-vit .promo').first().isVisible(), 'vitrina: the promos are back when the search is cleared');
 
   await page.click('#langbtn');
   check((await page.locator('#count').innerText()).includes('içki'), 'AZ: drink counter is Azerbaijani');
