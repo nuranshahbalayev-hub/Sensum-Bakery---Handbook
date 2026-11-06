@@ -377,6 +377,56 @@ def check_lesson_totals(D):
         err(f'Code.gs LESSON_TOTALS {totals} differs from the lessons in index.html {real}')
 
 
+COLOR_RX = re.compile(r'#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(')
+RUNTIME_VARS = {'--stick', '--tabbar-h', '--ts'}  # set from JS (setStick(), the text size)
+
+
+def css_rules(css):
+    """(selector, body) for every rule, @media blocks unwrapped; comments removed."""
+    css = re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+    out, i, n = [], 0, len(css)
+    while i < n:
+        j = css.find('{', i)
+        if j < 0:
+            break
+        pre, d, k = css[i:j].strip(), 0, j
+        while True:
+            if css[k] == '{':
+                d += 1
+            elif css[k] == '}':
+                d -= 1
+                if d == 0:
+                    break
+            k += 1
+        body = css[j + 1:k]
+        if pre.startswith('@media'):
+            out += css_rules(body)
+        elif not pre.startswith('@'):
+            out.append((pre, body))
+        i = k + 1
+    return out
+
+
+def check_css(src):
+    """design system rule: colours live only in the tokens of :root (light) and :root[data-theme="dark"];
+    every var() used is defined; no inline style carries a colour"""
+    a, b = src.index('<style>') + 7, src.index('</style>')
+    rules = css_rules(src[a:b])
+    defined = set()
+    for sel, body in rules:
+        defined |= set(re.findall(r'(--[\w-]+)\s*:', body))
+        if sel in (':root', ':root[data-theme="dark"]'):
+            continue
+        for m in COLOR_RX.finditer(body):
+            warn(f'css: literal colour {m.group(0)} in «{sel[:60]}» (use a token from :root)')
+    used = set(re.findall(r'var\((--[\w-]+)', src))
+    for v in sorted(used - defined - RUNTIME_VARS):
+        warn(f'css: var({v}) is used but not defined in :root')
+    for m in re.finditer(r'style=\\?"([^"]*)"', src[b:]):
+        if COLOR_RX.search(m.group(1)):
+            warn(f'css: inline style with a colour: style="{m.group(1)[:60]}"')
+
+
 def main():
     D, images, changelog, version, cache = load()
     check_parity(D)
@@ -386,6 +436,8 @@ def main():
     check_lessons(D)
     check_lesson_totals(D)
     check_meta(D, changelog, version, cache)
+    with open(os.path.join(ROOT, 'index.html'), encoding='utf-8') as f:
+        check_css(f.read())
 
     print(f'v{version}: {len(D["drinks_ru"])} drinks, {len(D["preps_ru"])} preps, '
           f'{len(D["vitrina_ru"])} vitrina, {len(D["promos_ru"])} promos, {len(D.get("theory_ru", []))} theory questions, {len(images)} images')
