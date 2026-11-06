@@ -162,6 +162,15 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#promos-vit').isHidden(), 'vitrina: the search and the hidden promos survive a tab switch');
   await page.fill('#q', '');
   check(await page.locator('#promos-vit .promo').first().isVisible(), 'vitrina: the promos are back when the search is cleared');
+  /* the preps tab has no such block today; whatever is marked `.topblock` there (a future notice) gives way the same way */
+  await page.click('nav.tabs button[data-tab="preps"]');
+  await page.evaluate(() => { const d = document.createElement('div'); d.id = 'tb-test'; d.className = 'topblock'; d.textContent = 'notice'; document.getElementById('v-preps').prepend(d); });
+  check(await page.locator('#tb-test').isVisible(), 'preps: a top block shows without a search');
+  await page.fill('#q', 'zzzz');
+  check(await page.locator('#tb-test').isHidden(), 'preps: a top block hides while searching');
+  await page.fill('#q', '');
+  check(await page.locator('#tb-test').isVisible(), 'preps: a top block is back when the search is cleared');
+  await page.evaluate(() => document.getElementById('tb-test').remove());
 
   await page.click('#langbtn');
   check((await page.locator('#count').innerText()).includes('içki'), 'AZ: drink counter is Azerbaijani');
