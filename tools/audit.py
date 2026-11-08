@@ -379,6 +379,17 @@ def check_lesson_totals(D):
 
 COLOR_RX = re.compile(r'#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(')
 RUNTIME_VARS = {'--stick', '--tabbar-h', '--ts'}  # set from JS (setStick(), the text size)
+# the only rules whose font-size may stay in px (it does not follow «Размер текста»): glyphs in a fixed box
+# (icon squares, round buttons, answer circles, emoji on placeholders and badges) and the chrome iOS keeps
+# fixed too (the brand, the tab bar, the header buttons, the «A» samples of the text-size stepper);
+# readable text uses var(--fs-*) or calc(N * var(--ts))
+FIXED_FS = {
+    '.brand .bname', 'nav.tabs button', 'nav.tabs button .sym', '.langbtn', '.themebtn', '.tsize .a1', '.tsize .a2',
+    '.search>.sym', '.search .clr i', '.fav', '.close', '.pclose', '.ico', '.tile .ti', '.mode>.mi', '.opt .mk', '.opt .mk .sym',
+    '.ws', '.lvl', '.glv', '.bigmark', '.bdg span', '.bdgs .bico', '.bdgs summary::after',
+    '.card .ph.noimg span', '.card .ph.noimg .emo', '.hero.noimg span', '.hero.noimg .emo', '.fph.noimg span',
+}
+DURATION_RX = re.compile(r'(?<![\w.-])\d*\.?\d+m?s\b')
 
 
 def css_rules(css):
@@ -408,8 +419,9 @@ def css_rules(css):
 
 
 def check_css(src):
-    """design system rule: colours live only in the tokens of :root (light) and :root[data-theme="dark"];
-    every var() used is defined; no inline style carries a colour"""
+    """design system rules: colours live only in the tokens of :root (light) and :root[data-theme="dark"];
+    every var() used is defined; no inline style carries a colour; readable text follows the text size
+    (no px font-size outside FIXED_FS); durations come from tokens (--dur, --dur-slow, --dur-tick)"""
     a, b = src.index('<style>') + 7, src.index('</style>')
     rules = css_rules(src[a:b])
     defined = set()
@@ -419,6 +431,16 @@ def check_css(src):
             continue
         for m in COLOR_RX.finditer(body):
             warn(f'css: literal colour {m.group(0)} in «{sel[:60]}» (use a token from :root)')
+        for m in re.finditer(r'font-size:\s*([^;]+)', body):
+            v = m.group(1)
+            if 'px' in v and 'var(--ts)' not in v and 'var(--fs-' not in v:
+                for part in (p.strip() for p in sel.split(',')):
+                    if part not in FIXED_FS:
+                        warn(f'css: font-size {v.strip()} in «{part[:60]}» does not follow the text size '
+                             f'(use var(--fs-*) or calc(N * var(--ts)); a fixed glyph goes into FIXED_FS)')
+        for m in re.finditer(r'(?:transition|animation)(?:-duration)?:\s*([^;]+)', body):
+            if DURATION_RX.search(re.sub(r'var\([^)]*\)', '', m.group(1))):
+                warn(f'css: literal duration in «{sel[:60]}»: {m.group(1).strip()[:50]} (use --dur, --dur-slow or --dur-tick)')
     used = set(re.findall(r'var\((--[\w-]+)', src))
     for v in sorted(used - defined - RUNTIME_VARS):
         warn(f'css: var({v}) is used but not defined in :root')
