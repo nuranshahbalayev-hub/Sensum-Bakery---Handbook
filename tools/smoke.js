@@ -14,10 +14,18 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const fails = [];
 const check = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (!ok) fails.push(what); };
 
+/* for the service-worker checks: `release` makes the server hand out index.html and sw.js as that (newer) version,
+   `slowPage` holds index.html back, like a network that does not answer */
+let release = null, slowPage = 0;
 const server = http.createServer((req, res) => {
   const file = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/^\/$/, '/index.html'));
   if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  const name = path.basename(file);
+  if (release && (name === 'index.html' || name === 'sw.js')) {
+    const text = fs.readFileSync(file, 'utf8').replace(/APP_VERSION="[\d.]+"/, `APP_VERSION="${release}"`).replace(/const CACHE = 'sensum-v[\d.]+'/, `const CACHE = 'sensum-v${release}'`);
+    return setTimeout(() => res.end(text), name === 'index.html' ? slowPage : 0);
+  }
   fs.createReadStream(file).pipe(res);
 });
 
@@ -162,6 +170,38 @@ const server = http.createServer((req, res) => {
   check(await page.locator('#promos-vit').isHidden(), 'vitrina: the search and the hidden promos survive a tab switch');
   await page.fill('#q', '');
   check(await page.locator('#promos-vit .promo').first().isVisible(), 'vitrina: the promos are back when the search is cleared');
+  /* the allergen filter of the vitrina: a chip leaves only the dishes without that family, as «contains» or as «may contain».
+     The truth is worked out here from the data, not with the app's own helper */
+  const alg = await page.evaluate(() => {
+    const keys = [...document.querySelectorAll('#algchips [data-alg]')].map(b => b.dataset.alg), bad = [];
+    const without = ks => vit.filter(v => ![...v.alg.has, ...v.alg.may].some(a => ks.some(k => a === k || a.startsWith(k + '_')))).map(v => v.id);
+    const shown = () => [...document.querySelectorAll('#vitgrid .card')].map(c => c.dataset.open);
+    const tap = k => document.querySelector(`#algchips [data-alg="${k}"]`).click();
+    keys.forEach(k => {
+      tap(k);
+      if (shown().join() !== without([k]).join() || !document.getElementById('vitcount').textContent.startsWith(without([k]).length + ' ')) bad.push(k);
+      tap(k);
+    });
+    const used = new Set(vit.flatMap(v => [...v.alg.has, ...v.alg.may]).map(a => a.split('_')[0]));
+    tap('milk'); tap('nuts');
+    const two = shown().join() === without(['milk', 'nuts']).join();
+    return { keys, bad, used: [...used], two, left: shown().length, label: document.querySelector('#algchips .chiplbl').textContent };
+  });
+  check(alg.keys.length >= 8 && alg.bad.length === 0 && alg.keys.slice().sort().join() === alg.used.slice().sort().join() && !alg.keys.some(k => k.includes('_')),
+    `vitrina allergen filter: ${alg.keys.length} chips (one per family in the data, the nuts as one), each leaves exactly the dishes without it${alg.bad.length ? ' — wrong: ' + alg.bad.join(', ') : ''}`);
+  const algNote = await page.locator('#vitalgnote').innerText();
+  check(alg.two && alg.left > 0 && alg.left < counts.vit && algNote.includes('молоко, орехи') && await page.locator('#promos-vit .promo').first().isVisible(),
+    'vitrina allergen filter: two chips add up, a note says what is hidden, the promos stay');
+  await page.fill('#q', 'салат');
+  check(await page.locator('#vitalgnote').isVisible() && await page.evaluate(() => [...document.querySelectorAll('#vitgrid .card')].every(c => { const v = vitById[c.dataset.open]; return v.cat === 'salad' && !v.alg.has.concat(v.alg.may).some(a => a === 'milk' || a.startsWith('nuts')); }) && document.querySelectorAll('#vitgrid .card').length > 0),
+    'vitrina allergen filter: works together with the search, and its note stays during it');
+  await page.fill('#q', '');
+  await page.evaluate(() => setLang('az'));
+  const algAz = await page.evaluate(() => ({ on: [...document.querySelectorAll('#algchips .chip.on')].map(b => b.dataset.alg).join(), text: document.getElementById('algchips').innerText + document.getElementById('vitalgnote').innerText, n: document.querySelectorAll('#vitgrid .card').length }));
+  check(algAz.on === 'milk,nuts' && algAz.n === alg.left && !/[А-Яа-яЁё]/.test(algAz.text) && algAz.text.includes('Qonağa olmaz'), 'vitrina allergen filter: survives the switch to AZ, chips and note are Azerbaijani');
+  await page.evaluate(() => setLang('ru'));
+  await page.click('#vitalgnote [data-algreset]');
+  check(await page.locator('#vitgrid .card').count() === counts.vit && await page.locator('#algchips .chip.on').count() === 0 && await page.locator('#vitalgnote').isHidden(), 'vitrina allergen filter: «Показать все» brings every dish back');
   /* the preps tab has no such block today; whatever is marked `.topblock` there (a future notice) gives way the same way */
   await page.click('nav.tabs button[data-tab="preps"]');
   await page.evaluate(() => { const d = document.createElement('div'); d.id = 'tb-test'; d.className = 'topblock'; d.textContent = 'notice'; document.getElementById('v-preps').prepend(d); });
@@ -294,6 +334,9 @@ const server = http.createServer((req, res) => {
   });
   await page.click('#learnroot [data-l="quiz"]');
   check(await page.locator('#learnroot #qtrow').count() === 1, 'test question shows a countdown');
+  /* the «new version» bar: never over a running test (a reload would abort it), back as soon as the test is over */
+  await page.evaluate(() => showUpdate());
+  const updHiddenInTest = await page.locator('#updbar').isHidden();
   await page.evaluate(() => { L.qz.deadline = Date.now() - 1; });
   await page.waitForTimeout(500);
   check((await page.locator('#learnroot .fb').innerText()).includes(await page.evaluate(() => T('q_timeout'))), 'time running out counts the question as wrong');
@@ -309,6 +352,11 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(500);
   const ab = posted[1] || {};
   check(posted.length === 2 && ab.aborted === true && ab.timeouts === 1 && ab.away === 1 && ab.score === 0 && ab.total > 2, 'an aborted test is sent as aborted with its checks');
+  const upd = await page.evaluate(() => ({ shown: !document.getElementById('updbar').hidden, text: document.getElementById('updbar').innerText,
+    pad: parseFloat(getComputedStyle(document.getElementById('scrollArea')).paddingBottom), tab: document.querySelector('nav.tabs').offsetHeight }));
+  check(updHiddenInTest && upd.shown && upd.text.includes('Доступна новая версия') && upd.text.includes('Обновить') && upd.pad > upd.tab + 40,
+    '«new version» bar: hidden during a running test, shown after it, and the page scrolls clear of it');
+  await page.evaluate(() => { updReady = false; syncUpd(); });
   await page.click('nav.tabs button[data-tab="learn"]');
   await page.click('#learnroot [data-l="quiz"]');
   await page.locator('#learnroot [data-l="ans"]').first().click();
@@ -1089,6 +1137,33 @@ const server = http.createServer((req, res) => {
 
   check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'no horizontal scroll at 390px');
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
+
+  /* the real service worker, in a context of its own: a release while the app is open, and a network that does not answer */
+  const swCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await swCtx.route('https://script.google.com/**', route => route.abort());
+  const sp = await swCtx.newPage(); const swErr = [];
+  sp.on('pageerror', e => swErr.push(e.message));
+  await sp.goto(base);
+  await sp.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 20000 });
+  const ver0 = await sp.evaluate(() => APP_VERSION);
+  await sp.waitForTimeout(300);
+  check(await sp.locator('#updbar').isHidden(), 'service worker: no «new version» bar when page and worker are the same version');
+  release = '9.999';
+  await sp.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+  const offered = await sp.waitForSelector('#updbar:not([hidden])', { timeout: 20000 }).then(() => true, () => false);
+  check(offered && await sp.evaluate(() => APP_VERSION) === ver0, 'service worker: a release while the app is open shows the bar and leaves the open page alone');
+  await Promise.all([sp.waitForNavigation(), sp.click('#updbtn')]);
+  check(await sp.evaluate(() => APP_VERSION) === '9.999' && await sp.locator('#updbar').isHidden() && await sp.locator('#grid .card').count() === counts.drinks,
+    'service worker: «Обновить» reloads into the new version, and the bar is gone');
+  slowPage = 15000;
+  const t0 = Date.now();
+  await sp.reload();
+  const waited = Date.now() - t0;
+  check(waited > 2500 && waited < 9000 && await sp.locator('#grid .card').count() === counts.drinks && await sp.evaluate(() => APP_VERSION) === '9.999',
+    `service worker: a network that does not answer opens the saved page after about three seconds (${waited} ms)`);
+  check(swErr.length === 0, 'service worker: no page errors' + (swErr.length ? ': ' + swErr.slice(0, 2).join(' | ') : ''));
+  slowPage = 0; release = null;
+  await swCtx.close();
 
   /* the style guide renders the real components from index.html's stylesheet */
   const sg = await ctx.newPage(); const sgErr = [];
