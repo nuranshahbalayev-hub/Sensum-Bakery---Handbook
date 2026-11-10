@@ -33,6 +33,8 @@ const server = http.createServer((req, res) => {
 
   /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
   let mockOver = false;  /* the sheet says the result was over the weekly limit */
+  let mockAssess = 'ok';  /* «Проверки KPI»: 'ok' | 'offline' | an error the sheet answers */
+  const assessPosts = [];
   const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', progressProtocol: 2, passThreshold: 0.7, xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
     badges: ['first', 'perfect', 'exam100'], exam: null,
     board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
@@ -52,6 +54,14 @@ const server = http.createServer((req, res) => {
         });
         progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box, clocks, ts: Math.max(Date.now(), old.ts + 1, d.ts) };
         route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, progress: progressDb[d.code] }) });
+        return;
+      }
+      if (d.action === 'assess') {
+        if (mockAssess === 'offline') { route.abort(); return; }
+        assessPosts.push(d);
+        const r = d.scores.filter(v => v != null), sum = r.reduce((a, b) => a + b, 0);
+        body = mockAssess === 'ok' ? { ok: true, pct: Math.round(sum * 100 / (5 * r.length)), sum, max: 5 * r.length, skipped: d.scores.length - r.length } : { ok: false, error: mockAssess };
+        route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(body) });
         return;
       }
       posted.push(d);
@@ -1043,6 +1053,102 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { delete LS.stats.kpi; renderLearn(); });
   check(await kc().count() === 0, '«План месяца»: an older script (no kpi) means no card');
   await page.evaluate(() => { Date.now = window.__dn; });
+
+  /* ---- «Проверки KPI» (script v5.11): the trainer checks a barista against a checklist (1–5 or skip), the employee sees their own result ---- */
+  const SEC = [['Рецептуры', 'Reseptlər'], ['Сезонное меню', 'Mövsümi menyu'], ['Аллергены', 'Allergenlər'], ['Техника', 'Texnika'], ['Латте-арт', 'Latte-art'],
+    ['Эспрессо', 'Espresso'], ['Приветствие', 'Salamlama'], ['Допродажи', 'Əlavə satış'], ['Конфликты', 'Münaqişələr'], ['Касса', 'Kassa']];
+  const CL = { id: 'barista', t: { ru: 'Аттестация навыков → Barista', az: 'Bacarıqların attestasiyası → Barista' },
+    items: SEC.map(([ru, az], i) => ({ sec: { ru, az }, q: { ru: 'Пункт ' + (i + 1) + ': ' + ru, az: 'Bənd ' + (i + 1) + ': ' + az }, star: i === 2, auto: i === 2 ? 'allergens' : '' })) };
+  const goHome = () => page.evaluate(() => { L.nav = []; L.view = 'home'; L.as = null; renderLearn(); });
+  await goHome();
+  check(await page.locator('#learnroot [data-l="assess"]').count() === 0 && await page.locator('#learnroot .myas').count() === 0, 'checks: nothing without the script part (an employee, or an older script)');
+  ME.assess = { checklists: [CL], max: 5, staff: [{ code: '9001', name: 'Barista One', branch: 'Central Park', role: 'Бариста', last: null },
+    { code: '9002', name: 'Chef Two', branch: 'White City', role: 'Шеф-бариста', last: { pct: 80, date: '2026-11-03' } }] };
+  await refreshStats(); await goHome();
+  const atile = page.locator('#learnroot [data-l="assess"]');
+  check(await atile.count() === 1 && (await atile.innerText()).includes('Проверено в этом месяце: 1 из 2'), 'checks: the trainer gets the tile with this month’s count');
+  await atile.click();
+  check(await page.evaluate(() => L.view === 'assess') && (await page.locator('#learnTitle').innerText()) === 'Проверки KPI' && await page.locator('#learnroot .asitem').count() === 0
+    && (await page.locator('#asst option').count()) === 3, 'checks: the screen opens with the checklist and the people to pick, no items before a person is picked');
+  await page.selectOption('#asst', '9001');
+  check(await page.locator('#learnroot .asitem').count() === 10 && await page.locator('#learnroot .asitem .asstar').count() === 1 && await page.locator('#astime').count() === 1
+    && (await page.locator('#astotal').innerText()) === '—' && await page.locator('#assave').isDisabled(), 'checks: ten items, the starred one marked, a timer, no total yet, save locked');
+  const sc = (i, v) => page.click(`#learnroot [data-l="ascore"][data-i="${i}"][data-v="${v}"]`);
+  for (let i = 0; i < 9; i++) await sc(i, 5);
+  check(await page.locator('#assave').isDisabled() && (await page.locator('#asleft').innerText()).includes('Осталось оценить пунктов: 1') && (await page.locator('#astotal').innerText()) === '45 / 45 = 100%',
+    'checks: one item left: save stays locked, the live total counts the rated items');
+  await sc(9, 0);
+  check(await page.locator('#assave').isEnabled() && (await page.locator('#astotal').innerText()) === '45 / 45 = 100%' && await page.locator('#asleft').isHidden(), 'checks: a skipped item does not count: 9 on 5 = 100%');
+  await sc(1, 3);
+  check((await page.locator('#astotal').innerText()) === '43 / 45 = 96%' && await page.locator('#learnroot [data-l="ascore"][data-i="1"].on').count() === 1, 'checks: a changed score: 43 / 45 = 96%, one button on');
+  await page.fill('#ascom', 'Латте-арт подтянуть');
+  const nPostAs = posted.length, nAttAs = await page.evaluate(() => (LS.att || []).length);
+  await page.click('#assave');
+  await page.waitForTimeout(500);
+  const ap = assessPosts[assessPosts.length - 1] || {};
+  check(assessPosts.length === 1 && ap.code === '1234' && ap.staff === '9001' && ap.checklist === 'barista' && JSON.stringify(ap.scores) === '[5,3,5,5,5,5,5,5,5,null]'
+    && ap.comment === 'Латте-арт подтянуть' && ap.secs >= 0 && ap.id, 'checks: sent once with the scores (skip = null), the comment and the time');
+  check((await page.locator('#learnroot').innerText()).includes('Проверка сохранена') && (await page.locator('#learnroot .aspct').innerText()) === '96%'
+    && (await page.locator('#asstat').innerText()).includes('Записано в таблицу'), 'checks: the saved screen shows the result and that the sheet has it');
+  check(posted.length === nPostAs && await page.evaluate(n => (LS.att || []).length === n && !LS.outbox.length, nAttAs), 'checks: not a test, no attempt, nothing left in the queue');
+  /* a person already checked this month: a note, and the new check asks before it replaces the old one */
+  await page.click('#learnroot [data-l="asnew"]');
+  await page.selectOption('#asst', '9002');
+  check((await page.locator('#learnroot .note').first().innerText()).includes('Уже проверен в этом месяце: 80%'), 'checks: a person checked this month is marked');
+  for (let i = 0; i < 10; i++) await sc(i, 4);
+  page.once('dialog', d => d.dismiss());
+  await page.click('#assave');
+  check(assessPosts.length === 1 && await page.evaluate(() => L.view === 'assess' && !L.as.done), 'checks: a refused «replace?» keeps the check open and sends nothing');
+  page.once('dialog', d => d.accept());
+  await page.click('#assave');
+  await page.waitForTimeout(400);
+  check(assessPosts.length === 2 && assessPosts[1].scores.every(v => v === 4), 'checks: confirmed, the new check is sent');
+  /* changing the person with scores given asks first */
+  await page.click('#learnroot [data-l="asnew"]');
+  await page.selectOption('#asst', '9001'); await sc(0, 2);
+  page.once('dialog', d => d.dismiss());
+  await page.selectOption('#asst', '9002');
+  check(await page.evaluate(() => L.as.st === '9001' && L.as.scores[0] === 2) && (await page.inputValue('#asst')) === '9001', 'checks: picking another person with scores given asks, and a «no» keeps them');
+  /* offline: the check waits in the queue and goes by itself */
+  for (let i = 1; i < 10; i++) await sc(i, 5);
+  mockAssess = 'offline';
+  const nErr = errors.length;
+  await page.click('#assave');
+  await page.waitForTimeout(400);
+  errors.splice(nErr, errors.length - nErr, ...errors.slice(nErr).filter(e => !e.includes('ERR_FAILED')));  /* the cut connection is the point here */
+  check((await page.locator('#asstat').innerText()).includes('Нет связи') && await page.evaluate(() => LS.outbox.length === 1 && LS.outbox[0].action === 'assess'), 'checks: offline the check stays on the phone');
+  mockAssess = 'ok';
+  await page.evaluate(() => flushOutbox()); await page.waitForTimeout(400);
+  check(await page.evaluate(() => !LS.outbox.length) && assessPosts.length === 3 && (await page.locator('#asstat').innerText()).includes('Записано'), 'checks: back online it is sent and the screen says so');
+  /* a check the sheet refuses is dropped and never holds up the tests behind it */
+  await page.click('#learnroot [data-l="asnew"]');
+  await page.selectOption('#asst', '9001'); for (let i = 0; i < 10; i++) await sc(i, 5);
+  mockAssess = 'bad_staff';
+  await page.click('#assave'); await page.waitForTimeout(400);
+  check((await page.locator('#asstat').innerText()).includes('не приняла') && await page.evaluate(() => !LS.outbox.length), 'checks: a refused check is dropped from the queue and says so');
+  mockAssess = 'ok';
+  /* AZ */
+  await page.click('#learnroot [data-l="asnew"]');
+  await page.selectOption('#asst', '9001');
+  await page.click('#langbtn');
+  const azAs = await page.locator('#learnroot').innerText();
+  check(await page.evaluate(() => L.view === 'assess') && azAs.includes('Bənd 1: Reseptlər') && azAs.includes('Keç') && !/[А-Яа-яЁё]/.test(azAs + await page.locator('#learnTitle').innerText()), 'AZ: the check screen is Azerbaijani');
+  await page.click('#langbtn');
+  check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'checks: no horizontal scroll at 390px');
+  await page.click('#learnBack');
+  check(await page.evaluate(() => L.view === 'home'), 'checks: back returns to the training home');
+  /* the employee's own check: the result, the items, the comment; no trainer tile */
+  delete ME.assess;
+  ME.assessMine = { date: '2026-11-03', month: '2026-11', pct: 86, sum: 43, max: 50, skipped: 0, comment: 'Латте-арт подтянуть', title: CL.t,
+    items: CL.items.map((it, i) => ({ sec: it.sec, q: it.q, score: i === 9 ? null : i === 1 ? 3 : 5 })) };
+  await refreshStats(); await goHome();
+  const my = page.locator('#learnroot .myas');
+  check(await atile.count() === 0 && await my.count() === 1 && (await my.innerText()).includes('Моя проверка KPI') && (await my.locator('.aspct').innerText()) === '86%'
+    && (await my.innerText()).includes('43 из 50 баллов') && (await my.innerText()).includes('Латте-арт подтянуть'), 'checks: the employee sees their own result and the comment, no trainer tile');
+  await my.locator('summary').click();
+  check(await my.locator('li').count() === 10 && (await my.locator('li').nth(9).innerText()).includes('пропуск'), 'checks: the employee sees the score of every item');
+  delete ME.assessMine; await refreshStats(); await goHome();
+  check(await my.count() === 0, 'checks: no card without a check');
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));

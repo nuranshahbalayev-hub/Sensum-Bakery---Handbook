@@ -96,7 +96,30 @@ const KPI_HEADERS = ['Месяц', 'Код', 'Сотрудник', 'Филиал
   'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ'];
 const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.10';
+// Проверки KPI (v5.11): тренер оценивает навыки бариста и шеф-бариста по чек-листу, каждый пункт 1–5 или «пропуск».
+// % KPI = сумма баллов / (5 × оценённых пунктов); пропуск не считается. В KPI месяца идёт последняя проверка сотрудника.
+// Пункты чек-листов тренер правит сам на листе «Чек-листы»; результаты пишутся на лист «Проверки KPI», не в «Результаты».
+const SHEET_CHECKLISTS = 'Чек-листы';
+const SHEET_ASSESS = 'Проверки KPI';
+const ASSESSOR_ROLES = ['тренинг-менеджер'];         // столбец D: кто проводит проверки
+const ASSESSED_ROLES = ['бариста', 'шеф-бариста'];    // столбец D: кого проверяют (филиал «Тест» не входит)
+const ASSESS_MAX = 5, ASSESS_MAX_ITEMS = 30;
+const CHECKLIST_HEADERS = ['ID чек-листа', 'Чек-лист RU', 'Чек-лист AZ', '№', 'Раздел RU', 'Раздел AZ', 'Пункт RU', 'Пункт AZ', '★', 'Авто'];
+const ASSESS_HEADERS = ['Дата', 'Месяц', 'Код', 'Сотрудник', 'Филиал', 'Должность', 'Чек-лист', '% KPI', 'Баллы', 'Из', 'Пропущено',
+  'Оценки', 'Комментарий', 'Время проверки', 'Проверяющий', 'ID', 'Оценки JSON'];
+/* the first checklist, as in Sensum OS; written to «Чек-листы» when that sheet is made, then the trainer edits the sheet */
+const DEFAULT_CHECKLIST = { id: 'barista', ru: 'Аттестация навыков → Barista', az: 'Bacarıqların attestasiyası → Barista', items: [
+  ['Рецептуры', 'Reseptlər', 'Знание техкарт основного меню без подсказок', 'Əsas menyunun texniki kartlarını köməksiz bilmək'],
+  ['Сезонное меню', 'Mövsümi menyu', 'Знание состава и рецептов сезонных напитков', 'Mövsümi içkilərin tərkibini və reseptlərini bilmək'],
+  ['Аллергены', 'Allergenlər', 'Знание аллергенов и состава десертов/блюд', 'Desert və yeməklərin allergenlərini və tərkibini bilmək', true, 'allergens'],
+  ['Техника', 'Texnika', 'Взбивание классического и альтернативного молока', 'Klassik və alternativ südün çalınması'],
+  ['Латте-арт', 'Latte-art', 'Базовые рисунки (сердце, тюльпан) стабильно', 'Əsas rəsmlər (ürək, lalə) sabit alınır'],
+  ['Эспрессо', 'Espresso', 'Понимание экстракции: как исправить кислый/горький шот', 'Ekstraksiyanı anlamaq: turş/acı şotu necə düzəltmək'],
+  ['Приветствие', 'Salamlama', 'Контакт с гостем за 3–5 сек, улыбка, зрительный контакт', 'Qonaqla 3–5 saniyədə əlaqə, təbəssüm, göz təması'],
+  ['Допродажи', 'Əlavə satış', 'Использование скриптов и фокуса дня', 'Skriptlərdən və günün fokusundan istifadə'],
+  ['Конфликты', 'Münaqişələr', 'Знание матрицы компенсаций и сценария работы с жалобой', 'Kompensasiya matrisini və şikayətlə iş ssenarisini bilmək'],
+  ['Касса', 'Kassa', 'Корректная работа с кассой и модификаторами', 'Kassa və modifikatorlarla düzgün işləmək']] };
+const SCRIPT_VERSION = 'v5.11';
 
 /* ---------- меню в таблице ---------- */
 
@@ -110,6 +133,7 @@ function onOpen() {
     .addItem('Отправить сводку за сутки сейчас', 'dailyDigest')
     .addItem('Обновить «Сложные вопросы»', 'hardQuestions')
     .addItem('KPI обучения: подготовить листы и пересчитать прошлый месяц', 'kpiMonths')
+    .addItem('Проверки KPI: подготовить листы «Чек-листы» и «Проверки KPI»', 'assessSetup')
     .addToUi();
 }
 
@@ -151,6 +175,7 @@ function doPost(e) {
     return json_(r);
   }
   if (d.kind === 'daily') return json_(saveDaily_(staff, d));
+  if (d.action === 'assess') return json_(saveAssess_(staff, d));
   const score = Number(d.score), total = Number(d.total);
   if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= MAX_QUESTIONS && score >= 0 && score <= total)) {
     return json_({ ok: false, error: 'bad_score' });
@@ -665,6 +690,7 @@ function me_(code) {
   const ledger = owls_().filter(o => o.code === s.code);
   const prog = progressOf_(s.code), readAt = prog.readAt || {};
   const quota = quotaOf_(s.role), st = streaks_(fullWeeks_(myTests, readAt, quota), now);
+  const asRows = assessRows_();
   const exam = mine.filter(r => r.kind === 'exam' && monthKey_(r.date) === month)[0];
   const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
   const thisWeek = all.filter(r => weekKey_(r.date) === week && r.branch !== TEST_BRANCH);
@@ -688,11 +714,149 @@ function me_(code) {
     plan: weekPlan_(myTests, readAt, week, quota), kpi: kpiPublic_(kpiMonth_(s, month, { tests, dailies: daily, readAt: { [s.code]: readAt }, absence: absenceMap_() }, now)),
     passThreshold: setting_('PassThreshold', 0.7),
     progressProtocol: 2, progress: prog,
+    assessMine: assessMine_(s, asRows), assess: isAssessor_(s) ? assessPublic_(asRows, month) : null,
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
     }
   };
+}
+
+/* ---------- Проверки KPI ---------- */
+
+function roleKey_(role) {
+  return String(role == null ? '' : role).trim().toLowerCase().replace(/ё/g, 'е').replace(/[\s\-‐–—]+/g, '-');  // «Шеф-бариста» = «шеф бариста»
+}
+function isAssessor_(s) { return !!s && ASSESSOR_ROLES.map(roleKey_).indexOf(roleKey_(s.role)) >= 0; }
+function isAssessed_(s) { return !!s && s.branch !== TEST_BRANCH && ASSESSED_ROLES.map(roleKey_).indexOf(roleKey_(s.role)) >= 0; }
+
+function checklistSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_CHECKLISTS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_CHECKLISTS);
+    const c = DEFAULT_CHECKLIST;
+    sh.getRange(1, 1, 1, CHECKLIST_HEADERS.length).setValues([CHECKLIST_HEADERS]);
+    sh.getRange(2, 1, c.items.length, CHECKLIST_HEADERS.length)
+      .setValues(c.items.map((it, i) => [c.id, c.ru, c.az, i + 1, it[0], it[1], it[2], it[3], it[4] ? 'да' : '', it[5] || '']));
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function assessSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_ASSESS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_ASSESS);
+    sh.getRange(1, 1, 1, ASSESS_HEADERS.length).setValues([ASSESS_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+/* menu: make both sheets (the checklist with its first ten items) so the trainer can edit the items before the first check */
+function assessSetup() {
+  checklistSheet_(); assessSheet_();
+  SpreadsheetApp.getUi().alert('Листы «Чек-листы» и «Проверки KPI» готовы. Пункты чек-листа можно править на листе «Чек-листы»: ' +
+    'одна строка = один пункт; ★ — «да» для важного пункта; «Авто» = allergens даёт пункту мини-проверку аллергенов в приложении.');
+}
+
+/* the checklists of the sheet: rows grouped by id in the order they stand, items by «№» */
+function checklists_() {
+  const sh = checklistSheet_(), last = sh.getLastRow();
+  if (last < 2) return [];
+  const byId = new Map();
+  sh.getRange(2, 1, last - 1, CHECKLIST_HEADERS.length).getValues().forEach((r, i) => {
+    const id = text_(r[0], 40), q = text_(r[6], 300);
+    if (!id || !q) return;
+    if (!byId.has(id)) byId.set(id, { id, t: { ru: text_(r[1], 120) || id, az: text_(r[2], 120) || text_(r[1], 120) || id }, items: [] });
+    const n = Number(r[3]);
+    byId.get(id).items.push({ n: isFinite(n) && n > 0 ? n : 1000 + i, sec: { ru: text_(r[4], 60), az: text_(r[5], 60) || text_(r[4], 60) },
+      q: { ru: q, az: text_(r[7], 300) || q }, star: r[8] === true || /^(да|yes|\*|★|1|true)$/i.test(String(r[8]).trim()), auto: text_(r[9], 20).toLowerCase() });
+  });
+  return [...byId.values()].map(c => {
+    c.items = c.items.sort((a, b) => a.n - b.n).slice(0, ASSESS_MAX_ITEMS).map(({ n, ...it }) => it);
+    return c;
+  });
+}
+
+function assessRows_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ASSESS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, ASSESS_HEADERS.length).getValues()
+    .filter(r => r[0] instanceof Date && String(r[2]).trim())
+    .map(r => {
+      let j = {};
+      try { j = JSON.parse(String(r[16] || '{}')) || {}; } catch (err) { j = {}; }
+      return { date: r[0], month: String(r[1]) || monthKey_(r[0]), code: String(r[2]).trim(), name: String(r[3]), branch: String(r[4]),
+        checklist: String(r[6]), pct: Number(r[7]), sum: Number(r[8]), max: Number(r[9]), skipped: Number(r[10]) || 0,
+        comment: String(r[12] || ''), id: String(r[15] || ''), cl: j.checklist || '', scores: Array.isArray(j.scores) ? j.scores : [] };
+    }).sort((a, b) => a.date - b.date);
+}
+
+/* each score is a whole 1..5 or null (skipped); the share counts only the rated items */
+function assessScore_(scores, n) {
+  if (!Array.isArray(scores) || scores.length !== n) return null;
+  const v = scores.map(x => (x === null || x === '' || x === undefined) ? null : Number(x));
+  if (v.some(x => x !== null && !(Number.isInteger(x) && x >= 1 && x <= ASSESS_MAX))) return null;
+  const rated = v.filter(x => x !== null), sum = rated.reduce((a, b) => a + b, 0), max = rated.length * ASSESS_MAX;
+  return { scores: v, sum, max, rated: rated.length, skipped: n - rated.length, pct: max ? Math.round(sum * 100 / max) : 0 };
+}
+
+function saveAssess_(assessor, d) {
+  if (!isAssessor_(assessor)) return { ok: false, error: 'not_assessor' };
+  const target = findStaff_(d.staff);
+  if (!isAssessed_(target)) return { ok: false, error: 'bad_staff' };
+  const cl = checklists_().filter(c => c.id === text_(d.checklist, 40))[0];
+  if (!cl) return { ok: false, error: 'bad_checklist' };
+  const sc = assessScore_(d.scores, cl.items.length);
+  if (!sc) return { ok: false, error: 'bad_scores' };
+  if (!sc.rated) return { ok: false, error: 'nothing_rated' };
+  const id = text_(d.id, 64), when = takenAt_(d.ts), month = monthKey_(when), comment = text_(d.comment, 1000), secs = count_(d.secs, 6 * 3600);
+  let replaced = false;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = assessSheet_(), rows = assessRows_();
+    const dup = id && rows.filter(r => r.id === id)[0];
+    if (dup) return { ok: true, duplicate: true, pct: dup.pct, sum: dup.sum, max: dup.max, skipped: dup.skipped };
+    replaced = rows.some(r => r.code === target.code && r.month === month);
+    const row = Math.max(2, sh.getLastRow() + 1);
+    if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+    sh.getRange(row, 3).setNumberFormat('@');
+    sh.getRange(row, 2).setNumberFormat('@');
+    const lines = cl.items.map((it, i) => `${i + 1}. ${it.sec.ru || it.q.ru}: ${sc.scores[i] === null ? 'пропуск' : sc.scores[i]}`).join('\n');
+    sh.getRange(row, 1, 1, ASSESS_HEADERS.length).setValues([[when, month, target.code, target.name, target.branch, target.role, cl.t.ru,
+      sc.pct, sc.sum, sc.max, sc.skipped, lines, cell_(comment), secs === '' ? '' : mmss_(secs), assessor.name, cell_(id),
+      JSON.stringify({ checklist: cl.id, scores: sc.scores })]]);
+  } finally {
+    lock.releaseLock();
+  }
+  notify_(`📋 Проверка KPI: ${target.name} (${target.branch}) — ${sc.pct}% (${sc.sum} из ${sc.max})` +
+    (sc.skipped ? `, пропущено пунктов: ${sc.skipped}` : '') + `\n${cl.t.ru}` +
+    (replaced ? '\nЗаменяет прошлую проверку этого месяца в KPI.' : '') + (comment ? `\n💬 ${comment}` : ''));
+  return { ok: true, pct: sc.pct, sum: sc.sum, max: sc.max, skipped: sc.skipped, replaced };
+}
+
+/* a person's own last check, with the items in today's wording of its checklist (no one else's) */
+function assessMine_(s, rows) {
+  const r = rows.filter(x => x.code === s.code).pop();
+  if (!r) return null;
+  const cl = r.cl ? checklistsSafe_().filter(c => c.id === r.cl)[0] : null;
+  const items = cl && cl.items.length === r.scores.length ? cl.items.map((it, i) => ({ sec: it.sec, q: it.q, score: r.scores[i] })) : [];
+  return { date: dayKey_(r.date), month: r.month, pct: r.pct, sum: r.sum, max: r.max, skipped: r.skipped, comment: r.comment,
+    title: cl ? cl.t : { ru: r.checklist, az: r.checklist }, items };
+}
+/* reading the checklists for an employee must not create the sheet */
+function checklistsSafe_() { return SpreadsheetApp.getActive().getSheetByName(SHEET_CHECKLISTS) ? checklists_() : []; }
+
+/* for the trainer: the checklists and the people to check, with this month's last result */
+function assessPublic_(rows, month) {
+  const last = {};
+  rows.filter(r => r.month === month).forEach(r => { last[r.code] = { pct: r.pct, date: dayKey_(r.date) }; });
+  const staff = activeStaff_().filter(isAssessed_)
+    .map(x => ({ code: x.code, name: x.name, branch: x.branch, role: x.role, last: last[x.code] || null }))
+    .sort((a, b) => a.branch.localeCompare(b.branch) || a.name.localeCompare(b.name));
+  return { checklists: checklists_(), staff, max: ASSESS_MAX };
 }
 
 /* ---------- «Вопрос дня» ---------- */
