@@ -96,36 +96,30 @@ const KPI_HEADERS = ['Месяц', 'Код', 'Сотрудник', 'Филиал
   'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ'];
 const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-// Проверки KPI (v5.11, v5.12): каждый пункт чек-листа 0–5 баллов. Вопросные пункты (колонка «Источник» листа «Чек-листы»)
-// сотрудник проходит сам в тесте KPI месяца (KPI_TEST_PER вопросов на пункт; балл = доля верных × 5), живые (live) оценивает тренер 1–5 или «пропуск».
-// % KPI = сумма баллов / (5 × оценённых пунктов); пропуск не считается. В KPI месяца идут последний тест и последняя живая проверка месяца.
-// Пункты тренер правит сам на листе «Чек-листы»; результаты пишутся на лист «Проверки KPI», не в «Результаты».
+// Проверки KPI (v5.11): тренер оценивает навыки бариста и шеф-бариста по чек-листу, каждый пункт 1–5 или «пропуск».
+// % KPI = сумма баллов / (5 × оценённых пунктов); пропуск не считается. В KPI месяца идёт последняя проверка сотрудника.
+// Пункты чек-листов тренер правит сам на листе «Чек-листы»; результаты пишутся на лист «Проверки KPI», не в «Результаты».
 const SHEET_CHECKLISTS = 'Чек-листы';
 const SHEET_ASSESS = 'Проверки KPI';
 const ASSESSOR_ROLES = ['тренинг-менеджер'];         // столбец D: кто проводит проверки
 const ASSESSED_ROLES = ['бариста', 'шеф-бариста'];    // столбец D: кого проверяют (филиал «Тест» не входит)
 const ASSESS_MAX = 5, ASSESS_MAX_ITEMS = 30;
-const KPI_TEST_PER = 3, KPI_TEST_MAX_PER = 5;         // questions per item in the KPI test (the app builds them), at most accepted
-const CHECKLIST_HEADERS = ['ID чек-листа', 'Чек-лист RU', 'Чек-лист AZ', '№', 'Раздел RU', 'Раздел AZ', 'Пункт RU', 'Пункт AZ', '★', 'Источник'];
+const CHECKLIST_HEADERS = ['ID чек-листа', 'Чек-лист RU', 'Чек-лист AZ', '№', 'Раздел RU', 'Раздел AZ', 'Пункт RU', 'Пункт AZ', '★', 'Авто'];
 const ASSESS_HEADERS = ['Дата', 'Месяц', 'Код', 'Сотрудник', 'Филиал', 'Должность', 'Чек-лист', '% KPI', 'Баллы', 'Из', 'Пропущено',
-  'Оценки', 'Комментарий', 'Время проверки', 'Проверяющий', 'ID', 'Оценки JSON', 'Часть'];
-const PART_TEST = 'тест', PART_LIVE = 'вживую';
-/* the first checklist, as in Sensum OS; written to «Чек-листы» when that sheet is made, then the trainer edits the sheet.
-   The last field is the source: live (the trainer), drinks, seasonal:<drink ids> (empty = the «Новинка» of the app), allergens, theory:<topics> */
+  'Оценки', 'Комментарий', 'Время проверки', 'Проверяющий', 'ID', 'Оценки JSON'];
+/* the first checklist, as in Sensum OS; written to «Чек-листы» when that sheet is made, then the trainer edits the sheet */
 const DEFAULT_CHECKLIST = { id: 'barista', ru: 'Аттестация навыков → Barista', az: 'Bacarıqların attestasiyası → Barista', items: [
-  ['Рецептуры', 'Reseptlər', 'Знание техкарт основного меню без подсказок', 'Əsas menyunun texniki kartlarını köməksiz bilmək', false, 'drinks'],
-  ['Сезонное меню', 'Mövsümi menyu', 'Знание состава и рецептов сезонных напитков', 'Mövsümi içkilərin tərkibini və reseptlərini bilmək', false, 'seasonal:'],
+  ['Рецептуры', 'Reseptlər', 'Знание техкарт основного меню без подсказок', 'Əsas menyunun texniki kartlarını köməksiz bilmək'],
+  ['Сезонное меню', 'Mövsümi menyu', 'Знание состава и рецептов сезонных напитков', 'Mövsümi içkilərin tərkibini və reseptlərini bilmək'],
   ['Аллергены', 'Allergenlər', 'Знание аллергенов и состава десертов/блюд', 'Desert və yeməklərin allergenlərini və tərkibini bilmək', true, 'allergens'],
-  ['Техника', 'Texnika', 'Взбивание классического и альтернативного молока', 'Klassik və alternativ südün çalınması', false, 'live'],
-  ['Латте-арт', 'Latte-art', 'Базовые рисунки (сердце, тюльпан) стабильно', 'Əsas rəsmlər (ürək, lalə) sabit alınır', false, 'live'],
-  ['Эспрессо', 'Espresso', 'Понимание экстракции: как исправить кислый/горький шот', 'Ekstraksiyanı anlamaq: turş/acı şotu necə düzəltmək', false, 'theory:CF-7'],
-  ['Приветствие', 'Salamlama', 'Контакт с гостем за 3–5 сек, улыбка, зрительный контакт', 'Qonaqla 3–5 saniyədə əlaqə, təbəssüm, göz təması', false, 'theory:SV-1'],
-  ['Допродажи', 'Əlavə satış', 'Использование скриптов и фокуса дня', 'Skriptlərdən və günün fokusundan istifadə', false, 'theory:SV-2'],
-  ['Конфликты', 'Münaqişələr', 'Знание матрицы компенсаций и сценария работы с жалобой', 'Kompensasiya matrisini və şikayətlə iş ssenarisini bilmək', false, 'theory:SV-3'],
-  ['Касса', 'Kassa', 'Корректная работа с кассой и модификаторами', 'Kassa və modifikatorlarla düzgün işləmək', false, 'live']] };
-/* what v5.11 wrote into the last column of the default checklist; a sheet still holding exactly this gets the sources once */
-const V511_SOURCES = ['', '', 'allergens', '', '', '', '', '', '', ''];
-const SCRIPT_VERSION = 'v5.12';
+  ['Техника', 'Texnika', 'Взбивание классического и альтернативного молока', 'Klassik və alternativ südün çalınması'],
+  ['Латте-арт', 'Latte-art', 'Базовые рисунки (сердце, тюльпан) стабильно', 'Əsas rəsmlər (ürək, lalə) sabit alınır'],
+  ['Эспрессо', 'Espresso', 'Понимание экстракции: как исправить кислый/горький шот', 'Ekstraksiyanı anlamaq: turş/acı şotu necə düzəltmək'],
+  ['Приветствие', 'Salamlama', 'Контакт с гостем за 3–5 сек, улыбка, зрительный контакт', 'Qonaqla 3–5 saniyədə əlaqə, təbəssüm, göz təması'],
+  ['Допродажи', 'Əlavə satış', 'Использование скриптов и фокуса дня', 'Skriptlərdən və günün fokusundan istifadə'],
+  ['Конфликты', 'Münaqişələr', 'Знание матрицы компенсаций и сценария работы с жалобой', 'Kompensasiya matrisini və şikayətlə iş ssenarisini bilmək'],
+  ['Касса', 'Kassa', 'Корректная работа с кассой и модификаторами', 'Kassa və modifikatorlarla düzgün işləmək']] };
+const SCRIPT_VERSION = 'v5.11';
 
 /* ---------- меню в таблице ---------- */
 
@@ -182,7 +176,6 @@ function doPost(e) {
   }
   if (d.kind === 'daily') return json_(saveDaily_(staff, d));
   if (d.action === 'assess') return json_(saveAssess_(staff, d));
-  if (d.action === 'kpitest') return json_(saveKpiTest_(staff, d));
   const score = Number(d.score), total = Number(d.total);
   if (!(Number.isInteger(score) && Number.isInteger(total) && total > 0 && total <= MAX_QUESTIONS && score >= 0 && score <= total)) {
     return json_({ ok: false, error: 'bad_score' });
@@ -722,7 +715,6 @@ function me_(code) {
     passThreshold: setting_('PassThreshold', 0.7),
     progressProtocol: 2, progress: prog,
     assessMine: assessMine_(s, asRows), assess: isAssessor_(s) ? assessPublic_(asRows, month) : null,
-    kpiTest: kpiTestPublic_(s, asRows, checklistsSafe_(), month),
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
@@ -748,20 +740,8 @@ function checklistSheet_() {
     sh.getRange(2, 1, c.items.length, CHECKLIST_HEADERS.length)
       .setValues(c.items.map((it, i) => [c.id, c.ru, c.az, i + 1, it[0], it[1], it[2], it[3], it[4] ? 'да' : '', it[5] || '']));
     sh.setFrozenRows(1);
-  } else migrateChecklist_(sh);
+  }
   return sh;
-}
-/* v5.11 → v5.12: the last column became «Источник». A default checklist nobody has edited gets the sources of DEFAULT_CHECKLIST;
-   an edited one keeps what the trainer wrote (an empty source = checked live) */
-function migrateChecklist_(sh) {
-  const head = sh.getRange(1, 10, 1, 1).getValues()[0][0];
-  if (head === CHECKLIST_HEADERS[9]) return;
-  const c = DEFAULT_CHECKLIST, n = c.items.length, last = sh.getLastRow();
-  const rows = last >= 2 ? sh.getRange(2, 1, last - 1, CHECKLIST_HEADERS.length).getValues() : [];
-  const same = rows.length === n && rows.every((r, i) => String(r[0]) === c.id && Number(r[3]) === i + 1 && String(r[6]) === c.items[i][2]
-    && String(r[7]) === c.items[i][3] && String(r[9] || '') === V511_SOURCES[i]);
-  if (same) sh.getRange(2, 10, n, 1).setValues(c.items.map(it => [it[5]]));
-  sh.getRange(1, 10, 1, 1).setValues([[CHECKLIST_HEADERS[9]]]);
 }
 function assessSheet_() {
   const ss = SpreadsheetApp.getActive();
@@ -770,61 +750,34 @@ function assessSheet_() {
     sh = ss.insertSheet(SHEET_ASSESS);
     sh.getRange(1, 1, 1, ASSESS_HEADERS.length).setValues([ASSESS_HEADERS]);
     sh.setFrozenRows(1);
-  } else if (sh.getRange(1, ASSESS_HEADERS.length, 1, 1).getValues()[0][0] !== ASSESS_HEADERS[ASSESS_HEADERS.length - 1]) {
-    sh.getRange(1, ASSESS_HEADERS.length, 1, 1).setValues([[ASSESS_HEADERS[ASSESS_HEADERS.length - 1]]]);  // v5.11 had no «Часть»
   }
   return sh;
 }
 /* menu: make both sheets (the checklist with its first ten items) so the trainer can edit the items before the first check */
 function assessSetup() {
   checklistSheet_(); assessSheet_();
-  SpreadsheetApp.getUi().alert('Листы «Чек-листы» и «Проверки KPI» готовы. На листе «Чек-листы» одна строка = один пункт; ★ — «да» для важного пункта. ' +
-    'Колонка «Источник» говорит, как проверяется пункт: live — вживую тренером; drinks — вопросы по рецептам; seasonal:id,id — по сезонным напиткам ' +
-    '(пусто после двоеточия — «Новинка» приложения); allergens — аллергены и состав витрины; theory:CF-7 — вопросы банка по темам. ' +
-    'Вопросные пункты сотрудник проходит сам в «Тесте KPI месяца», по ' + KPI_TEST_PER + ' вопроса на пункт.');
+  SpreadsheetApp.getUi().alert('Листы «Чек-листы» и «Проверки KPI» готовы. Пункты чек-листа можно править на листе «Чек-листы»: ' +
+    'одна строка = один пункт; ★ — «да» для важного пункта; «Авто» = allergens даёт пункту мини-проверку аллергенов в приложении.');
 }
 
-/* the source of an item: how it is checked */
-function parseSrc_(raw) {
-  const t = String(raw == null ? '' : raw).trim(), k = t.toLowerCase(), list = x => x.split(/[,;\s]+/).map(v => v.trim()).filter(Boolean);
-  if (!k || k === 'live' || k === 'вживую') return { src: 'live' };
-  if (k === 'drinks' || k === 'рецепты') return { src: 'drinks' };
-  if (k === 'allergens' || k === 'аллергены') return { src: 'allergens' };
-  if (/^seasonal\b/.test(k)) return { src: 'seasonal', ids: list(t.replace(/^seasonal:?/i, '')).map(v => v.toLowerCase()).slice(0, 30) };
-  if (/^theory:/.test(k)) { const topics = list(t.slice(7)).map(v => v.toUpperCase()).filter(v => /^[A-Z]{2}-\d{1,2}$/.test(v)).slice(0, 10); return topics.length ? { src: 'theory', topics } : { src: 'live' }; }
-  return { src: 'live' };
-}
-function isTestItem_(it) { return it.src !== 'live'; }
-
-function checklistRows_(rows) {
+/* the checklists of the sheet: rows grouped by id in the order they stand, items by «№» */
+function checklists_() {
+  const sh = checklistSheet_(), last = sh.getLastRow();
+  if (last < 2) return [];
   const byId = new Map();
-  rows.forEach((r, i) => {
+  sh.getRange(2, 1, last - 1, CHECKLIST_HEADERS.length).getValues().forEach((r, i) => {
     const id = text_(r[0], 40), q = text_(r[6], 300);
     if (!id || !q) return;
     if (!byId.has(id)) byId.set(id, { id, t: { ru: text_(r[1], 120) || id, az: text_(r[2], 120) || text_(r[1], 120) || id }, items: [] });
     const n = Number(r[3]);
-    byId.get(id).items.push(Object.assign({ n: isFinite(n) && n > 0 ? n : 1000 + i, sec: { ru: text_(r[4], 60), az: text_(r[5], 60) || text_(r[4], 60) },
-      q: { ru: q, az: text_(r[7], 300) || q }, star: r[8] === true || /^(да|yes|\*|★|1|true)$/i.test(String(r[8]).trim()) }, parseSrc_(r[9])));
+    byId.get(id).items.push({ n: isFinite(n) && n > 0 ? n : 1000 + i, sec: { ru: text_(r[4], 60), az: text_(r[5], 60) || text_(r[4], 60) },
+      q: { ru: q, az: text_(r[7], 300) || q }, star: r[8] === true || /^(да|yes|\*|★|1|true)$/i.test(String(r[8]).trim()), auto: text_(r[9], 20).toLowerCase() });
   });
   return [...byId.values()].map(c => {
     c.items = c.items.sort((a, b) => a.n - b.n).slice(0, ASSESS_MAX_ITEMS).map(({ n, ...it }) => it);
     return c;
   });
 }
-/* the checklists of the sheet: rows grouped by id in the order they stand, items by «№» */
-function checklists_() {
-  const sh = checklistSheet_(), last = sh.getLastRow();
-  return last < 2 ? [] : checklistRows_(sh.getRange(2, 1, last - 1, CHECKLIST_HEADERS.length).getValues());
-}
-/* for an employee: never creates or changes a sheet; without «Чек-листы» the default checklist is used */
-function checklistsSafe_() {
-  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_CHECKLISTS);
-  if (sh) return checklists_();
-  const c = DEFAULT_CHECKLIST;
-  return checklistRows_(c.items.map((it, i) => [c.id, c.ru, c.az, i + 1, it[0], it[1], it[2], it[3], it[4] ? 'да' : '', it[5]]));
-}
-/* the checklist of the KPI test: the first one with question items */
-function kpiChecklist_(lists) { return lists.filter(c => c.items.some(isTestItem_))[0] || null; }
 
 function assessRows_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ASSESS);
@@ -836,170 +789,74 @@ function assessRows_() {
       try { j = JSON.parse(String(r[16] || '{}')) || {}; } catch (err) { j = {}; }
       return { date: r[0], month: String(r[1]) || monthKey_(r[0]), code: String(r[2]).trim(), name: String(r[3]), branch: String(r[4]),
         checklist: String(r[6]), pct: Number(r[7]), sum: Number(r[8]), max: Number(r[9]), skipped: Number(r[10]) || 0,
-        comment: String(r[12] || ''), id: String(r[15] || ''), cl: j.checklist || '', scores: Array.isArray(j.scores) ? j.scores : [],
-        part: String(r[17] || '') === PART_TEST ? PART_TEST : PART_LIVE };  // a v5.11 row (no part) is a full check by the trainer
+        comment: String(r[12] || ''), id: String(r[15] || ''), cl: j.checklist || '', scores: Array.isArray(j.scores) ? j.scores : [] };
     }).sort((a, b) => a.date - b.date);
 }
 
-function round1_(x) { return Math.round(x * 10) / 10; }
 /* each score is a whole 1..5 or null (skipped); the share counts only the rated items */
 function assessScore_(scores, n) {
   if (!Array.isArray(scores) || scores.length !== n) return null;
   const v = scores.map(x => (x === null || x === '' || x === undefined) ? null : Number(x));
   if (v.some(x => x !== null && !(Number.isInteger(x) && x >= 1 && x <= ASSESS_MAX))) return null;
-  return scoreOf_(v);
-}
-function scoreOf_(v) {
-  const rated = v.filter(x => x !== null && x !== undefined), sum = round1_(rated.reduce((a, b) => a + b, 0)), max = rated.length * ASSESS_MAX;
-  return { scores: v, sum, max, rated: rated.length, skipped: v.length - rated.length, pct: max ? Math.round(sum * 100 / max) : 0 };
-}
-
-/* a person's month: the last KPI test and the last live check of the month, item by item (a question item from the test, a live one from the trainer;
-   a v5.11 row scored every item, so its question items count while there is no test) */
-function assessMonth_(code, rows, lists, month) {
-  const mine = rows.filter(r => r.code === code && r.month === month);
-  if (!mine.length) return null;
-  const test = mine.filter(r => r.part === PART_TEST).pop() || null, live = mine.filter(r => r.part === PART_LIVE).pop() || null;
-  const clId = (live || test).cl, cl = lists.filter(c => c.id === clId)[0] || kpiChecklist_(lists) || lists[0];
-  if (!cl) return null;
-  const n = cl.items.length, ok = r => r && r.scores.length === n;
-  const scores = cl.items.map((it, i) => {
-    const t = ok(test) ? test.scores[i] : null, l = ok(live) ? live.scores[i] : null;
-    const v = isTestItem_(it) ? (t != null ? t : l) : l;
-    return v == null ? null : Number(v);
-  });
-  const sc = scoreOf_(scores);
-  const needTest = cl.items.some(isTestItem_), needLive = cl.items.some(it => !isTestItem_(it));
-  const status = (needTest && !test && !(live && live.scores.some((v, i) => v != null && isTestItem_(cl.items[i])))) ? 'wait_test' : (needLive && !live) ? 'wait_live' : 'full';
-  const part = r => r ? { pct: r.pct, date: dayKey_(r.date) } : null;
-  return { month, checklist: cl.id, title: cl.t, pct: sc.max ? sc.pct : null, sum: sc.sum, max: sc.max, status, test: part(test), live: part(live),
-    comment: live ? live.comment : '', items: cl.items.map((it, i) => ({ sec: it.sec, q: it.q, src: it.src, score: scores[i] })) };
-}
-function monthLine_(m) {
-  if (!m) return '';
-  if (m.status === 'full') return `Итог месяца: ${m.pct}% (${m.sum} из ${m.max})`;
-  return m.status === 'wait_live' ? 'Ждёт живой проверки тренера' : 'Ждёт теста KPI сотрудника';
+  const rated = v.filter(x => x !== null), sum = rated.reduce((a, b) => a + b, 0), max = rated.length * ASSESS_MAX;
+  return { scores: v, sum, max, rated: rated.length, skipped: n - rated.length, pct: max ? Math.round(sum * 100 / max) : 0 };
 }
 
 function saveAssess_(assessor, d) {
   if (!isAssessor_(assessor)) return { ok: false, error: 'not_assessor' };
   const target = findStaff_(d.staff);
   if (!isAssessed_(target)) return { ok: false, error: 'bad_staff' };
-  const lists = checklists_(), cl = lists.filter(c => c.id === text_(d.checklist, 40))[0];
+  const cl = checklists_().filter(c => c.id === text_(d.checklist, 40))[0];
   if (!cl) return { ok: false, error: 'bad_checklist' };
   const sc = assessScore_(d.scores, cl.items.length);
   if (!sc) return { ok: false, error: 'bad_scores' };
   if (!sc.rated) return { ok: false, error: 'nothing_rated' };
   const id = text_(d.id, 64), when = takenAt_(d.ts), month = monthKey_(when), comment = text_(d.comment, 1000), secs = count_(d.secs, 6 * 3600);
-  let replaced = false, rows;
+  let replaced = false;
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sh = assessSheet_();
-    rows = assessRows_();
+    const sh = assessSheet_(), rows = assessRows_();
     const dup = id && rows.filter(r => r.id === id)[0];
     if (dup) return { ok: true, duplicate: true, pct: dup.pct, sum: dup.sum, max: dup.max, skipped: dup.skipped };
-    replaced = rows.some(r => r.code === target.code && r.month === month && r.part === PART_LIVE);
+    replaced = rows.some(r => r.code === target.code && r.month === month);
     const row = Math.max(2, sh.getLastRow() + 1);
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
     sh.getRange(row, 3).setNumberFormat('@');
     sh.getRange(row, 2).setNumberFormat('@');
-    const lines = cl.items.map((it, i) => sc.scores[i] === null ? null : `${i + 1}. ${it.sec.ru || it.q.ru}: ${sc.scores[i]}`).filter(Boolean).join('\n');
-    const vals = [when, month, target.code, target.name, target.branch, target.role, cl.t.ru,
+    const lines = cl.items.map((it, i) => `${i + 1}. ${it.sec.ru || it.q.ru}: ${sc.scores[i] === null ? 'пропуск' : sc.scores[i]}`).join('\n');
+    sh.getRange(row, 1, 1, ASSESS_HEADERS.length).setValues([[when, month, target.code, target.name, target.branch, target.role, cl.t.ru,
       sc.pct, sc.sum, sc.max, sc.skipped, lines, cell_(comment), secs === '' ? '' : mmss_(secs), assessor.name, cell_(id),
-      JSON.stringify({ checklist: cl.id, scores: sc.scores }), PART_LIVE];
-    sh.getRange(row, 1, 1, ASSESS_HEADERS.length).setValues([vals]);
-    rows.push({ date: when, month, code: target.code, cl: cl.id, scores: sc.scores, pct: sc.pct, comment, part: PART_LIVE, id });
+      JSON.stringify({ checklist: cl.id, scores: sc.scores })]]);
   } finally {
     lock.releaseLock();
   }
-  const m = assessMonth_(target.code, rows, lists, month);
-  notify_(`📋 Проверка KPI вживую: ${target.name} (${target.branch}) — ${sc.pct}% по ${sc.rated} пунктам` +
-    (replaced ? '\nЗаменяет прошлую живую проверку этого месяца.' : '') + `\n${monthLine_(m)}` + (comment ? `\n💬 ${comment}` : ''));
-  return { ok: true, pct: sc.pct, sum: sc.sum, max: sc.max, skipped: sc.skipped, replaced, month: m };
+  notify_(`📋 Проверка KPI: ${target.name} (${target.branch}) — ${sc.pct}% (${sc.sum} из ${sc.max})` +
+    (sc.skipped ? `, пропущено пунктов: ${sc.skipped}` : '') + `\n${cl.t.ru}` +
+    (replaced ? '\nЗаменяет прошлую проверку этого месяца в KPI.' : '') + (comment ? `\n💬 ${comment}` : ''));
+  return { ok: true, pct: sc.pct, sum: sc.sum, max: sc.max, skipped: sc.skipped, replaced };
 }
 
-/* the employee's own KPI test: the question items of the checklist, right / total for each; once a month */
-function saveKpiTest_(staff, d) {
-  if (!isAssessed_(staff)) return { ok: false, error: 'not_assessed' };
-  const lists = checklistsSafe_(), cl = lists.filter(c => c.id === text_(d.checklist, 40))[0];
-  if (!cl || !cl.items.some(isTestItem_)) return { ok: false, error: 'bad_checklist' };
-  const n = cl.items.length, scores = Array(n).fill(null), seen = {};
-  const items = Array.isArray(d.items) ? d.items : [];
-  for (const x of items) {
-    const i = Number(x && x.i), right = Number(x && x.right), total = Number(x && x.total);
-    if (!(Number.isInteger(i) && i >= 0 && i < n && isTestItem_(cl.items[i]) && !seen[i])) return { ok: false, error: 'bad_items' };
-    if (!(Number.isInteger(total) && total >= 1 && total <= KPI_TEST_MAX_PER && Number.isInteger(right) && right >= 0 && right <= total)) return { ok: false, error: 'bad_items' };
-    seen[i] = { right, total };
-    scores[i] = round1_(right * ASSESS_MAX / total);
-  }
-  if (!Object.keys(seen).length) return { ok: false, error: 'bad_items' };
-  const sc = scoreOf_(scores);
-  const id = text_(d.id, 64), when = takenAt_(d.ts), month = monthKey_(when);
-  const secs = count_(d.secs, 6 * 3600), away = count_(d.away, 1000), aborted = d.aborted === true;
-  const mistakes = (Array.isArray(d.mistakes) ? d.mistakes : []).slice(0, 40)
-    .map(m => `${text_(m && m.q, 200)} → ${text_(m && m.a, 100)} (верно: ${text_(m && m.c, 100)})`);
-  let rows;
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    const sh = assessSheet_();
-    rows = assessRows_();
-    const dup = id && rows.filter(r => r.id === id)[0];
-    if (dup) return { ok: true, duplicate: true, pct: dup.pct, month: assessMonth_(staff.code, rows, lists, dup.month) };
-    if (rows.some(r => r.code === staff.code && r.month === month && r.part === PART_TEST)) return { ok: false, error: 'kpitest_done' };
-    const row = Math.max(2, sh.getLastRow() + 1);
-    if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
-    sh.getRange(row, 3).setNumberFormat('@');
-    sh.getRange(row, 2).setNumberFormat('@');
-    const lines = cl.items.map((it, i) => seen[i] ? `${i + 1}. ${it.sec.ru || it.q.ru}: ${seen[i].right} из ${seen[i].total} → ${scores[i]}` : null).filter(Boolean)
-      .concat(away ? [`Выходы из приложения: ${away}`] : [], aborted ? ['Тест прерван'] : []).join('\n');
-    sh.getRange(row, 1, 1, ASSESS_HEADERS.length).setValues([[when, month, staff.code, staff.name, staff.branch, staff.role, cl.t.ru,
-      sc.pct, sc.sum, sc.max, sc.skipped, lines, cell_(mistakes.join('\n')), secs === '' ? '' : mmss_(secs), 'сам (тест)', cell_(id),
-      JSON.stringify({ checklist: cl.id, scores, items: seen }), PART_TEST]]);
-    rows.push({ date: when, month, code: staff.code, cl: cl.id, scores, pct: sc.pct, comment: '', part: PART_TEST, id });
-  } finally {
-    lock.releaseLock();
-  }
-  const m = assessMonth_(staff.code, rows, lists, month);
-  notify_(`📝 Тест KPI: ${staff.name} (${staff.branch}) — ${sc.pct}% тестовой части (${sc.rated} пунктов)` +
-    (aborted ? ' · прерван' : '') + (away ? ` · выходы из приложения: ${away}` : '') + `\n${monthLine_(m)}`);
-  return { ok: true, pct: sc.pct, month: m };
-}
-
-/* what the employee needs to take the KPI test: the question items of the checklist and whether this month's test is done */
-function kpiTestPublic_(s, rows, lists, month) {
-  if (!isAssessed_(s)) return null;
-  const cl = kpiChecklist_(lists);
-  if (!cl) return null;
-  const done = rows.filter(r => r.code === s.code && r.month === month && r.part === PART_TEST).pop();
-  return { month, checklist: cl.id, title: cl.t, per: KPI_TEST_PER,
-    items: cl.items.map((it, i) => ({ i, sec: it.sec, q: it.q, src: it.src, ids: it.ids || [], topics: it.topics || [] })).filter(it => it.src !== 'live'),
-    done: done ? { pct: done.pct, date: dayKey_(done.date) } : null };
-}
-
-/* a person's own month (this month, else the last month with a check), with the items in today's wording (no one else's) */
+/* a person's own last check, with the items in today's wording of its checklist (no one else's) */
 function assessMine_(s, rows) {
   const r = rows.filter(x => x.code === s.code).pop();
   if (!r) return null;
-  const month = rows.some(x => x.code === s.code && x.month === monthKey_(new Date())) ? monthKey_(new Date()) : r.month;
-  const m = assessMonth_(s.code, rows, checklistsSafe_(), month);
-  if (!m) return null;
-  return Object.assign(m, { date: dayKey_(rows.filter(x => x.code === s.code && x.month === month).pop().date) });
+  const cl = r.cl ? checklistsSafe_().filter(c => c.id === r.cl)[0] : null;
+  const items = cl && cl.items.length === r.scores.length ? cl.items.map((it, i) => ({ sec: it.sec, q: it.q, score: r.scores[i] })) : [];
+  return { date: dayKey_(r.date), month: r.month, pct: r.pct, sum: r.sum, max: r.max, skipped: r.skipped, comment: r.comment,
+    title: cl ? cl.t : { ru: r.checklist, az: r.checklist }, items };
 }
+/* reading the checklists for an employee must not create the sheet */
+function checklistsSafe_() { return SpreadsheetApp.getActive().getSheetByName(SHEET_CHECKLISTS) ? checklists_() : []; }
 
-/* for the trainer: the checklists and the people to check, with this month's state */
+/* for the trainer: the checklists and the people to check, with this month's last result */
 function assessPublic_(rows, month) {
-  const lists = checklists_();
+  const last = {};
+  rows.filter(r => r.month === month).forEach(r => { last[r.code] = { pct: r.pct, date: dayKey_(r.date) }; });
   const staff = activeStaff_().filter(isAssessed_)
-    .map(x => {
-      const m = assessMonth_(x.code, rows, lists, month);
-      return { code: x.code, name: x.name, branch: x.branch, role: x.role,
-        month: m ? { pct: m.pct, status: m.status, test: m.test, live: m.live, items: m.items.map(it => it.score) } : null,
-        last: m && m.pct != null ? { pct: m.pct, date: (m.live || m.test).date } : null };  // «last» for app v1.121
-    })
+    .map(x => ({ code: x.code, name: x.name, branch: x.branch, role: x.role, last: last[x.code] || null }))
     .sort((a, b) => a.branch.localeCompare(b.branch) || a.name.localeCompare(b.name));
-  return { checklists: lists, staff, max: ASSESS_MAX };
+  return { checklists: checklists_(), staff, max: ASSESS_MAX };
 }
 
 /* ---------- «Вопрос дня» ---------- */

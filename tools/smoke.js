@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   /* mock of the Apps Script web app: code 1234 is a known employee; the game numbers are what the sheet would count */
   let mockOver = false;  /* the sheet says the result was over the weekly limit */
   let mockAssess = 'ok';  /* «Проверки KPI»: 'ok' | 'offline' | an error the sheet answers */
-  const assessPosts = [], kpiPosts = [];
+  const assessPosts = [];
   const ME = { ok: true, level: 'barista', name: 'Smoke Test', branch: 'Test', progressProtocol: 2, passThreshold: 0.7, xp: 1140, weekXp: 660, weekTests: 2, streak: 3, owlsMonth: 18, owlsTotal: 18, owlsCap: 50,
     badges: ['first', 'perfect', 'exam100'], exam: null,
     board: { people: [{ name: 'Smoke Test', branch: 'Test', xp: 660, me: true }, { name: 'Other', branch: 'Central Park', xp: 350, me: false }], rank: 1,
@@ -54,12 +54,6 @@ const server = http.createServer((req, res) => {
         });
         progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box, clocks, ts: Math.max(Date.now(), old.ts + 1, d.ts) };
         route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, progress: progressDb[d.code] }) });
-        return;
-      }
-      if (d.action === 'kpitest') {
-        kpiPosts.push(d);
-        const sc = d.items.map(x => x.right * 5 / x.total), pct = Math.round(sc.reduce((a, b) => a + b, 0) * 100 / (5 * sc.length));
-        route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, pct }) });
         return;
       }
       if (d.action === 'assess') {
@@ -331,7 +325,7 @@ const server = http.createServer((req, res) => {
   await page.reload();
   await page.waitForTimeout(800);
   const cl = posted[2] || {};
-  check(posted.length === 3 && cl.aborted === true && cl.mistakes.length + cl.score === 1, 'a test closed half-way reaches the sheet as aborted' + (posted.length === 3 && cl.mistakes.length + cl.score === 1 ? '' : ' (' + posted.length + ': ' + JSON.stringify({ a: cl.aborted, s: cl.score, m: cl.mistakes, t: cl.timeouts, w: cl.away, tot: cl.total }) + ')'));
+  check(posted.length === 3 && cl.aborted === true && cl.mistakes.length + cl.score === 1, 'a test closed half-way reaches the sheet as aborted');
 
   /* theory: the question bank, its four kinds of question, the filters, both languages */
   const th = await page.evaluate(() => {
@@ -999,7 +993,6 @@ const server = http.createServer((req, res) => {
   await tile().click();
   await playQuiz(9);
   check(await page.evaluate(() => LS.att.length === 1), 'rhythm: finished from 70%: the slot stays used');
-  check(await page.evaluate(() => L.qz.result.score === 9 && L.qz.result.mistakes.length === 1), 'a right answer is never listed as a mistake (9 right, 1 mistake of 10)');
   /* the strip: counted tests, a retry ring, lessons also from this phone */
   await setRhythm({}, { tests: { test: 2 }, tried: { test: 1 }, testsDone: 2, lessons: 1 });
   await page.evaluate(() => { LS.read['cf-milk'] = bakuDay(); LS.read['cf-farm'] = bakuDay(); renderLearn(); });
@@ -1101,7 +1094,7 @@ const server = http.createServer((req, res) => {
   /* a person already checked this month: a note, and the new check asks before it replaces the old one */
   await page.click('#learnroot [data-l="asnew"]');
   await page.selectOption('#asst', '9002');
-  check((await page.locator('#learnroot .note').first().innerText()).includes('Вживую уже проверен в этом месяце: 80%'), 'checks: a person checked this month is marked');
+  check((await page.locator('#learnroot .note').first().innerText()).includes('Уже проверен в этом месяце: 80%'), 'checks: a person checked this month is marked');
   for (let i = 0; i < 10; i++) await sc(i, 4);
   page.once('dialog', d => d.dismiss());
   await page.click('#assave');
@@ -1156,93 +1149,6 @@ const server = http.createServer((req, res) => {
   check(await my.locator('li').count() === 10 && (await my.locator('li').nth(9).innerText()).includes('пропуск'), 'checks: the employee sees the score of every item');
   delete ME.assessMine; await refreshStats(); await goHome();
   check(await my.count() === 0, 'checks: no card without a check');
-
-  /* ---- the employee's KPI test (script v5.12): question items 3 each, the trainer checks only the live ones ---- */
-  const SRC = ['drinks', 'seasonal', 'allergens', 'live', 'live', 'theory', 'theory', 'theory', 'theory', 'live'], TOP = { 5: ['CF-7'], 6: ['SV-1'], 7: ['SV-2'], 8: ['SV-3'] };
-  const CL2 = { id: 'barista', t: CL.t, items: CL.items.map((it, i) => ({ sec: it.sec, q: it.q, star: it.star, src: SRC[i], ids: i === 1 ? ['lotuslatte'] : [], topics: TOP[i] || [] })) };
-  const KT = { month: '2026-11', checklist: 'barista', title: CL.t, per: 3, done: null,
-    items: CL2.items.map((it, i) => Object.assign({ i }, it)).filter(it => it.src !== 'live').map(({ star, ...it }) => it) };
-  ME.kpiTest = KT; await refreshStats(); await goHome();
-  const ktile = page.locator('#learnroot [data-l="kpitest"]');
-  check(await ktile.count() === 1 && (await page.locator('#learnroot').innerText()).includes('Проверка KPI') && (await ktile.innerText()).includes('21 вопросов · раз в месяц')
-    && (await ktile.innerText()).includes('Рецептуры, Сезонное меню, Аллергены, Эспрессо, Приветствие, Допродажи, Конфликты'), 'KPI test: its own section and tile, 21 questions, the items named');
-  const kq = await page.evaluate(k => {
-    const out = { bad: [] };
-    for (let r = 0; r < 8; r++) {
-      const { qs, tally } = kpiQuestions(k);
-      if (qs.length !== 21 || tally.length !== 7 || tally.some(t => t.total !== 3)) out.bad.push('count ' + qs.length);
-      qs.forEach(q => {
-        const it = k.items.find(x => x.i === q.kpi);
-        if (!it) { out.bad.push('no item'); return; }
-        if (it.src === 'drinks' && (q.isTheory || q.isPrep || q.isVit)) out.bad.push('drinks ' + q.type);
-        if (it.src === 'seasonal' && q.id !== 'lotuslatte') out.bad.push('seasonal ' + q.id);
-        if (it.src === 'allergens' && !(q.isVit && ['valg', 'vcomp', 'vhas', 'vnot'].includes(q.type))) out.bad.push('allergens ' + q.type);
-        if (it.src === 'theory' && !(q.isTheory && it.topics.includes(TH.find(t => t.id === q.id).topic))) out.bad.push('theory ' + q.id);
-      });
-    }
-    /* «Сезонное меню» with no list takes the «Новинка» of the banner */
-    const keep = SPOTLIGHT.map(x => Object.assign({}, x)); SPOTLIGHT.splice(0, SPOTLIGHT.length, { id: 'lotuslatte', start: '2000-01-01', end: '2999-12-31' });
-    const k2 = JSON.parse(JSON.stringify(k)); k2.items[1].ids = [];
-    out.spot = kpiQuestions(k2).qs.filter(q => q.kpi === 1).every(q => q.id === 'lotuslatte') && kpiQuestions(k2).qs.filter(q => q.kpi === 1).length === 3;
-    SPOTLIGHT.splice(0, SPOTLIGHT.length, ...keep);
-    return out;
-  }, KT);
-  check(kq.bad.length === 0 && kq.spot, 'KPI test: 3 questions per item, each from its own source (recipes, the season’s drinks, the vitrina’s allergens, the topics) ' + kq.bad.slice(0, 3).join(', '));
-  const nQuiz = await page.evaluate(() => LS.quiz.length), nAttK = await page.evaluate(() => (LS.att || []).length);
-  page.once('dialog', d => d.accept());
-  await ktile.click();
-  check(await page.evaluate(() => L.view === 'quiz' && L.qz.kind === 'kpitest' && L.qz.qs.length === 21 && LS.kpiMonth === '2026-11') && (await page.locator('#learnTitle').innerText()) === 'Тест KPI месяца',
-    'KPI test: it starts after a confirm and is locked for the month at once');
-  await playQuiz(12);
-  await page.waitForTimeout(500);
-  const kp = kpiPosts[kpiPosts.length - 1] || {};
-  check(kpiPosts.length === 1 && kp.action === 'kpitest' && kp.kind === 'kpitest' && kp.checklist === 'barista' && kp.items.length === 7 && kp.items.every(x => x.total === 3)
-    && kp.items.reduce((a, x) => a + x.right, 0) === 12 && kp.score === 12 && kp.total === 21 && kp.mistakes.length === 9 && kp.aborted === false, 'KPI test: sent once with the right answers per item');
-  check(await page.locator('#learnroot .lpanel ol li').count() === 7 && await page.locator('#learnroot [data-l="quiz"]').count() === 0, 'KPI test: the result lists the items, no «new test»');
-  check(await page.evaluate(([q, a]) => LS.quiz.length === q && (LS.att || []).length === a && !(LS.today && LS.today.done && LS.today.done.includes('test')), [nQuiz, nAttK]), 'KPI test: not a weekly test, not in the history, not the test of the day');
-  await goHome();
-  check(await ktile.isDisabled(), 'KPI test: once a month on this phone');
-  ME.kpiTest = Object.assign({}, KT, { done: { pct: 57, date: '2026-11-10' } }); await page.evaluate(() => { LS.kpiMonth = null; }); await refreshStats(); await goHome();
-  check(await ktile.isDisabled() && (await ktile.innerText()).includes('Сдан: 57%'), 'KPI test: the sheet’s «done» locks it on any phone');
-  /* an aborted KPI test counts the unanswered questions as wrong and still goes */
-  ME.kpiTest = KT; await page.evaluate(() => { LS.kpiMonth = null; }); await refreshStats(); await goHome();
-  page.once('dialog', d => d.accept()); await ktile.click();
-  page.once('dialog', d => d.accept()); await page.click('#learnroot [data-l="exit"]'); await page.waitForTimeout(400);
-  const ka = kpiPosts[kpiPosts.length - 1] || {};
-  check(kpiPosts.length === 2 && ka.aborted === true && ka.items.length === 7 && ka.items.every(x => x.right === 0 && x.total === 3), 'KPI test: an aborted one is sent with every item at 0');
-  /* the trainer sees only the live items, the employee's test part and the month with this check */
-  ME.kpiTest = null;
-  ME.assess = { checklists: [CL2], max: 5, staff: [{ code: '9001', name: 'Barista One', branch: 'Central Park', role: 'Бариста', last: { pct: 71, date: '2026-11-10' },
-    month: { pct: 71, status: 'wait_live', test: { pct: 71, date: '2026-11-10' }, live: null, items: [5, 3.3, 5, null, null, 1.7, 5, 5, 0, null] } }] };
-  await refreshStats(); await goHome();
-  await atile.click(); await page.selectOption('#asst', '9001');
-  const tTxt = await page.locator('#learnroot').innerText();
-  check(await page.locator('#learnroot .asitem').count() === 3 && tTxt.includes('Тест сотрудника: 71%') && tTxt.includes('Сезонное меню: 3,3') && tTxt.includes('только пункты, которые проверяются вживую')
-    && (await page.locator('#asst option').nth(1).innerText()).includes('тест 71%'), 'trainer: only Техника, Латте-арт and Касса, with the employee’s test part shown');
-  await sc(3, 4); await sc(4, 5); await sc(9, 3);
-  check((await page.locator('#astotal').innerText()) === '12 / 15 = 80%' && (await page.locator('#aspreview').innerText()).includes('итог месяца: 74%') && await page.locator('#assave').isEnabled(),
-    'trainer: the live total and the month with this check (25 + 12 of 50 = 74%)');
-  await page.click('#assave'); await page.waitForTimeout(400);
-  const lpA = assessPosts[assessPosts.length - 1];
-  check(JSON.stringify(lpA.scores) === '[null,null,null,4,5,null,null,null,null,3]', 'trainer: only the live scores are sent');
-  /* the employee's month: both parts */
-  delete ME.assess;
-  ME.assessMine = { month: '2026-11', date: '2026-11-11', checklist: 'barista', title: CL.t, pct: 74, sum: 37, max: 50, status: 'full', test: { pct: 71, date: '2026-11-10' }, live: { pct: 80, date: '2026-11-11' },
-    comment: 'Хорошо', items: CL2.items.map((it, i) => ({ sec: it.sec, q: it.q, src: it.src, score: [5, 3.3, 5, 4, 5, 1.7, 5, 5, 0, 3][i] })) };
-  ME.kpiTest = Object.assign({}, KT, { done: { pct: 71, date: '2026-11-10' } });
-  await refreshStats(); await goHome();
-  const myT = await my.innerText();
-  check(myT.includes('74%') && myT.includes('Тест: 71% · вживую: 80%') && myT.includes('37 из 50 баллов') && !myT.includes('Ждёт'), 'employee: the month joins the test and the live check');
-  ME.assessMine = Object.assign({}, ME.assessMine, { status: 'wait_live', live: null, pct: 71, items: ME.assessMine.items.map(x => x.src === 'live' ? Object.assign({}, x, { score: null }) : x) });
-  await refreshStats(); await goHome();
-  await my.locator('summary').click();
-  check((await my.innerText()).includes('Ждёт живой проверки тренера') && (await my.locator('li').nth(3).innerText()).includes('—'), 'employee: waiting for the trainer, the live items not yet scored');
-  await page.click('#langbtn');
-  const azK = await page.locator('#learnroot').innerText();
-  check(azK.includes('Ayın KPI testi') && azK.includes('Trenerin canlı yoxlamasını gözləyir'), 'AZ: the KPI test section is Azerbaijani');
-  await page.click('#langbtn');
-  delete ME.assessMine; delete ME.kpiTest; await refreshStats(); await goHome();
-  check(await ktile.count() === 0 && await my.count() === 0, 'KPI test: nothing without the script part');
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));
