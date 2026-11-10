@@ -1051,6 +1051,42 @@ const server = http.createServer((req, res) => {
   check(!(await page.locator('#learnroot').innerText()).includes('undefined') && await page.locator('#learnroot .game').count() === 0,
     'a sheet script older than v5: no game card, nothing broken');
 
+  /* search: Russian spellings of the Latin names, every word separately, the Azerbaijani İ */
+  await page.evaluate(() => { if (LANG !== 'ru') setLang('ru'); switchTab('drinks'); });
+  const hits = async q => { await page.fill('#q', q); await page.waitForTimeout(80); return page.evaluate(() => [...document.querySelectorAll('#grid .card')].map(c => c.dataset.open)); };
+  const capp = await hits('капучино'), flat = await hits('флэт уайт'), rafv = await hits('раф ваниль');
+  check(capp.includes('cappuccino') && flat.includes('flatwhite') && rafv.length > 0 && rafv.length < 6 && (await hits('ЛАТТЕ')).length === (await hits('латте')).length,
+    `search: Russian typing finds the Latin names (капучино ${capp.length}, флэт уайт ${flat.length}, раф ваниль ${rafv.length})`);
+  check((await hits('zzzz')).length === 0 && (await hits('  latte  ')).length === (await hits('latte')).length, 'search: nonsense finds nothing, surrounding spaces are ignored');
+  await page.evaluate(() => setLang('az'));
+  check(await page.evaluate(() => document.documentElement.lang) === 'az', '<html lang> follows the language (screen readers)');
+  check((await hits('isti')).length > 0 && (await hits('isti')).length === (await hits('İsti')).length, 'search AZ: «isti» and «İsti» find the same');
+  await page.fill('#q', ''); await page.evaluate(() => { setLang('ru'); renderDrinks(); });
+
+  /* the system «back»: card, then nothing left to close; a training screen steps back */
+  await page.evaluate(() => switchTab('drinks'));
+  await page.locator('#grid .card').first().click(); await page.waitForTimeout(300);
+  const histOpen = await page.evaluate(() => history.length);
+  await page.goBack(); await page.waitForTimeout(300);
+  check(page.url().includes('index.html') && await page.evaluate(() => !document.getElementById('overlay').classList.contains('show')),
+    'system «back» closes an open card and stays in the app');
+  check(await page.evaluate(() => !history.state || !history.state.sensum), 'no history entry left behind once nothing is open');
+  await page.evaluate(() => { switchTab('learn'); learnGo('materials'); });
+  await page.waitForTimeout(200);
+  await page.goBack(); await page.waitForTimeout(300);
+  check(page.url().includes('index.html') && await page.evaluate(() => L.view === 'home'), 'system «back» in «Обучение» steps back one screen');
+
+  /* the login never hangs: a script that does not answer gives a message */
+  await page.evaluate(() => { switchUser(null); renderLearn(); API_WAIT.get = 600; });
+  const silent = () => {};
+  await page.route('https://script.google.com/**', silent);  // newest route wins: no answer at all
+  await page.fill('#lcode', '1234'); await page.click('#learnroot [data-l="login"]');
+  await page.locator('#learnroot [data-l="login"]').click();  // a second tap while waiting sends nothing more
+  await page.waitForTimeout(1200);
+  check((await page.locator('#idstat').innerText()) === await page.evaluate(() => T('id_timeout')), 'login: a script that never answers gives «Сервер не ответил» instead of «…»');
+  await page.unroute('https://script.google.com/**', silent);
+  await page.evaluate(() => { API_WAIT.get = 20000; });
+
   check(!(await page.evaluate(() => document.getElementById('scrollArea').scrollWidth > document.getElementById('scrollArea').clientWidth)), 'no horizontal scroll at 390px');
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
 

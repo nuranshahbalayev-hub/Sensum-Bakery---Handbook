@@ -94,7 +94,7 @@ function progressEnv(initial = state()) {
   const delivery = {
     LS: { me: { code: 'mock-1' }, outbox: [{ id: 'mock-attempt', code: 'mock-1' }] }, L: { view: 'other' },
     RESULTS_URL: 'https://mock.invalid/', document: { hidden: false, getElementById: () => null },
-    fetch: async () => ({ json: async () => reply.shift() }),
+    fetch: async () => { const r = reply.shift(); return { text: async () => JSON.stringify(r) }; },
     setTimeout: (fn, ms) => { timers.push(ms); return timers.length; }, clearTimeout() {},
     saveLearn() {}, fetchStats() {}, pushProgress() {}
   };
@@ -106,5 +106,28 @@ function progressEnv(initial = state()) {
   await delivery.test.flushOutbox();
   assert.strictEqual(delivery.LS.outbox.length, 0); assert.strictEqual(delivery.test.getSend()['mock-attempt'], 'sent');
   assert.strictEqual(delivery.test.getReward()['mock-attempt'].owls[0].n, 1);
+
+  /* a code the sheet refuses: the result stays on the phone and goes out after a login with that code */
+  const answers = { a1: [{ ok: false, error: 'unknown_code' }, { ok: true, xp: 10, owls: [], over: false }], a2: [{ ok: true, xp: 20, owls: [], over: false }] };
+  const sentIds = [], loggedOut = [];
+  const refused = {
+    LS: { me: { code: 'mock-1' }, outbox: [{ id: 'a1', code: 'mock-1' }, { id: 'a2', code: 'mock-2' }] }, L: { view: 'other' },
+    RESULTS_URL: 'https://mock.invalid/', document: { hidden: false, getElementById: () => null },
+    fetch: async (_, o) => { const id = JSON.parse(o.body).id; sentIds.push(id); const r = answers[id].shift(); return { text: async () => JSON.stringify(r) }; },
+    setTimeout: () => 1, clearTimeout() {}, saveLearn() {}, fetchStats() {}, pushProgress() {},
+    switchUser(me) { loggedOut.push(me); refused.LS.me = me; }
+  };
+  vm.createContext(refused);
+  vm.runInContext(section('const SEND={}', 'function login()') + '\nthis.test={flushOutbox,getSend:()=>SEND};', refused);
+  await refused.test.flushOutbox();
+  assert.deepStrictEqual(refused.LS.outbox.map(x => x.id), ['a1'], 'a refused result is kept, the next one is still sent');
+  assert.strictEqual(refused.LS.outbox[0].rejected, 1); assert.strictEqual(refused.test.getSend().a1, 'rejected');
+  assert.deepStrictEqual(loggedOut, [null], 'the refused employee is logged out');
+  await refused.test.flushOutbox();
+  assert.deepStrictEqual(sentIds, ['a1', 'a2'], 'without that login the refused result is not sent again');
+  refused.LS.me = { code: 'mock-1' };
+  await refused.test.flushOutbox();
+  assert.strictEqual(refused.LS.outbox.length, 0, 'after a login with that code it is sent');
+  assert.strictEqual(refused.test.getSend().a1, 'sent');
   console.log('TRAINING CLIENT CHECKS PASSED');
 })().catch(e => { console.error(e); process.exitCode = 1; });
