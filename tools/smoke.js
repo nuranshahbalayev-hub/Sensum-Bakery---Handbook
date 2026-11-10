@@ -901,7 +901,7 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { LS.dailyDay = ''; LS.today = null; });
   await refreshStats();
   let dp = await page.evaluate(() => [...document.querySelectorAll('#learnroot .plan .tile')].map(b => b.dataset.v));
-  check(dp[0] === 'daily' && (await page.locator('#learnroot .gstats.four').count()) === 1 && (await page.locator('#learnroot .gstats').innerText()).includes('📆 2'),
+  check(dp[0] === 'daily' && (await page.locator('#learnroot .gstats.four').count()) === 1 && (await page.evaluate(() => { const c = document.querySelectorAll('#learnroot .gstats.four > div')[3]; return !!c && !!c.querySelector('b svg.sym') && c.querySelector('b').textContent.trim() === '2'; })),
     '«Вопрос дня»: the first row of the plan, the run of days in the rank card (' + JSON.stringify(dp) + ')');
   await page.click('#learnroot .plan [data-v="daily"]');
   const dq0 = await page.evaluate(() => ({ n: L.qz.qs.length, kind: L.qz.kind, th: L.qz.qs.filter(q => q.isTheory).length, title: document.getElementById('learnTitle').innerText }));

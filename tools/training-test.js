@@ -78,7 +78,7 @@ function progressEnv(initial = state()) {
   const ui = {
     LS: { stats: { passThreshold: 0.8 }, quiz: [{ score: 6, total: 10, scope: 'test' }] },
     L: { qz: { result: { score: 7, total: 10, mistakes: [], secs: 0, scope: 'test' } } }, RESULTS_URL: '',
-    T: key => key, mmss: () => '0:00', sendStatus: () => '', todayDone: () => ['test'],
+    T: key => key, ic: () => '', mmss: () => '0:00', sendStatus: () => '', todayDone: () => ['test'],
     nextLesson: () => null, weakestDeck: () => null, dailyStreak: () => 0, dailyOpen: () => false,
     planTest: () => ({ scope: 'drinks' })
   };
