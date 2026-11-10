@@ -83,7 +83,7 @@ function env(opts = {}) {
   vm.createContext(ctx);
   let code = SRC;
   if (opts.kpiStart) { assert.ok(code.includes("const KPI_START = '';")); code = code.replace("const KPI_START = '';", `const KPI_START = '${opts.kpiStart}';`); }
-  vm.runInContext(code + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions,kpiMonths,assessSetup};', ctx);
+  vm.runInContext(code + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions,kpiMonths};', ctx);
   const api = ctx.__api;
   const post = d => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(d) } }).text);
   const me = code => JSON.parse(api.doGet({ parameter: { action: 'me', code } }).text);
@@ -168,9 +168,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.12'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.10'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.12');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.10');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -673,142 +673,6 @@ assert.ok(r1.isLocked() === false);
 const consts = /const KPI_WEIGHTS = (\{[^}]*\})/.exec(SRC)[1]; const wts = eval('(' + consts + ')');
 assert.ok(Math.abs(Object.values(wts).reduce((a, b) => a + b, 0) - 1) < 1e-9, 'the weights make 100%');
 assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SRC) && /const KPI_GRACE_DAYS = 14;/.test(SRC));
-
-// 8b. KPI checks of the trainer (v5.11): a checklist of items 1–5 or skipped; % = sum / (5 × rated); the last check of a month counts
-const ak = env({ notifyAll: false, now: NOW });
-ak.staff.data.push(['9020', 'Шеф-1', 'Port II', 'Шеф бариста', true]);
-const nRes = ak.results.data.length;
-const a0 = ak.me('9001');
-assert.strictEqual(a0.assess, null, 'a barista does not get the trainer part');
-assert.strictEqual(a0.assessMine, null, 'no check yet');
-assert.ok(!ak.sheets['Чек-листы'] && !ak.sheets['Проверки KPI'], 'an employee reading the stats creates no sheet');
-const am = ak.me('9009');
-assert.ok(am.assess && am.assess.checklists.length === 1 && am.assess.max === 5);
-const cl0 = am.assess.checklists[0];
-assert.strictEqual(cl0.id, 'barista'); assert.strictEqual(cl0.items.length, 10);
-assert.ok(cl0.items[2].star === true && cl0.items[2].src === 'allergens' && cl0.items[2].sec.ru === 'Аллергены' && cl0.items[2].q.az.length > 5, 'the allergens item is starred and has the mini-check');
-assert.ok(cl0.items.filter(i => i.star).length === 1 && cl0.t.az && cl0.items.every(i => i.q.ru && i.q.az && i.sec.ru && i.sec.az));
-assert.strictEqual(ak.sheets['Чек-листы'].data.length, 11, 'the checklist sheet is made with its ten items');
-assert.deepStrictEqual(am.assess.staff.map(x => x.code).sort(), ['9001', '9002', '9003', '9020'], 'baristas and chef-baristas, active, not the test account');
-assert.ok(am.assess.staff.every(x => x.last === null));
-const P = (o) => ak.post(Object.assign({ action: 'assess', code: '9009', staff: '9001', checklist: 'barista', scores: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5], comment: '', secs: 300, ts: NOW - 60000 }, o));
-assert.strictEqual(P({ code: '9001', staff: '9002', id: 'z0' }).error, 'not_assessor', 'only the trainer checks');
-assert.strictEqual(P({ staff: '9009', id: 'z1' }).error, 'bad_staff', 'the trainer’s own test account is not checked');
-assert.strictEqual(P({ staff: '1111', id: 'z2' }).error, 'bad_staff', 'an inactive employee is not checked');
-assert.strictEqual(P({ checklist: 'nope', id: 'z3' }).error, 'bad_checklist');
-assert.strictEqual(P({ scores: [5, 5, 5], id: 'z4' }).error, 'bad_scores', 'one score per item');
-assert.strictEqual(P({ scores: [6, 5, 5, 5, 5, 5, 5, 5, 5, 5], id: 'z5' }).error, 'bad_scores', 'a score is 1..5');
-assert.strictEqual(P({ scores: [0, 5, 5, 5, 5, 5, 5, 5, 5, 5], id: 'z6' }).error, 'bad_scores');
-assert.strictEqual(P({ scores: Array(10).fill(null), id: 'z7' }).error, 'nothing_rated');
-assert.ok(!ak.sheets['Проверки KPI'] || ak.sheets['Проверки KPI'].getLastRow() <= 1, 'refused checks write nothing');
-const ok1 = P({ id: 'a1', comment: '=молодец' });
-assert.deepStrictEqual([ok1.ok, ok1.pct, ok1.sum, ok1.max, ok1.skipped, ok1.replaced], [true, 100, 50, 50, 0, false], 'all ten on 5 = 100%');
-const ash = ak.sheets['Проверки KPI'], ar = ash.data[1];
-assert.deepStrictEqual(ash.data[0], ['Дата', 'Месяц', 'Код', 'Сотрудник', 'Филиал', 'Должность', 'Чек-лист', '% KPI', 'Баллы', 'Из', 'Пропущено',
-  'Оценки', 'Комментарий', 'Время проверки', 'Проверяющий', 'ID', 'Оценки JSON', 'Часть']);
-assert.ok(ar[1] === '2026-10' && ar[2] === '9001' && ar[3] === 'Тест-1' && ar[6] === 'Аттестация навыков → Barista' && ar[7] === 100 && ar[12] === "'=молодец" && ar[13] === '5:00' && ar[14] === 'Тренер' && ar[15] === 'a1');
-assert.ok(ar[11].startsWith('1. Рецептуры: 5') && ar[11].includes('3. Аллергены: 5'));
-assert.ok(ak.sent.some(t => t.includes('📋 Проверка KPI вживую: Тест-1 (Central Park) — 100% по 10 пунктам')), 'the trainer gets a message');
-assert.strictEqual(ak.results.data.length, nRes, 'a check never touches «Результаты»');
-const dupA = P({ id: 'a1', scores: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] });
-assert.ok(dupA.duplicate && dupA.pct === 100 && ash.getLastRow() === 2, 'a repeated id writes nothing and answers the first result');
-const sk = P({ id: 'a2', staff: '9002', scores: [5, 5, null, 5, 5, 5, 5, 5, 5, 5] });
-assert.deepStrictEqual([sk.pct, sk.sum, sk.max, sk.skipped], [100, 45, 45, 1], 'a skipped item does not count: 9 on 5 = 100%');
-assert.ok(!ash.data[2][11].includes('3. Аллергены') && ash.data[2][17] === 'вживую');
-const mix = P({ id: 'a3', scores: [5, 4, 3, 5, 5, 5, 5, 5, 5, 1], comment: 'Латте-арт подтянуть' });
-assert.deepStrictEqual([mix.pct, mix.sum, mix.max, mix.replaced], [86, 43, 50, true], '43 of 50 = 86%, and it replaces the first check of the month');
-assert.ok(ak.sent[ak.sent.length - 1].includes('Заменяет прошлую живую проверку'));
-const chef = P({ id: 'a4', staff: '9020', scores: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4] });
-assert.ok(chef.ok && chef.pct === 80, 'a chef-barista is checked too (role written with a space)');
-const am2 = ak.me('9009');
-const lastOf = c => am2.assess.staff.filter(x => x.code === c)[0].last;
-assert.ok(lastOf('9001').pct === 86 && lastOf('9002').pct === 100 && lastOf('9020').pct === 80 && lastOf('9003') === null, 'the trainer sees this month’s last result per person');
-const mine = ak.me('9001').assessMine;
-assert.ok(mine && mine.pct === 86 && mine.sum === 43 && mine.max === 50 && mine.month === '2026-10' && mine.comment === 'Латте-арт подтянуть' && mine.title.ru === 'Аттестация навыков → Barista');
-assert.ok(mine.items.length === 10 && mine.items[1].score === 4 && mine.items[9].score === 1 && mine.items[0].sec.ru === 'Рецептуры', 'the employee sees their own items');
-assert.ok(!('assess' in ak.me('9001')) || ak.me('9001').assess === null);
-const mine2 = ak.me('9002').assessMine;
-assert.ok(mine2.pct === 100 && mine2.items[2].score === null && !JSON.stringify(mine2).includes('Тест-1'), 'each one sees only their own check');
-assert.deepStrictEqual(ak.me('9020').limits, { test: 3 }, 'a chef-barista keeps the quota of three');
-/* the trainer edits the sheet: a renamed item and a new checklist show up without a new script */
-ak.sheets['Чек-листы'].data[1][6] = 'Техкарты без подсказок';
-ak.sheets['Чек-листы'].data.push(['shift', 'Смена', '', 1, 'Открытие', '', 'Бар открыт вовремя', '', '', '']);
-const am3 = ak.me('9009').assess.checklists;
-assert.ok(am3.length === 2 && am3[0].items[0].q.ru === 'Техкарты без подсказок' && am3[1].items.length === 1 && am3[1].t.az === 'Смена' && am3[1].items[0].q.az === 'Бар открыт вовремя', 'the checklists follow the sheet; a missing AZ text falls back to RU');
-assert.strictEqual(ak.post({ action: 'assess', code: '9009', staff: '9001', checklist: 'shift', scores: [3], id: 'a5', ts: NOW }).pct, 60);
-assert.ok(ak.isLocked() === false);
-const as2 = env({ notifyAll: false, now: NOW }); as2.api.assessSetup();
-assert.ok(as2.sheets['Чек-листы'].data.length === 11 && as2.sheets['Проверки KPI'].data.length === 1 && as2.alerts[0].includes('Чек-листы'), 'the menu item makes both sheets');
-
-{ // 8c. the employee's own KPI test (v5.12): question items 3 questions each, score = share right × 5; the trainer checks the live items; the month joins both
-const kt = env({ notifyAll: false, now: NOW });
-kt.staff.data.push(['9020', 'Шеф-1', 'Port II', 'Шеф-бариста', true]);
-const k0 = kt.me('9001').kpiTest;
-assert.ok(k0 && k0.per === 3 && k0.checklist === 'barista' && k0.done === null && !kt.sheets['Чек-листы'], 'an employee gets the test from the default checklist, no sheet is made');
-assert.strictEqual(k0.items.map(i => i.i).join(), '0,1,2,5,6,7,8', 'seven question items; Техника, Латте-арт, Касса are live');
-assert.deepStrictEqual(k0.items.map(i => i.src), ['drinks', 'seasonal', 'allergens', 'theory', 'theory', 'theory', 'theory']);
-assert.deepStrictEqual([k0.items[3].topics, k0.items[4].topics, k0.items[5].topics, k0.items[6].topics, k0.items[1].ids], [['CF-7'], ['SV-1'], ['SV-2'], ['SV-3'], []]);
-assert.strictEqual(kt.me('9009').kpiTest, null, 'the trainer takes no KPI test');
-assert.ok(kt.me('9020').kpiTest, 'a chef-barista takes it too');
-const KT = o => kt.post(Object.assign({ action: 'kpitest', code: '9001', checklist: 'barista', items: [0, 1, 2, 5, 6, 7, 8].map(i => ({ i, right: 3, total: 3 })),
-  mistakes: [], secs: 400, away: 0, aborted: false, ts: NOW - 60000 }, o));
-assert.strictEqual(KT({ code: '9009', id: 'k0' }).error, 'not_assessed');
-assert.strictEqual(KT({ id: 'k1', items: [{ i: 3, right: 3, total: 3 }] }).error, 'bad_items', 'a live item is not the employee’s');
-assert.strictEqual(KT({ id: 'k2', items: [{ i: 0, right: 4, total: 3 }] }).error, 'bad_items');
-assert.strictEqual(KT({ id: 'k3', items: [{ i: 0, right: 1, total: 3 }, { i: 0, right: 1, total: 3 }] }).error, 'bad_items', 'an item once');
-assert.strictEqual(KT({ id: 'k4', items: [] }).error, 'bad_items');
-assert.strictEqual(KT({ id: 'k5', checklist: 'nope' }).error, 'bad_checklist');
-assert.ok(!kt.sheets['Проверки KPI'] || kt.sheets['Проверки KPI'].getLastRow() <= 1, 'refused tests write nothing');
-const kr = KT({ id: 'k6', items: [{ i: 0, right: 3, total: 3 }, { i: 1, right: 2, total: 3 }, { i: 2, right: 3, total: 3 }, { i: 5, right: 1, total: 3 },
-  { i: 6, right: 3, total: 3 }, { i: 7, right: 3, total: 3 }, { i: 8, right: 0, total: 3 }], mistakes: [{ q: 'Q', a: 'A', c: 'C' }], away: 1 });
-/* 5 + 3.3 + 5 + 1.7 + 5 + 5 + 0 = 25 of 35 = 71% */
-assert.ok(kr.ok && kr.pct === 71 && kr.month.status === 'wait_live' && kr.month.test.pct === 71 && kr.month.live === null, 'the test part: 25 of 35 = 71%, waiting for the trainer');
-const krow = kt.sheets['Проверки KPI'].data[1];
-assert.ok(krow[17] === 'тест' && krow[14] === 'сам (тест)' && krow[7] === 71 && krow[8] === 25 && krow[9] === 35 && krow[10] === 3, 'the row: part «тест», the share, three items left to the trainer');
-assert.ok(krow[11].includes('2. Сезонное меню: 2 из 3 → 3.3') && krow[11].includes('Выходы из приложения: 1') && krow[12].includes('Q → A (верно: C)'));
-assert.ok(kt.sent.some(t => t.includes('📝 Тест KPI: Тест-1 (Central Park) — 71% тестовой части') && t.includes('Ждёт живой проверки')), 'the trainer is told');
-assert.strictEqual(KT({ id: 'k7' }).error, 'kpitest_done', 'one KPI test a month');
-assert.ok(KT({ id: 'k6' }).duplicate, 'a repeated id answers the first result');
-assert.strictEqual(kt.me('9001').kpiTest.done.pct, 71);
-assert.strictEqual(kt.results.data.length, 1, 'the KPI test never touches «Результаты»');
-/* the trainer checks the live items only: 4 + 5 + 3 = 12; the month: 25 + 12 = 37 of 50 = 74% */
-const lv1 = kt.post({ action: 'assess', code: '9009', staff: '9001', checklist: 'barista', scores: [null, null, null, 4, 5, null, null, null, null, 3], comment: 'Хорошо', id: 'L1', ts: NOW - 30000 });
-assert.ok(lv1.ok && lv1.pct === 80 && lv1.month.status === 'full' && lv1.month.pct === 74 && lv1.month.sum === 37 && lv1.month.max === 50, 'test + live = 37 of 50 = 74%');
-assert.ok(kt.sent[kt.sent.length - 1].includes('Итог месяца: 74% (37 из 50)'));
-const tm = kt.me('9009').assess.staff.filter(x => x.code === '9001')[0];
-assert.ok(tm.month.status === 'full' && tm.month.pct === 74 && tm.month.test.pct === 71 && tm.month.live.pct === 80 && tm.last.pct === 74, 'the trainer sees both parts and the month');
-assert.deepStrictEqual(tm.month.items, [5, 3.3, 5, 4, 5, 1.7, 5, 5, 0, 3]);
-const mm = kt.me('9001').assessMine;
-assert.ok(mm.pct === 74 && mm.status === 'full' && mm.comment === 'Хорошо' && mm.items.length === 10 && mm.items[3].src === 'live' && mm.items[8].score === 0 && mm.test.pct === 71, 'the employee sees the month');
-const lv2 = kt.post({ action: 'assess', code: '9009', staff: '9002', checklist: 'barista', scores: [null, null, null, 5, 5, null, null, null, null, 5], id: 'L2', ts: NOW });
-assert.ok(lv2.month.status === 'wait_test' && lv2.month.pct === 100 && kt.sent[kt.sent.length - 1].includes('Ждёт теста KPI'), 'the live part first: waits for the test');
-assert.strictEqual(kt.me('9002').assessMine.status, 'wait_test');
-assert.ok(kt.isLocked() === false);
-/* the sources come from the sheet: a seasonal list and other topics */
-const ckl = kt.sheets['Чек-листы'].data;
-ckl[2][9] = 'seasonal: LotusLatte, pumpkinlatte'; ckl[6][9] = 'theory: CF-7, cf-6';
-const k2 = kt.me('9003').kpiTest.items;
-assert.deepStrictEqual([k2[1].ids, k2[3].topics], [['lotuslatte', 'pumpkinlatte'], ['CF-7', 'CF-6']]);
-ckl[2][9] = 'nonsense'; assert.strictEqual(kt.me('9003').kpiTest.items.length, 6, 'an unknown source is checked live');
-/* a v5.11 sheet nobody edited gets the sources once; an edited one keeps what the trainer wrote */
-const mg = env({ notifyAll: false, now: NOW }); mg.api.assessSetup();
-const mgs = mg.sheets['Чек-листы'].data, V511 = ['', '', 'allergens', '', '', '', '', '', '', ''];
-mgs[0][9] = 'Авто'; V511.forEach((v, i) => { mgs[i + 1][9] = v; });
-assert.strictEqual(mg.me('9009').assess.checklists[0].items.filter(i => i.src !== 'live').length, 7, 'the untouched v5.11 checklist gets the sources');
-assert.ok(mgs[0][9] === 'Источник' && mgs[1][9] === 'drinks' && mgs[6][9] === 'theory:CF-7' && mgs[4][9] === 'live');
-const mg2 = env({ notifyAll: false, now: NOW }); mg2.api.assessSetup();
-const mgs2 = mg2.sheets['Чек-листы'].data;
-mgs2[0][9] = 'Авто'; V511.forEach((v, i) => { mgs2[i + 1][9] = v; }); mgs2[1][6] = 'Своя формулировка';
-assert.ok(mg2.me('9009').assess.checklists[0].items.filter(i => i.src !== 'live').length === 1 && mgs2[0][9] === 'Источник' && mgs2[1][9] === '', 'an edited checklist keeps its column (only allergens is a question item)');
-/* a v5.11 result (no «Часть») is a full check by the trainer */
-const o11 = env({ notifyAll: false, now: NOW }); o11.api.assessSetup();
-const od = o11.sheets['Проверки KPI'].data; od[0].length = 17;
-od.push([new Date(NOW - 1000), '2026-10', '9001', 'Тест-1', 'Central Park', 'Бариста', 'Аттестация навыков → Barista', 90, 45, 50, 0, '', '', '', 'Тренер', 'old1',
-  JSON.stringify({ checklist: 'barista', scores: [5, 4, 5, 4, 5, 4, 5, 4, 5, 4] })]);
-const om = o11.me('9001').assessMine;
-assert.ok(om && om.status === 'full' && om.pct === 90 && om.live && !om.test, 'a v5.11 row counts as a full check');
-assert.ok(o11.me('9001').kpiTest.done === null, 'and the employee can still take this month’s test');
-}
 
 // 9. menu flows
 const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });
