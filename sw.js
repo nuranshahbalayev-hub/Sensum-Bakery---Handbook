@@ -2,12 +2,14 @@
    При обновлении приложения поднимите номер версии в CACHE, чтобы старый кэш очистился.
    Фото лежат в отдельном кэше IMG_CACHE: имя файла содержит хэш содержимого, поэтому
    кэш переживает обновления версий, а при замене фото появляется новый адрес. */
-const CACHE = 'sensum-v1.126';
+const CACHE = 'sensum-v1.127';
 const IMG_CACHE = 'sensum-img';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable.png', './apple-touch-icon.png'
 ];
+const DOC_WAIT = 3000; // сколько ждать страницу из сети, прежде чем открыть сохранённую
+const SHELL = new URL('./index.html', self.registration.scope).href;
 const isImage = url => new URL(url).pathname.includes('/images/');
 // Only this app's files belong in the offline cache. API replies must reach the network.
 const isAppAsset = url => {
@@ -33,7 +35,11 @@ async function syncImages() {
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS))
+    // мимо HTTP-кэша браузера: в новый кэш версии не должна попасть старая страница
+    caches.open(CACHE).then(c => Promise.all(ASSETS.map(p => fetch(p, { cache: 'reload' }).then(res => {
+      if (!res.ok) throw new Error(p + ': ' + res.status);
+      return c.put(p, res);
+    }))))
       .then(() => syncImages().catch(() => {}))
       .then(() => self.skipWaiting())
   );
@@ -53,16 +59,19 @@ self.addEventListener('fetch', e => {
   const isDoc = req.mode === 'navigate' ||
                 (req.headers.get('accept') || '').includes('text/html');
   if (isDoc) {
-    // сеть в приоритете: онлайн — свежая версия, офлайн — из кэша
-    e.respondWith(
-      fetch(req).then(res => {
-        if (res.ok) {
-          const copy = res.clone();
-          e.waitUntil(caches.open(CACHE).then(c => c.put('./index.html', copy)));
-        }
-        return res;
-      }).catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
-    );
+    // сеть в приоритете: онлайн — свежая версия, офлайн — из кэша. Если сеть не ответила за DOC_WAIT
+    // (слабый Wi-Fi), открываем сохранённую страницу, а свежая докачивается в кэш к следующему запуску.
+    let copy;
+    const net = fetch(SHELL, { cache: 'no-cache' }).then(res => { if (res.ok) copy = res.clone(); return res; });
+    const saved = () => caches.match('./index.html').then(r => r || caches.match('./'));
+    e.waitUntil(net.then(() => copy && caches.open(CACHE).then(c => c.put('./index.html', copy))).catch(() => {}));
+    e.respondWith(new Promise((resolve, reject) => {
+      let done = false;
+      const finish = r => { if (!done) { done = true; resolve(r); } };
+      const timer = setTimeout(() => saved().then(r => { if (r) finish(r); }), DOC_WAIT);
+      net.then(res => { clearTimeout(timer); finish(res); },
+        err => { clearTimeout(timer); if (!done) saved().then(r => r ? finish(r) : reject(err)); });
+    }));
   } else {
     // остальное: кэш в приоритете (фото — в свой кэш)
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {
@@ -73,4 +82,9 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => r)));
   }
+});
+
+// Открытая страница спрашивает, какая версия у воркера: если новее её самой, она предлагает обновиться.
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'version' && e.ports && e.ports[0]) e.ports[0].postMessage({ version: CACHE.replace('sensum-v', '') });
 });
