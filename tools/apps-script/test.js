@@ -1,5 +1,5 @@
 // Runs Code.gs against in-memory mocks of the Apps Script services: node tools/apps-script/test.js
-const fs = require('fs'), vm = require('vm'), assert = require('assert');
+const fs = require('fs'), vm = require('vm'), assert = require('assert'), crypto = require('crypto');
 const SRC = fs.readFileSync(__dirname + '/Code.gs', 'utf8');
 /* built at runtime so no token-shaped literal sits in the repo; it only has to pass setupTelegram's format check */
 const FAKE_TOKEN = '1:' + 'x'.repeat(36);
@@ -13,7 +13,7 @@ function makeSheet(rows, maxRows, cols) {
     getLastRow() { for (let i = data.length - 1; i >= 0; i--) if (data[i].some(v => v !== '' && v != null)) return i + 1; return 0; },
     getMaxRows() { return this.maxRows; },
     insertRowsAfter(_, n) { this.maxRows += n; },
-    appendRow(row) { data.push(row.slice()); },
+    appendRow(row) { data.push(Array.from(row)); },
     setFrozenRows() {},
     getRange(r, c, nr = 1, nc = 1) {
       return {
@@ -40,10 +40,10 @@ function env(opts = {}) {
   const named = { PassThreshold: opts.threshold ?? 0.7, DigestHour: 21, WeeklyHour: 10 };
   if ('notifyAll' in opts) named.NotifyAll = opts.notifyAll;
   const props = Object.assign({}, opts.props || { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42' });
-  const sent = [], alerts = [], triggers = [];
+  const sent = [], alerts = [], triggers = [], hooks = [];
   let lockHeld = false;
   const ui = { alerts, ButtonSet: { OK_CANCEL: 1 }, Button: { OK: 'OK' }, alert: m => alerts.push(m),
-    prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => opts.promptText || '' }),
+    prompt: () => { const a = Array.isArray(opts.prompts) ? opts.prompts.shift() : opts.promptText; return { getSelectedButton: () => 'OK', getResponseText: () => a || '' }; },
     createMenu() { return { addItem() { return this; }, addSeparator() { return this; }, addToUi() {} }; } };
   /* opts.now freezes the clock inside the script, so day/week/month logic doesn't depend on when the tests run */
   const RealDate = Date;
@@ -62,6 +62,12 @@ function env(opts = {}) {
     }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
     UrlFetchApp: { fetch(url, o) {
+      if (!url.startsWith('https://api.telegram.org/')) {  /* the KPI system's webhook: opts.hook = {status, throw} can change between calls */
+        const h = opts.hook || {};
+        hooks.push({ url, headers: o.headers, raw: o.payload, body: JSON.parse(o.payload) });
+        if (h.throw) throw new Error('Address unavailable: ' + url);
+        return { getContentText: () => h.body || '{"ok":true}', getResponseCode: () => h.status || 200 };
+      }
       const method = url.split('/').pop(), body = JSON.parse(o.payload);
       if (opts.tgDown) return { getContentText: () => 'oops', getResponseCode: () => 502 };
       if (opts.tgThrow) throw new Error('Address unavailable: ' + url);
@@ -72,7 +78,9 @@ function env(opts = {}) {
       return { getContentText: () => JSON.stringify({ ok: true, result }), getResponseCode: () => 200 };
     } },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ text: t, setMimeType() { return this; } }) },
-    Utilities: { formatDate(d, tz, f) {
+    Utilities: { Charset: { UTF_8: 'UTF-8' },
+      computeHmacSha256Signature: (v, k, cs) => { assert.strictEqual(cs, 'UTF-8', 'sign the UTF-8 bytes'); return [...crypto.createHmac('sha256', k).update(v, 'utf8').digest()].map(b => b > 127 ? b - 256 : b); },
+      formatDate(d, tz, f) {
       const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
         .formatToParts(d).map(x => [x.type, x.value]));
       return f.replace('yyyy', p.year).replace('MM', p.month).replace('dd', p.day).replace('HH:mm', '12:00');
@@ -83,11 +91,11 @@ function env(opts = {}) {
   vm.createContext(ctx);
   let code = SRC;
   if (opts.kpiStart) { assert.ok(code.includes("const KPI_START = '';")); code = code.replace("const KPI_START = '';", `const KPI_START = '${opts.kpiStart}';`); }
-  vm.runInContext(code + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions,kpiMonths};', ctx);
+  vm.runInContext(code + '\n;this.__api={doGet,doPost,dailyDigest,weeklyReport,monthlyReport_,setupTelegram,findChat,installTriggers,testNotify,hardQuestions,kpiMonths,setupKpiWebhook,sendKpiWeek};', ctx);
   const api = ctx.__api;
   const post = d => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(d) } }).text);
   const me = code => JSON.parse(api.doGet({ parameter: { action: 'me', code } }).text);
-  return { api, post, me, results, staff, sheets, props, sent, alerts, triggers, isLocked: () => lockHeld };
+  return { api, post, me, results, staff, sheets, props, sent, alerts, triggers, hooks, opts, isLocked: () => lockHeld };
 }
 
 const M = [{ q: 'Café Latte: сколько «Молоко»?', a: '180 мл', c: '220 мл' }];
@@ -168,9 +176,10 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.10'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.13'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.10');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.13');
+assert.strictEqual(s1.kpiWebhook, false, 'status says whether a KPI webhook is set');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s2 = JSON.parse(thr.api.doGet({ parameter: { action: 'status' } }).text);
@@ -673,6 +682,121 @@ assert.ok(r1.isLocked() === false);
 const consts = /const KPI_WEIGHTS = (\{[^}]*\})/.exec(SRC)[1]; const wts = eval('(' + consts + ')');
 assert.ok(Math.abs(Object.values(wts).reduce((a, b) => a + b, 0) - 1) < 1e-9, 'the weights make 100%');
 assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SRC) && /const KPI_GRACE_DAYS = 14;/.test(SRC));
+
+// 8i. KPI webhook (v5.13): the Monday report also goes to the KPI system as JSON; a refusal is retried in the evening; nothing without an address
+{
+  const HOOK = 'https://kpi.example.test/hooks/sensum-abc123', KEY = 'kpi-' + 'k'.repeat(20);
+  const MONDAY = Date.parse('2026-11-23T06:00:00Z');  // Monday 23.11.2026, 10:00 in Baku; the week that ended is 16.11–22.11
+  const W = '2026-11-16', day = i => addDay(W, i);
+  const fill = e => {
+    e.staff.cols = 7;
+    e.staff.data[1].push('', 'OS-17');  // 9001 has an id in the KPI system
+    e.staff.data.push(['9004', 'Тест-4', 'Port II', 'Стажёр', true, '2026-11-10', '']);
+    for (let i = 0; i < 4; i++) krow(e, '9001', day(i), 'mixed', 9, 10);           // a barista: 3 count, the 4th is over the quota
+    krow(e, '9002', day(0), 'mixed', 5, 10); krow(e, '9002', day(1), 'mixed', 8, 10);  // one below the line, one counted
+    krow(e, '9004', day(2), 'mixed', 7, 10, true);                                   // a trainee: one aborted
+    krow(e, '9009', day(0), 'mixed', 10, 10);                                        // the trainer's test account: never sent
+    krow(e, '9001', addDay(W, -3), 'mixed', 10, 10);                                 // the week before: not in this week
+    e.post({ action: 'progress', code: '9001', read: ['cf-1', 'cf-2', 'cf-3'], box: {}, ts: MONDAY - 1000, readAt: { 'cf-1': day(1), 'cf-2': day(2), 'cf-3': addDay(W, -2) } });
+    e.sheets['Вопрос дня'] = makeSheet([['Дата', 'Код', 'Сотрудник', 'Филиал', 'Верных', 'Вопросов', 'Ошибки', 'ID', 'Прерван'],
+      [new Date(day(0) + 'T08:00:00Z'), '9001', 'Тест-1', 'Central Park', 3, 3, '', 'd1', ''], [new Date(day(1) + 'T08:00:00Z'), '9001', 'Тест-1', 'Central Park', 2, 3, '', 'd2', '']]);
+    e.sheets['Совы'] = makeSheet([['Дата', 'Код', 'Сотрудник', 'Филиал', 'За что', 'Совы', 'Внесено в Sensum OS', 'Ключ', 'ID попытки'],
+      [new Date(day(2) + 'T09:00:00Z'), '9001', 'Тест-1', 'Central Park', 'Тест 90%+', 1, false, 'good:x', 'k1']]);
+    e.sheets['Отсутствия'] = makeSheet([['Код', 'С', 'По', 'Причина', 'Комментарий'], ['9003', day(3), day(6), 'отпуск', '']]);
+  };
+  const props = { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42', KPI_WEBHOOK_URL: HOOK, KPI_WEBHOOK_SECRET: KEY };
+
+  // no address: the Monday report as before, nothing sent anywhere else
+  const off = env({ now: MONDAY }); fill(off); off.api.weeklyReport();
+  assert.strictEqual(off.hooks.length, 0); assert.strictEqual(off.sent.length, 1); assert.ok(!off.sheets['Отправки в KPI']);
+
+  const k = env({ now: MONDAY, props }); fill(k);
+  k.api.weeklyReport();
+  assert.strictEqual(k.hooks.length, 1, 'one call for the whole week'); assert.strictEqual(k.sent.length, 1, 'the Telegram report still goes, no warning');
+  const h = k.hooks[0], b = h.body;
+  console.log('--- KPI webhook payload ---\n' + JSON.stringify(Object.assign({}, b, { text: '…', employees: b.employees.slice(0, 1) }), null, 1));
+  assert.strictEqual(h.url, HOOK);
+  assert.deepStrictEqual([b.event, b.version, b.id, b.source, b.scriptVersion, b.week, b.trial],
+    ['training.week', 1, 'sensum-learn:week:2026-11-16', 'sensum-learn', 'v5.13', { from: '2026-11-16', to: '2026-11-22', month: '2026-11' }, true]);
+  assert.strictEqual(b.text, k.sent[0], 'the same text as in Telegram');
+  assert.strictEqual(h.headers.Authorization, 'Bearer ' + KEY);
+  assert.strictEqual(h.headers['X-Sensum-Signature'], 'sha256=' + crypto.createHmac('sha256', KEY).update(h.raw).digest('hex'), 'the signature is the HMAC of the exact body');
+  assert.deepStrictEqual([h.headers['X-Sensum-Event'], h.headers['X-Sensum-Delivery']], ['training.week', b.id]);
+  const codes = b.employees.map(p => p.code);
+  assert.deepStrictEqual(codes.slice().sort(), ['9001', '9002', '9003', '9004'], 'everyone active, without the inactive one and the trainer');
+  assert.deepStrictEqual(b.employees.map(p => p.branch), ['Central Park', 'Port II', 'Port II', 'White City'], 'sorted by branch');
+  const p1 = b.employees.find(p => p.code === '9001'), p2 = b.employees.find(p => p.code === '9002'), p3 = b.employees.find(p => p.code === '9003'), p4 = b.employees.find(p => p.code === '9004');
+  assert.deepStrictEqual([p1.kpiId, p1.name, p1.level, p1.fullWeek], ['OS-17', 'Тест-1', 'barista', true]);
+  assert.deepStrictEqual(p1.tests, { done: 3, need: 3, taken: 4, belowLine: 0, overLimit: 1, aborted: 0, away: 0, avgScore: 90 });
+  assert.deepStrictEqual(p1.lessons, { done: 2, need: 2 }, 'a lesson of the week before is not counted');
+  assert.deepStrictEqual([p1.dailyQuestion.days, p1.owls.earned, p1.owls.items[0].why, p1.owls.items[0].credited], [2, 1, 'Тест 90%+', false]);
+  assert.strictEqual(p1.xp, 270 + 50 + 20, '3 counted tests of 9 (the 4th is over) + «Вопрос дня» 3/3 (30 + 20) and 2/3 (20)');
+  assert.deepStrictEqual([p2.tests.done, p2.tests.belowLine, p2.tests.avgScore, p2.fullWeek, p2.kpiId], [1, 1, 65, false, null]);
+  assert.deepStrictEqual([p3.tests.taken, p3.tests.avgScore, p3.absentDays], [0, null, 4]);
+  assert.deepStrictEqual([p4.level, p4.tests.need, p4.tests.aborted, p4.tests.avgScore, p4.startedOn], ['trainee', 5, 1, 0, '2026-11-10'], 'an aborted test counts as 0');
+  assert.deepStrictEqual([p1.kpiMonth.month, p1.kpiMonth.state, typeof p1.kpiMonth.pct], ['2026-11', 'trial', 'number']);
+  assert.deepStrictEqual(b.summary, { staff: 4, tested: 3, fullWeek: 1, tests: 7, avgScore: 67, owls: 1 }, 'average of the tests that count: 3 × 90%, 50%, 80%, aborted 0%');
+  assert.deepStrictEqual(b.branches.map(x => [x.branch, x.staff, x.tested, x.avgScore]), [['Central Park', 1, 1, 90], ['Port II', 2, 1, 0], ['White City', 1, 1, 65]]);
+  assert.ok(!JSON.stringify(b).includes('9009') && !JSON.stringify(b).includes(KEY), 'no trainer account, no key in the body');
+  const log = k.sheets['Отправки в KPI'].data;
+  assert.deepStrictEqual(log[0], ['Дата и время', 'Неделя', 'Событие', 'Сотрудников', 'Ответ', 'Статус', 'Комментарий', 'Ключ']);
+  assert.deepStrictEqual(log[1].slice(1), ['2026-11-16', 'training.week', 4, 200, 'доставлено', 'по расписанию', 'sensum-learn:week:2026-11-16']);
+  const ks = JSON.parse(k.api.doGet({ parameter: { action: 'status' } }).text);
+  assert.ok(ks.kpiWebhook === true && ks.lastKpiOk.includes('2026-11-16') && !ks.lastKpiError && !JSON.stringify(ks).includes('kpi.example.test'), 'status: on, last delivery, never the address');
+  k.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(k.hooks.length, 1, 'a delivered week is not sent again in the evening');
+
+  // the KPI system refuses: a warning in Telegram, the evening retries until it is delivered, then says so once
+  const f = env({ now: MONDAY, props, hook: { status: 503 } }); fill(f);
+  f.api.weeklyReport();
+  assert.strictEqual(f.hooks.length, 1);
+  assert.ok(f.sent[1].startsWith('⚠️ Итоги недели 16.11–22.11 не дошли до KPI-системы: HTTP 503'), 'the trainer is told');
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(f.hooks.length, 2, 'the evening tries again'); assert.strictEqual(f.sent.filter(x => x.startsWith('⚠️ Итоги недели')).length, 1, 'one warning, not one per attempt');
+  f.opts.hook = { status: 202 };
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(f.hooks.length, 3); assert.ok(f.sent.some(x => x === '✅ Итоги недели 16.11–22.11 дошли до KPI-системы (с 3-й попытки).'));
+  assert.ok(f.hooks[2].body.text.startsWith('📅 Итоги недели'), 'a retry carries the report text too');
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(f.hooks.length, 3, 'delivered: no more tries');
+  assert.deepStrictEqual(f.sheets['Отправки в KPI'].data.slice(1).map(r => [r[4], r[5], r[6]]),
+    [[503, 'ошибка', 'по расписанию: HTTP 503'], [503, 'ошибка', 'повтор: HTTP 503'], [202, 'доставлено', 'повтор']]);
+  // a network error never shows the address or the key, in the sheet or in Telegram
+  const n = env({ now: MONDAY, props, hook: { throw: true } }); fill(n);
+  n.api.weeklyReport();
+  const nlog = JSON.stringify(n.sheets['Отправки в KPI'].data) + n.sent.join('\n') + JSON.parse(n.api.doGet({ parameter: { action: 'status' } }).text).lastKpiError;
+  assert.ok(nlog.includes('Address unavailable: ***') && !nlog.includes('kpi.example.test') && !nlog.includes(KEY));
+  // Telegram down: the KPI system still gets the week, and the trigger still sees the Telegram error
+  const tdown = env({ now: MONDAY, props, tgDown: true }); fill(tdown);
+  assert.throws(() => tdown.api.weeklyReport(), /Telegram/); assert.strictEqual(tdown.hooks.length, 1);
+  assert.strictEqual(tdown.sheets['Отправки в KPI'].data[1][5], 'доставлено');
+  // without a key: no Authorization and no signature
+  const nokey = env({ now: MONDAY, props: { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42', KPI_WEBHOOK_URL: HOOK } }); fill(nokey);
+  nokey.api.weeklyReport(); assert.ok(!nokey.hooks[0].headers.Authorization && !nokey.hooks[0].headers['X-Sensum-Signature']);
+
+  // menu item 4: address, key, a ping; column G is made; a bad address is refused; an empty one switches it off
+  const m = env({ now: MONDAY, prompts: [HOOK, KEY] }); m.staff.cols = 5;
+  m.api.setupKpiWebhook();
+  assert.deepStrictEqual([m.props.KPI_WEBHOOK_URL, m.props.KPI_WEBHOOK_SECRET], [HOOK, KEY]);
+  assert.deepStrictEqual([m.hooks.length, m.hooks[0].body.event, m.hooks[0].headers.Authorization], [1, 'ping', 'Bearer ' + KEY]);
+  assert.ok(m.alerts[0].startsWith('Вебхук сохранён, KPI-система ответила на проверку (HTTP 200)'));
+  assert.deepStrictEqual(m.staff.data[0].slice(5, 7), ['Начало работы', 'ID в KPI-системе']);
+  const bad = env({ prompts: ['http://kpi.example.test/x'] }); bad.api.setupKpiWebhook();
+  assert.ok(!bad.props.KPI_WEBHOOK_URL && bad.alerts[0].includes('https://'));
+  const fail = env({ prompts: [HOOK, ''], hook: { status: 401 } }); fail.api.setupKpiWebhook();
+  assert.ok(fail.props.KPI_WEBHOOK_URL === HOOK && !fail.props.KPI_WEBHOOK_SECRET && fail.alerts[0].includes('проверка не прошла: HTTP 401'));
+  const offm = env({ props: Object.assign({}, props), prompts: [''] }); offm.api.setupKpiWebhook();
+  assert.ok(!offm.props.KPI_WEBHOOK_URL && !offm.props.KPI_WEBHOOK_SECRET && offm.alerts[0] === 'Отправка в KPI-систему отключена.');
+  // menu: send the last week now
+  const s = env({ now: Date.parse('2026-11-26T08:00:00Z'), props }); fill(s);
+  s.api.sendKpiWeek();
+  assert.ok(s.alerts[0].startsWith('Итоги недели 16.11–22.11 отправлены (4 сотр., HTTP 200)') && s.hooks[0].body.week.from === W);
+  assert.strictEqual(s.sheets['Отправки в KPI'].data[1][6], 'вручную');
+  const s0 = env(); s0.api.sendKpiWeek(); assert.ok(s0.alerts[0].includes('пункт 4') && s0.hooks.length === 0);
+  // the login still works with the new column G
+  assert.deepStrictEqual(JSON.parse(k.api.doGet({ parameter: { action: 'whoami', code: '9001' } }).text), { ok: true, name: 'Тест-1', branch: 'Central Park', level: 'barista' });
+  assert.ok(k.isLocked() === false);
+}
 
 // 9. menu flows
 const t4 = env({ props: {}, promptText: FAKE_TOKEN, updates: [{ message: { chat: { id: 777, first_name: 'Nuran' } } }] });

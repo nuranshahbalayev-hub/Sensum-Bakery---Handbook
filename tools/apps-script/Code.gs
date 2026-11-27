@@ -48,6 +48,12 @@
  * поэтому не попадают в «Сводку», KPI, лимиты и мгновенные уведомления; XP (10 за верный, +20 за все верные) только
  * за первый за день, сов не дают; ?action=me отдаёт daily: {done, streak}. Каждый понедельник (и из меню) скрипт
  * пересобирает лист «Сложные вопросы»: на чём чаще всего ошибались за 7 дней.
+ *
+ * С v5.13 итоги недели уходят и в KPI-систему: в понедельник, сразу после отчёта в Telegram, скрипт отправляет на вебхук
+ * (адрес и ключ в свойствах скрипта, меню Sensum, пункт 4) один JSON за прошедшую неделю пн–вс: по каждому сотруднику тесты,
+ * уроки, полная неделя, «Вопрос дня», XP, совы и KPI месяца, плюс текст отчёта. Каждая отправка записывается на лист
+ * «Отправки в KPI»; если KPI-система не ответила 2xx, тренер получает сообщение в Telegram, а вечерняя сводка повторяет
+ * отправку, пока неделя не дойдёт. Формат описан в docs/KPI_WEBHOOK.md. Без адреса вебхука ничего не отправляется.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -96,7 +102,12 @@ const KPI_HEADERS = ['Месяц', 'Код', 'Сотрудник', 'Филиал
   'Отсутствовал дней', 'Минус % KPI', 'Статус', 'Решение тренера', 'Комментарий', 'Внесено в Sensum OS', 'Ключ'];
 const PASS_RATIO = 0.7;                      // a test of this share closes its section (the pass threshold of the sheet is for notices only)
 const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, no owls to credit
-const SCRIPT_VERSION = 'v5.10';
+// Вебхук KPI-системы (v5.13): адрес и ключ лежат в свойствах скрипта KPI_WEBHOOK_URL / KPI_WEBHOOK_SECRET, не в коде (репозиторий публичный).
+const SHEET_KPI_LOG = 'Отправки в KPI';
+const KPI_LOG_HEADERS = ['Дата и время', 'Неделя', 'Событие', 'Сотрудников', 'Ответ', 'Статус', 'Комментарий', 'Ключ'];
+const KPI_HOOK = { event: 'training.week', version: 1, source: 'sensum-learn' };
+const KPI_ID_HEADER = 'ID в KPI-системе';  // optional column G of «Сотрудники»: the employee's id in the KPI system, sent as kpiId
+const SCRIPT_VERSION = 'v5.13';
 
 /* ---------- меню в таблице ---------- */
 
@@ -110,6 +121,9 @@ function onOpen() {
     .addItem('Отправить сводку за сутки сейчас', 'dailyDigest')
     .addItem('Обновить «Сложные вопросы»', 'hardQuestions')
     .addItem('KPI обучения: подготовить листы и пересчитать прошлый месяц', 'kpiMonths')
+    .addSeparator()
+    .addItem('4. Подключить вебхук KPI-системы', 'setupKpiWebhook')
+    .addItem('Отправить итоги прошлой недели в KPI-систему сейчас', 'sendKpiWeek')
     .addToUi();
 }
 
@@ -133,7 +147,9 @@ function status_() {
     ok: true, version: SCRIPT_VERSION,
     telegramToken: !!props.getProperty('TELEGRAM_TOKEN'), telegramChat: !!props.getProperty('TELEGRAM_CHAT_ID'),
     notifyAll: flag_('NotifyAll'), threshold: setting_('PassThreshold', 0.7),
-    lastNotifyOk: props.getProperty('LAST_NOTIFY_OK') || '', lastNotifyError: props.getProperty('LAST_NOTIFY_ERROR') || ''
+    lastNotifyOk: props.getProperty('LAST_NOTIFY_OK') || '', lastNotifyError: props.getProperty('LAST_NOTIFY_ERROR') || '',
+    kpiWebhook: !!props.getProperty('KPI_WEBHOOK_URL'),  // never the address or the key: this answer is public
+    lastKpiOk: props.getProperty('LAST_KPI_OK') || '', lastKpiError: props.getProperty('LAST_KPI_ERROR') || ''
   };
 }
 
@@ -239,6 +255,7 @@ function doPost(e) {
 function dailyDigest(e) {
   /* the last 24 hours, so tests taken after the evening digest show up in the next one */
   const now = new Date(), from = new Date(now.getTime() - 864e5);
+  if (e) { try { kpiWeekRetry_(now); } catch (err) { console.warn('kpi retry: ' + safeError_(err)); } }  // never blocks the digest
   if (e && Utilities.formatDate(now, TZ, 'dd') === '01') {
     monthlyReport_(now);
     try { kpiMonthly_(now); } catch (err) { console.warn('kpi: ' + err.message); }  // never blocks the digest
@@ -276,8 +293,19 @@ function dailyDigest(e) {
   if (!e) SpreadsheetApp.getUi().alert('Сводка отправлена в Telegram.');
 }
 
+/* Monday: the report to Telegram, then the same week to the KPI system's webhook (if one is set). One failing never stops the other;
+   a Telegram failure is still thrown at the end, as before, so the trigger shows it. */
 function weeklyReport() {
-  const now = new Date(), from = new Date(now.getTime() - 7 * 864e5);
+  const now = new Date(), text = weeklyText_(now);
+  let tgErr = null;
+  try { send_(text); } catch (err) { tgErr = err; }
+  try { kpiWeekAuto_(now, text); } catch (err) { console.warn('kpi webhook: ' + safeError_(err)); }
+  if (tgErr) throw tgErr;
+}
+
+/* the text of the Monday report: the last 7 days, and the full weeks of the calendar week that ended */
+function weeklyText_(now) {
+  const from = new Date(now.getTime() - 7 * 864e5);
   const rows = results_().filter(r => r.date >= from);
   const staff = activeStaff_();
   const lines = [`📅 Итоги недели: ${Utilities.formatDate(from, TZ, 'dd.MM')}–${Utilities.formatDate(now, TZ, 'dd.MM.yyyy')}`];
@@ -337,7 +365,7 @@ function weeklyReport() {
       `• ${list[0].name} (${list[0].branch}): +${list.reduce((s, o) => s + o.n, 0)} — ${list.map(o => o.why).join(', ')}`));
     lines.push('После начисления отметьте строки галочкой на листе «Совы».');
   }
-  send_(lines.join('\n'));
+  return lines.join('\n');
 }
 
 /* the 1st of the month: «Экзамен месяца» results for the KPI and the owls of the month that just ended */
@@ -440,10 +468,11 @@ function levelOf_(role) {
 function activeStaff_() {
   const sh = sheet_(SHEET_STAFF), last = sh.getLastRow();
   if (last < 2) return [];
-  const cols = Math.min(6, sh.getMaxColumns ? sh.getMaxColumns() : 5);  // column F «Начало работы» is optional
+  const cols = Math.min(7, sh.getMaxColumns ? sh.getMaxColumns() : 5);  // F «Начало работы» and G «ID в KPI-системе» are optional
   return sh.getRange(2, 1, last - 1, cols).getValues()
     .filter(r => String(r[0]).trim() && r[4] === true)
-    .map(r => ({ code: String(r[0]).trim(), name: String(r[1]), branch: String(r[2]), role: String(r[3]), start: cols > 5 ? dayStr_(r[5]) : '' }));
+    .map(r => ({ code: String(r[0]).trim(), name: String(r[1]), branch: String(r[2]), role: String(r[3]), start: cols > 5 ? dayStr_(r[5]) : '',
+      kpiId: cols > 6 ? String(r[6] == null ? '' : r[6]).trim() : '' }));
 }
 
 function results_() {
@@ -1187,6 +1216,180 @@ function weekKey_(d) {
   return new Date(t - dow * 864e5).toISOString().slice(0, 10);
 }
 
+/* ---------- вебхук KPI-системы (v5.13) ---------- */
+
+/* the week that ended last: Monday of the previous calendar week (Baku) */
+function lastWeek_(now) { return addDays_(weekKey_(now), -7); }
+
+/* One JSON for one week (Mon–Sun, Baku) and everyone active except the trainer's test account. The format is in docs/KPI_WEBHOOK.md:
+   change it only together with that file and KPI_HOOK.version. */
+function kpiWeekPayload_(week, now, text) {
+  const sun = addDays_(week, 6), mk = sun.slice(0, 7);  // a week belongs to the month of its Sunday, as in the KPI of the month
+  const ctx = kpiCtx_(), owls = owls_(), dXp = dailyXp_(ctx.dailies), inWeek = d => weekKey_(d) === week;
+  const pc = x => x == null ? null : Math.round(x * 100), scores = {};
+  const people = activeStaff_().filter(s => s.branch !== TEST_BRANCH)
+    .sort((a, b) => a.branch.localeCompare(b.branch) || a.name.localeCompare(b.name)).map(s => {
+      const mine = ctx.tests.filter(r => r.code === s.code), quota = quotaOf_(s.role), plan = weekPlan_(mine, ctx.readAt[s.code] || {}, week, quota);
+      const wk = mine.filter(r => r.group && inWeek(r.date)), scored = wk.filter(r => !r.over);
+      scores[s.code] = scored.map(r => r.aborted ? 0 : r.ratio);  // as the quality of the KPI: an aborted test is 0, one over the limit is left out
+      const exam = mine.filter(r => r.kind === 'exam' && inWeek(r.date))[0];
+      const myOwls = owls.filter(o => o.code === s.code && inWeek(o.date)), away = ctx.absence[s.code] || new Set();
+      let absent = 0;
+      for (let i = 0; i < 7; i++) if (away.has(addDays_(week, i))) absent++;
+      return {
+        code: s.code, kpiId: s.kpiId || null, name: s.name, branch: s.branch, role: s.role, level: levelOf_(s.role) || null,
+        tests: { done: plan.testsDone, need: plan.testsNeed, taken: wk.length, belowLine: plan.tried.test || 0, overLimit: wk.filter(r => r.over).length,
+          aborted: wk.filter(r => r.aborted).length, away: wk.reduce((n, r) => n + (r.away || 0), 0),
+          avgScore: scores[s.code].length ? pc(scores[s.code].reduce((a, x) => a + x, 0) / scores[s.code].length) : null },
+        lessons: { done: plan.lessons, need: plan.lessonsNeed },
+        fullWeek: plan.full,
+        exam: exam ? { score: exam.score, total: exam.total, percent: exam.aborted ? 0 : pc(exam.ratio), aborted: exam.aborted } : null,
+        dailyQuestion: { days: new Set(ctx.dailies.filter(r => r.code === s.code && !r.aborted && inWeek(r.date)).map(r => dayKey_(r.date))).size },
+        xp: mine.filter(r => inWeek(r.date)).reduce((n, r) => n + r.xp, 0) + dXp.filter(r => r.code === s.code && inWeek(r.date)).reduce((n, r) => n + r.xp, 0),
+        owls: { earned: myOwls.reduce((n, o) => n + o.n, 0), items: myOwls.map(o => ({ why: o.why, n: o.n, credited: o.done })) },
+        absentDays: absent,
+        startedOn: s.start || null,
+        kpiMonth: kpiPublic_(kpiMonth_(s, mk, ctx, now))
+      };
+    });
+  const group = list => {
+    const all = [].concat(...list.map(p => scores[p.code]));
+    return { staff: list.length, tested: list.filter(p => p.tests.taken > 0).length, fullWeek: list.filter(p => p.fullWeek).length,
+      tests: list.reduce((n, p) => n + p.tests.taken, 0), avgScore: all.length ? pc(all.reduce((a, x) => a + x, 0) / all.length) : null,
+      owls: list.reduce((n, p) => n + p.owls.earned, 0) };
+  };
+  return {
+    event: KPI_HOOK.event, version: KPI_HOOK.version, id: KPI_HOOK.source + ':week:' + week, source: KPI_HOOK.source, scriptVersion: SCRIPT_VERSION,
+    sentAt: new Date().toISOString(), week: { from: week, to: sun, month: mk }, trial: kpiState_(mk) === 'trial',
+    rules: { testsPerWeek: TESTS_WEEK, lessonsPerWeek: LESSONS_WEEK, passPercent: Math.round(PASS_RATIO * 100), kpiThreshold: KPI_THRESHOLD, kpiCap: KPI_CAP },
+    summary: group(people),
+    branches: [...groupBy_(people, p => p.branch)].map(([branch, list]) => Object.assign({ branch }, group(list))),
+    employees: people,
+    text: text || null
+  };
+}
+
+function kpiHook_() {
+  const p = PropertiesService.getScriptProperties();
+  return { url: p.getProperty('KPI_WEBHOOK_URL') || '', secret: p.getProperty('KPI_WEBHOOK_SECRET') || '' };
+}
+
+/* POST the JSON; with a key: Authorization: Bearer <key> and X-Sensum-Signature: sha256=<HMAC-SHA256 of the body, hex> */
+function kpiPost_(payload) {
+  const h = kpiHook_();
+  if (!h.url) throw new Error('Вебхук KPI-системы не подключён: меню Sensum, пункт 4.');
+  const body = JSON.stringify(payload), headers = { 'X-Sensum-Event': payload.event, 'X-Sensum-Delivery': payload.id };
+  if (h.secret) {
+    headers.Authorization = 'Bearer ' + h.secret;
+    headers['X-Sensum-Signature'] = 'sha256=' + Utilities.computeHmacSha256Signature(body, h.secret, Utilities.Charset.UTF_8).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+  }
+  const res = UrlFetchApp.fetch(h.url, { method: 'post', contentType: 'application/json', payload: body, headers, muteHttpExceptions: true });
+  const code = res.getResponseCode();
+  return { ok: code >= 200 && code < 300, code };
+}
+
+function kpiLogSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_KPI_LOG);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_KPI_LOG);
+    sh.getRange(1, 1, 1, KPI_LOG_HEADERS.length).setValues([KPI_LOG_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/* the attempts for one delivery id, from the sheet: {sent, failed} */
+function kpiLogOf_(id) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_KPI_LOG);
+  if (!sh || sh.getLastRow() < 2) return { sent: 0, failed: 0 };
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, KPI_LOG_HEADERS.length).getValues().filter(r => String(r[7]) === id);
+  return { sent: rows.filter(r => r[5] === 'доставлено').length, failed: rows.filter(r => r[5] === 'ошибка').length };
+}
+
+/* Sends one week and writes the attempt to «Отправки в KPI». Never throws for a refusal or a network error: returns {ok, code, error}. */
+function kpiPushWeek_(week, now, text, how) {
+  const payload = kpiWeekPayload_(week, now, text);
+  let out;
+  try { out = kpiPost_(payload); out.error = out.ok ? '' : 'HTTP ' + out.code; } catch (err) { out = { ok: false, code: '', error: safeError_(err) }; }
+  const at = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm'), props = PropertiesService.getScriptProperties();
+  kpiLogSheet_().appendRow([new Date(), week, payload.event, payload.employees.length, out.code, out.ok ? 'доставлено' : 'ошибка',
+    cell_(text_((how || '') + (out.error ? (how ? ': ' : '') + out.error : ''), 300)), payload.id]);
+  if (out.ok) { props.setProperty('LAST_KPI_OK', `${at}: ${week}`); props.deleteProperty('LAST_KPI_ERROR'); }
+  else props.setProperty('LAST_KPI_ERROR', `${at}: ${week}: ${out.error}`);
+  out.week = week; out.id = payload.id; out.count = payload.employees.length;
+  return out;
+}
+
+function weekRange_(week) { const f = d => d.slice(8) + '.' + d.slice(5, 7); return `${f(week)}–${f(addDays_(week, 6))}`; }
+
+/* Monday, right after the Telegram report */
+function kpiWeekAuto_(now, text) {
+  if (!kpiHook_().url) return;
+  const r = kpiPushWeek_(lastWeek_(now), now, text, 'по расписанию');
+  if (!r.ok) notify_(`⚠️ Итоги недели ${weekRange_(r.week)} не дошли до KPI-системы: ${r.error}. Скрипт повторит отправку вечером; ` +
+    `подробности на листе «${SHEET_KPI_LOG}».`);
+}
+
+/* the evening digest: the week that ended last, again, until it is delivered; only the last finished week is retried */
+function kpiWeekRetry_(now) {
+  if (!kpiHook_().url) return;
+  const week = lastWeek_(now), was = kpiLogOf_(KPI_HOOK.source + ':week:' + week);
+  if (was.sent) return;
+  const r = kpiPushWeek_(week, now, weeklyText_(now), was.failed ? 'повтор' : 'догоняющая отправка');
+  if (r.ok && was.failed) notify_(`✅ Итоги недели ${weekRange_(week)} дошли до KPI-системы (с ${was.failed + 1}-й попытки).`);
+  if (!r.ok && !was.failed) notify_(`⚠️ Итоги недели ${weekRange_(week)} не дошли до KPI-системы: ${r.error}. Скрипт повторит отправку завтра вечером.`);
+}
+
+/* column G «ID в KPI-системе» of «Сотрудники» (after F «Начало работы») */
+function ensureStaffKpiIdColumn_() {
+  ensureStaffStartColumn_();
+  const sh = sheet_(SHEET_STAFF);
+  if (sh.getMaxColumns() < 7) sh.insertColumnAfter(sh.getMaxColumns());
+  if (!String(sh.getRange(1, 7).getValue()).trim()) sh.getRange(1, 7).setValues([[KPI_ID_HEADER]]);
+}
+
+/* menu item 4: the address and the key of the webhook, then a test call (event ping); an empty address switches sending off */
+function setupKpiWebhook() {
+  const ui = SpreadsheetApp.getUi(), props = PropertiesService.getScriptProperties();
+  const a = ui.prompt('Вебхук KPI-системы', 'Вставьте адрес для приёма данных (https://…). Оставьте пустым, чтобы отключить отправку.', ui.ButtonSet.OK_CANCEL);
+  if (a.getSelectedButton() !== ui.Button.OK) return;
+  const url = a.getResponseText().trim();
+  if (!url) {
+    props.deleteProperty('KPI_WEBHOOK_URL'); props.deleteProperty('KPI_WEBHOOK_SECRET');
+    ui.alert('Отправка в KPI-систему отключена.');
+    return;
+  }
+  if (!/^https:\/\/[^\s\/]+\.[^\s\/]+(\/\S*)?$/.test(url)) {
+    ui.alert('Это не похоже на адрес вебхука. Нужен полный адрес, который начинается с https://');
+    return;
+  }
+  const k = ui.prompt('Вебхук KPI-системы', 'Вставьте ключ доступа, если KPI-система его выдала. Если ключа нет, оставьте пустым.', ui.ButtonSet.OK_CANCEL);
+  if (k.getSelectedButton() !== ui.Button.OK) return;
+  const secret = k.getResponseText().trim();
+  props.setProperty('KPI_WEBHOOK_URL', url);
+  if (secret) props.setProperty('KPI_WEBHOOK_SECRET', secret); else props.deleteProperty('KPI_WEBHOOK_SECRET');
+  try { ensureStaffKpiIdColumn_(); } catch (err) { console.warn('kpi id column: ' + err.message); }
+  let r;
+  try {
+    r = kpiPost_({ event: 'ping', version: KPI_HOOK.version, id: KPI_HOOK.source + ':ping:' + Date.now(), source: KPI_HOOK.source,
+      scriptVersion: SCRIPT_VERSION, sentAt: new Date().toISOString(), text: 'Проверка связи из «Sensum Обучение»' });
+  } catch (err) { r = { ok: false, error: safeError_(err) }; }
+  ui.alert(r.ok
+    ? `Вебхук сохранён, KPI-система ответила на проверку (HTTP ${r.code}). Итоги недели будут уходить по понедельникам вместе с отчётом в Telegram.\n\n` +
+      `Если в KPI-системе у сотрудников свои ID, впишите их в столбец «${KPI_ID_HEADER}» листа «${SHEET_STAFF}».`
+    : `Вебхук сохранён, но проверка не прошла: ${r.error || 'HTTP ' + r.code}. Проверьте адрес и ключ (меню Sensum, пункт 4).`);
+}
+
+/* menu item: the week that ended last, now (the KPI system gets the same id again and should overwrite that week) */
+function sendKpiWeek() {
+  const ui = SpreadsheetApp.getUi();
+  if (!kpiHook_().url) { ui.alert('Вебхук KPI-системы не подключён: меню Sensum, пункт 4.'); return; }
+  const now = new Date(), r = kpiPushWeek_(lastWeek_(now), now, weeklyText_(now), 'вручную');
+  ui.alert(r.ok ? `Итоги недели ${weekRange_(r.week)} отправлены (${r.count} сотр., HTTP ${r.code}).`
+    : `Не отправилось: ${r.error}. Подробности на листе «${SHEET_KPI_LOG}».`);
+}
+
 /* ---------- Telegram ---------- */
 
 function tg_(method, payload) {
@@ -1226,9 +1429,9 @@ function notify_(text) {
 
 /* error text without the bot token (network errors can quote the request URL) */
 function safeError_(err) {
-  const token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  const props = PropertiesService.getScriptProperties();
   let msg = String(err && err.message || err);
-  if (token) msg = msg.split(token).join('***');
+  ['TELEGRAM_TOKEN', 'KPI_WEBHOOK_URL', 'KPI_WEBHOOK_SECRET'].forEach(k => { const v = props.getProperty(k); if (v) msg = msg.split(v).join('***'); });
   return msg.replace(/bot\d+:[\w-]+/g, 'bot***').slice(0, 300);
 }
 
