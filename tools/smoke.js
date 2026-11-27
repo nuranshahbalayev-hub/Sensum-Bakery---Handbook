@@ -35,7 +35,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const page = await ctx.newPage();
-  const errors = [], posted = [], progPosts = [], progressDb = {};
+  const errors = [], posted = [], progPosts = [], progressDb = {}, planPosts = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
@@ -60,6 +60,11 @@ const server = http.createServer((req, res) => {
         });
         progressDb[d.code] = { read: [...new Set([...old.read, ...d.read])], box, clocks, ts: Math.max(Date.now(), old.ts + 1, d.ts) };
         route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, progress: progressDb[d.code] }) });
+        return;
+      }
+      if (d.action === 'dayplan') {  /* «План на сегодня» complete (script v5.14): never a test result */
+        planPosts.push(d);
+        route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, kpi: 'sent' }) });
         return;
       }
       posted.push(d);
@@ -1091,6 +1096,31 @@ const server = http.createServer((req, res) => {
   await page.evaluate(() => { delete LS.stats.kpi; renderLearn(); });
   check(await kc().count() === 0, '«План месяца»: an older script (no kpi) means no card');
   await page.evaluate(() => { Date.now = window.__dn; });
+  /* «План на сегодня» complete → one message to the sheet (script v5.14 passes it on to the KPI system), only when ?action=me says dayplan:true */
+  const planRun = () => page.evaluate(async () => {
+    if (!LS.me) switchUser({ code: '1234', name: 'Smoke Test', branch: 'Test', level: 'barista' });
+    LS.today = { day: dayLocal(), done: [] }; LS.planq = [];
+    const goal = planItems().filter(x => x.k !== 'free').map(x => x.k);
+    goal.forEach(k => markToday(k));
+    if (goal.includes('daily')) { LS.dailyDay = dayLocal(); markToday('daily'); }
+    await new Promise(r => setTimeout(r, 600));
+    return { goal, queued: LS.planq.length, sentFlag: !!LS.today.sent, day: bakuDay() };
+  });
+  await page.evaluate(() => { if (LS.stats) delete LS.stats.dayplan; });
+  const pr0 = await planRun();
+  check(pr0.goal.length > 0 && planPosts.length === 0 && pr0.queued === 0 && !pr0.sentFlag, 'day plan: an older script (no dayplan in ?action=me) gets nothing');
+  const before = posted.length;
+  await page.evaluate(() => { LS.stats = Object.assign({}, LS.stats || { xp: 0 }, { dayplan: true }); });
+  const pr1 = await planRun();
+  const dpp = planPosts[0] || {};
+  check(planPosts.length === 1 && dpp.action === 'dayplan' && dpp.code === '1234' && dpp.day === pr1.day && JSON.stringify(dpp.steps) === JSON.stringify(pr1.goal)
+    && JSON.stringify(dpp.done) === JSON.stringify(pr1.goal) && pr1.queued === 0 && posted.length === before,
+    `day plan: completing every row (${pr1.goal.join(', ')}) sends it once, not as a test result`);
+  await page.evaluate(async () => { markToday('test'); markToday('study'); await new Promise(r => setTimeout(r, 400)); });
+  check(planPosts.length === 1, 'day plan: further ticks the same day send nothing more');
+  await page.evaluate(async () => { LS.today = { day: dayLocal(), done: [] }; LS.planq = []; const g = planItems().filter(x => x.k !== 'free'); if (g.length > 1) markToday(g[0].k); await new Promise(r => setTimeout(r, 400)); });
+  check(planPosts.length === 1, 'day plan: half a plan sends nothing');
+
   await page.unroute('https://script.google.com/**');
   await page.route('https://script.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true, service: 'sensum-learn', version: 'v4' }) }));

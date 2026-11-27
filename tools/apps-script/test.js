@@ -176,9 +176,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.13'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.14'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.13');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.14');
 assert.strictEqual(s1.kpiWebhook, false, 'status says whether a KPI webhook is set');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
@@ -717,7 +717,7 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   console.log('--- KPI webhook payload ---\n' + JSON.stringify(Object.assign({}, b, { text: '…', employees: b.employees.slice(0, 1) }), null, 1));
   assert.strictEqual(h.url, HOOK);
   assert.deepStrictEqual([b.event, b.version, b.id, b.source, b.scriptVersion, b.week, b.trial],
-    ['training.week', 1, 'sensum-learn:week:2026-11-16', 'sensum-learn', 'v5.13', { from: '2026-11-16', to: '2026-11-22', month: '2026-11' }, true]);
+    ['training.week', 1, 'sensum-learn:week:2026-11-16', 'sensum-learn', 'v5.14', { from: '2026-11-16', to: '2026-11-22', month: '2026-11' }, true]);
   assert.strictEqual(b.text, k.sent[0], 'the same text as in Telegram');
   assert.strictEqual(h.headers.Authorization, 'Bearer ' + KEY);
   assert.strictEqual(h.headers['X-Sensum-Signature'], 'sha256=' + crypto.createHmac('sha256', KEY).update(h.raw).digest('hex'), 'the signature is the HMAC of the exact body');
@@ -730,6 +730,7 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   assert.deepStrictEqual(p1.tests, { done: 3, need: 3, taken: 4, belowLine: 0, overLimit: 1, aborted: 0, away: 0, avgScore: 90 });
   assert.deepStrictEqual(p1.lessons, { done: 2, need: 2 }, 'a lesson of the week before is not counted');
   assert.deepStrictEqual([p1.dailyQuestion.days, p1.owls.earned, p1.owls.items[0].why, p1.owls.items[0].credited], [2, 1, 'Тест 90%+', false]);
+  assert.strictEqual(p1.dayPlans, 0, 'no day plan was sent that week');
   assert.strictEqual(p1.xp, 270 + 50 + 20, '3 counted tests of 9 (the 4th is over) + «Вопрос дня» 3/3 (30 + 20) and 2/3 (20)');
   assert.deepStrictEqual([p2.tests.done, p2.tests.belowLine, p2.tests.avgScore, p2.fullWeek, p2.kpiId], [1, 1, 65, false, null]);
   assert.deepStrictEqual([p3.tests.taken, p3.tests.avgScore, p3.absentDays], [0, null, 4]);
@@ -796,6 +797,80 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   // the login still works with the new column G
   assert.deepStrictEqual(JSON.parse(k.api.doGet({ parameter: { action: 'whoami', code: '9001' } }).text), { ok: true, name: 'Тест-1', branch: 'Central Park', level: 'barista' });
   assert.ok(k.isLocked() === false);
+}
+
+// 8j. «План на сегодня» выполнен (v5.14): the app sends it once, the sheet keeps it, the KPI system gets it with the facts of the day
+{
+  const HOOK = 'https://kpi.example.test/api/public/sensum', KEY = 'kpi-' + 'k'.repeat(20);
+  const NOWD = Date.parse('2026-11-27T12:00:00Z');  // Friday 27.11.2026, 16:00 in Baku
+  const props = { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42', KPI_WEBHOOK_URL: HOOK, KPI_WEBHOOK_SECRET: KEY };
+  const DAY = '2026-11-27', plan = o => Object.assign({ action: 'dayplan', id: 'dp-9001-' + DAY, code: '9001', day: DAY, steps: ['daily', 'study', 'test'],
+    done: ['daily', 'study', 'test'], lessons: ['cf-4'], ts: NOWD }, o);
+  const dp = env({ now: NOWD, props });
+  assert.strictEqual(dp.me('9001').dayplan, true, '?action=me says the script takes day plans');
+  krow(dp, '9001', DAY, 'mixed', 9, 10); krow(dp, '9001', '2026-11-26', 'mixed', 10, 10);  // a test that day, and one the day before
+  dp.sheets['Вопрос дня'] = makeSheet([['Дата', 'Код', 'Сотрудник', 'Филиал', 'Верных', 'Вопросов', 'Ошибки', 'ID', 'Прерван'],
+    [new Date(DAY + 'T07:00:00Z'), '9001', 'Тест-1', 'Central Park', 3, 3, '', 'd1', '']]);
+  dp.post({ action: 'progress', code: '9001', read: ['cf-3'], box: {}, ts: NOWD - 1000, readAt: { 'cf-3': DAY } });
+  let r = dp.post(plan());
+  assert.deepStrictEqual(r, { ok: true, kpi: 'sent' });
+  assert.strictEqual(dp.hooks.length, 1);
+  const b = dp.hooks[0].body;
+  console.log('--- KPI day plan payload ---\n' + JSON.stringify(b, null, 1));
+  assert.deepStrictEqual([b.event, b.version, b.id, b.day, b.week, b.month, b.trial, b.scriptVersion],
+    ['training.day', 1, 'sensum-learn:day:2026-11-27:9001', DAY, '2026-11-23', '2026-11', true, 'v5.14']);
+  assert.deepStrictEqual(b.employee, { code: '9001', kpiId: null, name: 'Тест-1', branch: 'Central Park', role: 'Бариста', level: 'barista' });
+  assert.deepStrictEqual([b.plan.complete, b.plan.steps, b.plan.done], [true, ['daily', 'study', 'test'], ['daily', 'study', 'test']]);
+  assert.deepStrictEqual(b.facts.tests, [{ kind: 'mixed', score: 9, total: 10, percent: 90, counted: true, aborted: false }], 'only that day');
+  assert.deepStrictEqual([b.facts.dailyQuestion, b.facts.lessons.slice().sort(), b.facts.xp], [{ score: 3, total: 3, aborted: false }, ['cf-3', 'cf-4'], 90 + 50]);
+  assert.strictEqual(dp.hooks[0].headers['X-Sensum-Signature'], 'sha256=' + crypto.createHmac('sha256', KEY).update(dp.hooks[0].raw).digest('hex'));
+  const sheet = dp.sheets['План дня'].data;
+  assert.deepStrictEqual(sheet[0], ['День', 'Код', 'Сотрудник', 'Филиал', 'План', 'Сделано', 'Уроки', 'Получено', 'KPI-система', 'Ответ', 'Ключ']);
+  assert.deepStrictEqual(sheet[1].slice(0, 7).concat(sheet[1].slice(8)), [DAY, '9001', 'Тест-1', 'Central Park', 'daily, study, test', 'daily, study, test', 'cf-4', 'доставлено', '200', 'sensum-learn:day:2026-11-27:9001']);
+  // the same plan again (a lost answer on the phone): acknowledged, not sent again, no second row
+  assert.deepStrictEqual(dp.post(plan()), { ok: true, duplicate: true, kpi: 'sent' });
+  assert.strictEqual(dp.hooks.length, 1); assert.strictEqual(dp.sheets['План дня'].getLastRow(), 2);
+  const st = JSON.parse(dp.api.doGet({ parameter: { action: 'status' } }).text);
+  assert.ok(st.lastKpiOk.endsWith('план дня 2026-11-27') && !JSON.stringify(st).includes('9001'), 'the public status never shows an employee code');
+  // a plan of two steps (no test today: the day's test was already taken), the trainee, and what is refused
+  assert.strictEqual(dp.post(plan({ code: '9002', steps: ['daily', 'study'], done: ['daily', 'study'], lessons: [] })).kpi, 'sent');
+  assert.strictEqual(dp.post(plan({ code: '9003', done: ['daily', 'study'] })).error, 'bad_plan', 'an unfinished plan is not taken');
+  assert.strictEqual(dp.post(plan({ code: '9003', steps: [], done: [] })).error, 'bad_plan');
+  assert.strictEqual(dp.post(plan({ code: '9003', day: '2026-11-28' })).error, 'bad_day', 'not a day in the future');
+  assert.strictEqual(dp.post(plan({ code: '9003', day: '2026-11-19' })).error, 'bad_day', 'not older than 7 days');
+  assert.strictEqual(dp.post(plan({ code: '7777' })).error, 'unknown_code');
+  assert.strictEqual(dp.post(plan({ code: '9003', lessons: ['=HYPERLINK("x")', 'sv-2'] })).ok, true);
+  assert.deepStrictEqual(dp.hooks[dp.hooks.length - 1].body.facts.lessons, ['sv-2'], 'odd lesson ids are dropped');
+  assert.strictEqual(dp.results.getLastRow(), 3, 'a day plan never becomes a test result');
+  // the weekly report counts the completed day plans of the week
+  const wk = env({ now: Date.parse('2026-11-30T06:00:00Z'), props });
+  wk.post(plan({ day: '2026-11-26' })); wk.post(plan({ day: '2026-11-27' })); wk.post(plan({ code: '9002', day: '2026-11-29' }));
+  wk.api.weeklyReport();
+  const wb = wk.hooks.find(h => h.body.event === 'training.week').body;
+  assert.deepStrictEqual(['9001', '9002', '9003'].map(c => wb.employees.find(p => p.code === c).dayPlans), [2, 1, 0]);
+
+  // the KPI system is down: the plan is saved, the phone gets ok, the evening retries, one message while it fails
+  const f = env({ now: NOWD, props, hook: { status: 500 } });
+  assert.deepStrictEqual(f.post(plan()), { ok: true, kpi: 'failed' });
+  assert.strictEqual(f.sheets['План дня'].data[1][8], 'ошибка'); assert.strictEqual(f.sheets['План дня'].data[1][9], 'HTTP 500');
+  assert.deepStrictEqual(f.post(plan()), { ok: true, kpi: 'failed' }, 'a repeat of an undelivered plan tries again');
+  assert.strictEqual(f.hooks.length, 2); assert.strictEqual(f.sheets['План дня'].getLastRow(), 2);
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.ok(f.sent.some(x => x.startsWith('⚠️ Отметки «План дня» не дошли до KPI-системы: 1 из 1')));
+  f.opts.hook = { status: 200 };
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(f.sheets['План дня'].data[1][8], 'доставлено');
+  const sentDays = f.hooks.filter(h => h.body.event === 'training.day').length;
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(f.hooks.filter(h => h.body.event === 'training.day').length, sentDays, 'delivered: not sent again');
+  // no webhook yet: the plan is kept («не подключено») and goes once the address is set
+  const o = env({ now: NOWD });
+  assert.deepStrictEqual(o.post(plan()), { ok: true, kpi: 'off' });
+  assert.strictEqual(o.hooks.length, 0); assert.strictEqual(o.sheets['План дня'].data[1][8], 'не подключено');
+  Object.assign(o.props, { KPI_WEBHOOK_URL: HOOK });
+  o.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(o.hooks.filter(h => h.body.event === 'training.day').length, 1); assert.strictEqual(o.sheets['План дня'].data[1][8], 'доставлено');
+  assert.ok(dp.isLocked() === false && f.isLocked() === false);
 }
 
 // 9. menu flows
