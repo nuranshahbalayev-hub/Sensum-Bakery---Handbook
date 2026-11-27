@@ -54,6 +54,11 @@
  * уроки, полная неделя, «Вопрос дня», XP, совы и KPI месяца, плюс текст отчёта. Каждая отправка записывается на лист
  * «Отправки в KPI»; если KPI-система не ответила 2xx, тренер получает сообщение в Telegram, а вечерняя сводка повторяет
  * отправку, пока неделя не дойдёт. Формат описан в docs/KPI_WEBHOOK.md. Без адреса вебхука ничего не отправляется.
+ *
+ * С v5.14 и выполненный «План на сегодня»: когда сотрудник закрыл все пункты плана, приложение присылает отметку (действие
+ * dayplan, один раз в день). Скрипт записывает её на лист «План дня», добавляет из таблицы тесты, «Вопрос дня» и уроки этого
+ * дня и сразу отправляет на тот же вебхук (событие training.day). Не дошло — вечерняя сводка повторяет (последние 7 дней).
+ * Приложение шлёт отметки, только когда ?action=me отвечает dayplan: true, поэтому старые версии скрипта их не получают.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -106,8 +111,14 @@ const TEST_BRANCH = 'Тест';  // the trainer's own test account: no rating, n
 const SHEET_KPI_LOG = 'Отправки в KPI';
 const KPI_LOG_HEADERS = ['Дата и время', 'Неделя', 'Событие', 'Сотрудников', 'Ответ', 'Статус', 'Комментарий', 'Ключ'];
 const KPI_HOOK = { event: 'training.week', version: 1, source: 'sensum-learn' };
-const KPI_ID_HEADER = 'ID в KPI-системе';  // optional column G of «Сотрудники»: the employee's id in the KPI system, sent as kpiId
-const SCRIPT_VERSION = 'v5.13';
+const KPI_ID_HEADER = 'ID в KPI-системе';
+// «План на сегодня» выполнен (v5.14): одна строка на сотрудника и день, отправляется на тот же вебхук событием training.day
+const SHEET_DAYPLAN = 'План дня';
+const DAYPLAN_HEADERS = ['День', 'Код', 'Сотрудник', 'Филиал', 'План', 'Сделано', 'Уроки', 'Получено', 'KPI-система', 'Ответ', 'Ключ'];
+const DAYPLAN_STEPS = ['daily', 'study', 'test'];  // «Вопрос дня», урок или карточки, тест (так же называются в приложении)
+const DAYPLAN_DAYS = 7;                            // how old a day may be when it arrives, and how far back the evening retries
+const KPI_DAY = { event: 'training.day', version: 1 };  // optional column G of «Сотрудники»: the employee's id in the KPI system, sent as kpiId
+const SCRIPT_VERSION = 'v5.14';
 
 /* ---------- меню в таблице ---------- */
 
@@ -158,6 +169,7 @@ function doPost(e) {
   try { d = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad_json' }); }
   const staff = findStaff_(d.code);
   if (!staff) return json_({ ok: false, error: 'unknown_code' });
+  if (d.action === 'dayplan') return json_(saveDayPlan_(staff, d));
   if (d.action === 'progress') {
     const r = saveProgress_(staff, d);
     if (r.ok && r.lessonsAdded) {
@@ -256,6 +268,7 @@ function dailyDigest(e) {
   /* the last 24 hours, so tests taken after the evening digest show up in the next one */
   const now = new Date(), from = new Date(now.getTime() - 864e5);
   if (e) { try { kpiWeekRetry_(now); } catch (err) { console.warn('kpi retry: ' + safeError_(err)); } }  // never blocks the digest
+  if (e) { try { kpiDayRetry_(now); } catch (err) { console.warn('kpi day retry: ' + safeError_(err)); } }
   if (e && Utilities.formatDate(now, TZ, 'dd') === '01') {
     monthlyReport_(now);
     try { kpiMonthly_(now); } catch (err) { console.warn('kpi: ' + err.message); }  // never blocks the digest
@@ -717,6 +730,7 @@ function me_(code) {
     plan: weekPlan_(myTests, readAt, week, quota), kpi: kpiPublic_(kpiMonth_(s, month, { tests, dailies: daily, readAt: { [s.code]: readAt }, absence: absenceMap_() }, now)),
     passThreshold: setting_('PassThreshold', 0.7),
     progressProtocol: 2, progress: prog,
+    dayplan: true,  // v5.14: the app may send «План на сегодня выполнен» (action dayplan); older scripts never say it, so they never get one
     board: {
       people: people.slice(0, 10).map(p => ({ name: p.name, branch: p.branch, xp: p.xp, me: p.code === s.code })),
       rank: people.findIndex(p => p.code === s.code) + 1, branches
@@ -1225,7 +1239,7 @@ function lastWeek_(now) { return addDays_(weekKey_(now), -7); }
    change it only together with that file and KPI_HOOK.version. */
 function kpiWeekPayload_(week, now, text) {
   const sun = addDays_(week, 6), mk = sun.slice(0, 7);  // a week belongs to the month of its Sunday, as in the KPI of the month
-  const ctx = kpiCtx_(), owls = owls_(), dXp = dailyXp_(ctx.dailies), inWeek = d => weekKey_(d) === week;
+  const ctx = kpiCtx_(), owls = owls_(), plans = dayPlans_(), dXp = dailyXp_(ctx.dailies), inWeek = d => weekKey_(d) === week;
   const pc = x => x == null ? null : Math.round(x * 100), scores = {};
   const people = activeStaff_().filter(s => s.branch !== TEST_BRANCH)
     .sort((a, b) => a.branch.localeCompare(b.branch) || a.name.localeCompare(b.name)).map(s => {
@@ -1234,6 +1248,7 @@ function kpiWeekPayload_(week, now, text) {
       scores[s.code] = scored.map(r => r.aborted ? 0 : r.ratio);  // as the quality of the KPI: an aborted test is 0, one over the limit is left out
       const exam = mine.filter(r => r.kind === 'exam' && inWeek(r.date))[0];
       const myOwls = owls.filter(o => o.code === s.code && inWeek(o.date)), away = ctx.absence[s.code] || new Set();
+      const planDays = plans.filter(x => x.code === s.code && weekOfDay_(x.day) === week).length;
       let absent = 0;
       for (let i = 0; i < 7; i++) if (away.has(addDays_(week, i))) absent++;
       return {
@@ -1245,6 +1260,7 @@ function kpiWeekPayload_(week, now, text) {
         fullWeek: plan.full,
         exam: exam ? { score: exam.score, total: exam.total, percent: exam.aborted ? 0 : pc(exam.ratio), aborted: exam.aborted } : null,
         dailyQuestion: { days: new Set(ctx.dailies.filter(r => r.code === s.code && !r.aborted && inWeek(r.date)).map(r => dayKey_(r.date))).size },
+        dayPlans: planDays,
         xp: mine.filter(r => inWeek(r.date)).reduce((n, r) => n + r.xp, 0) + dXp.filter(r => r.code === s.code && inWeek(r.date)).reduce((n, r) => n + r.xp, 0),
         owls: { earned: myOwls.reduce((n, o) => n + o.n, 0), items: myOwls.map(o => ({ why: o.why, n: o.n, credited: o.done })) },
         absentDays: absent,
@@ -1388,6 +1404,102 @@ function sendKpiWeek() {
   const now = new Date(), r = kpiPushWeek_(lastWeek_(now), now, weeklyText_(now), 'вручную');
   ui.alert(r.ok ? `Итоги недели ${weekRange_(r.week)} отправлены (${r.count} сотр., HTTP ${r.code}).`
     : `Не отправилось: ${r.error}. Подробности на листе «${SHEET_KPI_LOG}».`);
+}
+
+/* ---------- «План на сегодня» выполнен → KPI-система (v5.14) ---------- */
+
+function dayPlanSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_DAYPLAN);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_DAYPLAN);
+    sh.getRange(1, 1, 1, DAYPLAN_HEADERS.length).setValues([DAYPLAN_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function dayPlans_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DAYPLAN);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const list = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, DAYPLAN_HEADERS.length).getValues()
+    .map((r, i) => ({ row: i + 2, day: dayStr_(r[0]), code: String(r[1]).trim(), name: String(r[2]), branch: String(r[3]),
+      steps: list(r[4]), done: list(r[5]), lessons: list(String(r[6]).replace(/^'/, '')), at: r[7] instanceof Date ? r[7] : null,
+      status: String(r[8] || ''), key: String(r[10] || '') }))
+    .filter(p => p.day && p.code);
+}
+
+/* The app says: today's plan is complete. One row per person and day (a repeat of a delivered one is only acknowledged),
+   then straight on to the KPI system. Never fails the app for the KPI system's sake: the row is kept and retried in the evening. */
+function saveDayPlan_(staff, d) {
+  const now = new Date(), today = dayKey_(now), day = dayStr_(d.day);
+  if (!day || day > today || day < addDays_(today, -DAYPLAN_DAYS)) return { ok: false, error: 'bad_day' };
+  const pick = v => DAYPLAN_STEPS.filter(k => Array.isArray(v) && v.indexOf(k) >= 0);
+  const steps = pick(d.steps), done = pick(d.done);
+  if (!steps.length || steps.some(k => done.indexOf(k) < 0)) return { ok: false, error: 'bad_plan' };  // only a complete plan is sent
+  const lessons = (Array.isArray(d.lessons) ? d.lessons : []).map(x => text_(x, 40)).filter(x => /^[\w-]+$/.test(x)).slice(0, 20);
+  const key = KPI_HOOK.source + ':day:' + day + ':' + staff.code;
+  let rec;
+  underLock_(() => {
+    rec = dayPlans_().filter(p => p.key === key)[0];
+    if (rec) return;
+    const sh = dayPlanSheet_(), row = nextRow_(sh);
+    if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+    sh.getRange(row, 1, 1, 2).setNumberFormat('@');
+    sh.getRange(row, 1, 1, DAYPLAN_HEADERS.length).setValues([[day, staff.code, staff.name, staff.branch, steps.join(', '), done.join(', '),
+      cell_(lessons.join(', ')), now, '', '', key]]);
+    rec = { row, day, code: staff.code, name: staff.name, branch: staff.branch, steps, done, lessons, at: now, status: '', key };
+  });
+  if (rec.status === 'доставлено') return { ok: true, duplicate: true, kpi: 'sent' };
+  return { ok: true, kpi: kpiPushDay_(rec).status };
+}
+
+/* one day plan as JSON: who, the plan, and what the sheet knows of that day (tests, «Вопрос дня», lessons) */
+function kpiDayPayload_(rec) {
+  const s = activeStaff_().filter(x => x.code === rec.code)[0] || { code: rec.code, name: rec.name, branch: rec.branch, role: '', kpiId: '', start: '' };
+  const pc = x => Math.round(x * 100), onDay = r => r.code === rec.code && dayKey_(r.date) === rec.day;
+  const tests = withXp_(results_()).filter(onDay), daily = dailyXp_(dailies_().filter(r => r.code === rec.code)).filter(onDay);
+  const readAt = readAtOf_(rec.code) || {};
+  const lessons = [...new Set(rec.lessons.concat(Object.keys(readAt).filter(id => readAt[id] === rec.day)))];
+  const month = rec.day.slice(0, 7), dq = daily[0];
+  return {
+    event: KPI_DAY.event, version: KPI_DAY.version, id: rec.key, source: KPI_HOOK.source, scriptVersion: SCRIPT_VERSION,
+    sentAt: new Date().toISOString(), day: rec.day, week: weekOfDay_(rec.day), month, trial: kpiState_(month) === 'trial',
+    employee: { code: s.code, kpiId: s.kpiId || null, name: s.name, branch: s.branch, role: s.role || null, level: levelOf_(s.role) || null },
+    plan: { complete: true, steps: rec.steps, done: rec.done, completedAt: rec.at ? rec.at.toISOString() : null },
+    facts: {
+      tests: tests.map(r => ({ kind: r.kind || null, score: r.score, total: r.total, percent: r.aborted ? 0 : pc(r.ratio), counted: counts_(r), aborted: r.aborted })),
+      dailyQuestion: dq ? { score: dq.score, total: dq.total, aborted: dq.aborted } : null,
+      lessons,
+      xp: tests.concat(daily).reduce((n, r) => n + r.xp, 0)
+    }
+  };
+}
+
+/* sends one row and writes the outcome into it (columns I–J); {status: 'sent' | 'failed' | 'off'} */
+function kpiPushDay_(rec) {
+  const sh = dayPlanSheet_(), props = PropertiesService.getScriptProperties();
+  if (!kpiHook_().url) { sh.getRange(rec.row, 9, 1, 2).setValues([['не подключено', '']]); return { status: 'off' }; }
+  let out;
+  try { out = kpiPost_(kpiDayPayload_(rec)); out.error = out.ok ? '' : 'HTTP ' + out.code; } catch (err) { out = { ok: false, code: '', error: safeError_(err) }; }
+  const at = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
+  sh.getRange(rec.row, 9, 1, 2).setValues([[out.ok ? 'доставлено' : 'ошибка', cell_(text_(out.ok ? String(out.code) : out.error, 300))]]);
+  rec.status = out.ok ? 'доставлено' : 'ошибка';
+  /* the status answer is public: never the employee's code (it is their login) */
+  if (out.ok) { props.setProperty('LAST_KPI_OK', `${at}: план дня ${rec.day}`); props.deleteProperty('LAST_KPI_ERROR'); }
+  else props.setProperty('LAST_KPI_ERROR', `${at}: план дня ${rec.day}: ${out.error}`);
+  return { status: out.ok ? 'sent' : 'failed', error: out.error };
+}
+
+/* the evening digest: every day plan of the last DAYPLAN_DAYS days that has not reached the KPI system yet; one message if some still did not */
+function kpiDayRetry_(now) {
+  if (!kpiHook_().url) return;
+  const from = addDays_(dayKey_(now), -DAYPLAN_DAYS);
+  const todo = dayPlans_().filter(p => p.status !== 'доставлено' && p.day >= from);
+  const failed = todo.filter(p => kpiPushDay_(p).status !== 'sent');
+  if (failed.length) notify_(`⚠️ Отметки «План дня» не дошли до KPI-системы: ${failed.length} из ${todo.length}. ` +
+    `Скрипт повторит отправку завтра вечером; подробности на листе «${SHEET_DAYPLAN}».`);
 }
 
 /* ---------- Telegram ---------- */
