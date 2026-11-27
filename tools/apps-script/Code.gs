@@ -59,6 +59,10 @@
  * dayplan, один раз в день). Скрипт записывает её на лист «План дня», добавляет из таблицы тесты, «Вопрос дня» и уроки этого
  * дня и сразу отправляет на тот же вебхук (событие training.day). Не дошло — вечерняя сводка повторяет (последние 7 дней).
  * Приложение шлёт отметки, только когда ?action=me отвечает dayplan: true, поэтому старые версии скрипта их не получают.
+ *
+ * С v5.15 и каждый тест: сразу после записи результата на лист «Результаты» скрипт отправляет его на тот же вебхук
+ * (событие training.test: баллы, сдан ли, засчитан ли в неделю, ошибки, время, XP). Попытка пишется на лист «Отправки в KPI»;
+ * не дошло — вечерняя сводка досылает (последние 7 дней). «Вопрос дня» сюда не входит: он есть в событии training.day.
  */
 
 const SHEET_RESULTS = 'Результаты';
@@ -117,8 +121,9 @@ const SHEET_DAYPLAN = 'План дня';
 const DAYPLAN_HEADERS = ['День', 'Код', 'Сотрудник', 'Филиал', 'План', 'Сделано', 'Уроки', 'Получено', 'KPI-система', 'Ответ', 'Ключ'];
 const DAYPLAN_STEPS = ['daily', 'study', 'test'];  // «Вопрос дня», урок или карточки, тест (так же называются в приложении)
 const DAYPLAN_DAYS = 7;                            // how old a day may be when it arrives, and how far back the evening retries
-const KPI_DAY = { event: 'training.day', version: 1 };  // optional column G of «Сотрудники»: the employee's id in the KPI system, sent as kpiId
-const SCRIPT_VERSION = 'v5.14';
+const KPI_DAY = { event: 'training.day', version: 1 };
+const KPI_TEST = { event: 'training.test', version: 1 };  // one test of the sheet «Результаты», sent right after it is saved (v5.15)  // optional column G of «Сотрудники»: the employee's id in the KPI system, sent as kpiId
+const SCRIPT_VERSION = 'v5.15';
 
 /* ---------- меню в таблице ---------- */
 
@@ -257,6 +262,8 @@ function doPost(e) {
     if (mistakes.length > 10) lines.push(`…и ещё ${mistakes.length - 10}`);
     notify_(lines.join('\n'));
   }
+  /* v5.15: the result goes to the KPI system right away; a failure never touches the answer to the phone (the evening retries) */
+  if (!duplicate && id) { try { kpiTestAuto_(id); } catch (err) { console.warn('kpi test: ' + safeError_(err)); } }
   // Keep the attempt in the phone's outbox until reward processing has completed.
   if (rewardPending) return json_({ ok: false, error: 'reward_pending', saved: true });
   return json_(Object.assign({ ok: true, xp, owls, over }, duplicate ? { duplicate: true } : {}));
@@ -269,6 +276,7 @@ function dailyDigest(e) {
   const now = new Date(), from = new Date(now.getTime() - 864e5);
   if (e) { try { kpiWeekRetry_(now); } catch (err) { console.warn('kpi retry: ' + safeError_(err)); } }  // never blocks the digest
   if (e) { try { kpiDayRetry_(now); } catch (err) { console.warn('kpi day retry: ' + safeError_(err)); } }
+  if (e) { try { kpiTestRetry_(now); } catch (err) { console.warn('kpi test retry: ' + safeError_(err)); } }
   if (e && Utilities.formatDate(now, TZ, 'dd') === '01') {
     monthlyReport_(now);
     try { kpiMonthly_(now); } catch (err) { console.warn('kpi: ' + err.message); }  // never blocks the digest
@@ -495,7 +503,8 @@ function results_() {
     .filter(r => r[0] instanceof Date && Number(r[6]) > 0)
     .map(r => ({ date: r[0], code: String(r[1]), name: String(r[2]), branch: String(r[3]), scope: String(r[4]),
       score: Number(r[5]), total: Number(r[6]), ratio: Number(r[5]) / Number(r[6]), mistakes: String(r[9] || ''),
-      id: String(r[12] || ''), away: Number(r[15]) || 0, aborted: r[16] === 'да', kind: String(r[17] || '') }));
+      id: String(r[12] || ''), away: Number(r[15]) || 0, aborted: r[16] === 'да', kind: String(r[17] || ''),
+      lang: String(r[10] || ''), ver: String(r[11] || ''), time: String(r[13] || ''), timeouts: Number(r[14]) || 0 }));
 }
 
 function isDuplicate_(sh, id) {
@@ -1469,7 +1478,7 @@ function kpiDayPayload_(rec) {
     employee: { code: s.code, kpiId: s.kpiId || null, name: s.name, branch: s.branch, role: s.role || null, level: levelOf_(s.role) || null },
     plan: { complete: true, steps: rec.steps, done: rec.done, completedAt: rec.at ? rec.at.toISOString() : null },
     facts: {
-      tests: tests.map(r => ({ kind: r.kind || null, score: r.score, total: r.total, percent: r.aborted ? 0 : pc(r.ratio), counted: counts_(r), aborted: r.aborted })),
+      tests: tests.map(r => ({ kind: r.kind || null, score: r.score, total: r.total, percent: r.aborted ? 0 : pc(r.ratio), counted: !!r.group && counts_(r), aborted: r.aborted })),
       dailyQuestion: dq ? { score: dq.score, total: dq.total, aborted: dq.aborted } : null,
       lessons,
       xp: tests.concat(daily).reduce((n, r) => n + r.xp, 0)
@@ -1500,6 +1509,65 @@ function kpiDayRetry_(now) {
   const failed = todo.filter(p => kpiPushDay_(p).status !== 'sent');
   if (failed.length) notify_(`⚠️ Отметки «План дня» не дошли до KPI-системы: ${failed.length} из ${todo.length}. ` +
     `Скрипт повторит отправку завтра вечером; подробности на листе «${SHEET_DAYPLAN}».`);
+}
+
+/* ---------- каждый тест → KPI-система (v5.15) ---------- */
+
+/* one row of «Результаты» as JSON: who, and the test with what the sheet makes of it (passed, counted for the week, over the limit, XP) */
+function kpiTestPayload_(r) {
+  const s = activeStaff_().filter(x => x.code === r.code)[0] || { code: r.code, name: r.name, branch: r.branch, role: '', kpiId: '' };
+  const day = dayKey_(r.date), month = day.slice(0, 7);
+  return {
+    event: KPI_TEST.event, version: KPI_TEST.version, id: KPI_HOOK.source + ':test:' + r.id, source: KPI_HOOK.source, scriptVersion: SCRIPT_VERSION,
+    sentAt: new Date().toISOString(), day, week: weekOfDay_(day), month, trial: kpiState_(month) === 'trial',
+    employee: { code: s.code, kpiId: s.kpiId || null, name: s.name, branch: s.branch, role: s.role || null, level: levelOf_(s.role) || null },
+    test: {
+      attemptId: r.id, kind: r.kind || null, scope: r.scope, score: r.score, total: r.total, percent: r.aborted ? 0 : Math.round(r.ratio * 100),
+      passed: !r.aborted && r.ratio >= setting_('PassThreshold', 0.7), counted: !!r.group && counts_(r), overLimit: !!r.over, aborted: r.aborted,  // counted: for the week (the weekly test, not the exam or a retry)
+      time: r.time || null, timeouts: r.timeouts || 0, away: r.away || 0, lang: r.lang || null, appVersion: r.ver || null,
+      takenAt: r.date.toISOString(), xp: r.xp, mistakes: String(r.mistakes || '').split('\n').filter(Boolean)
+    }
+  };
+}
+
+/* sends the test with this attempt id and writes the attempt to «Отправки в KPI»; null when there is no such result */
+function kpiPushTest_(id, how) {
+  const r = withXp_(results_()).filter(x => x.id === id)[0];
+  if (!r) return null;
+  const payload = kpiTestPayload_(r);
+  let out;
+  try { out = kpiPost_(payload); out.error = out.ok ? '' : 'HTTP ' + out.code; } catch (err) { out = { ok: false, code: '', error: safeError_(err) }; }
+  const at = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm'), props = PropertiesService.getScriptProperties();
+  kpiLogSheet_().appendRow([new Date(), payload.week, payload.event, 1, out.code, out.ok ? 'доставлено' : 'ошибка',
+    cell_(text_(how + (out.error ? ': ' + out.error : ''), 300)), payload.id]);
+  /* the status answer is public: the day only, never the employee's code */
+  if (out.ok) { props.setProperty('LAST_KPI_OK', `${at}: тест ${payload.day}`); props.deleteProperty('LAST_KPI_ERROR'); }
+  else props.setProperty('LAST_KPI_ERROR', `${at}: тест ${payload.day}: ${out.error}`);
+  return out;
+}
+
+/* right after a new result is saved (doPost); no message on a failure, the evening retry tells the trainer once */
+function kpiTestAuto_(id) {
+  if (!kpiHook_().url) return;
+  kpiPushTest_(id, 'сразу');
+}
+
+/* the evening digest: every test of the last DAYPLAN_DAYS days that failed and was never delivered, once more; one message if some still fail */
+function kpiTestRetry_(now) {
+  if (!kpiHook_().url) return;
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_KPI_LOG);
+  if (!sh || sh.getLastRow() < 2) return;
+  const from = now.getTime() - DAYPLAN_DAYS * 864e5, prefix = KPI_HOOK.source + ':test:', seen = {};
+  sh.getRange(2, 1, sh.getLastRow() - 1, KPI_LOG_HEADERS.length).getValues().forEach(r => {
+    if (r[2] !== KPI_TEST.event) return;
+    const k = String(r[7]), o = seen[k] || (seen[k] = { sent: false, failed: false, at: 0 });
+    if (r[5] === 'доставлено') o.sent = true; else o.failed = true;
+    if (r[0] instanceof Date) o.at = Math.max(o.at, r[0].getTime());
+  });
+  const todo = Object.keys(seen).filter(k => !seen[k].sent && seen[k].failed && seen[k].at >= from && k.indexOf(prefix) === 0);
+  const left = todo.filter(k => { const out = kpiPushTest_(k.slice(prefix.length), 'повтор'); return out && !out.ok; });
+  if (left.length) notify_(`⚠️ Результаты тестов не дошли до KPI-системы: ${left.length} из ${todo.length}. ` +
+    `Скрипт повторит отправку завтра вечером; подробности на листе «${SHEET_KPI_LOG}».`);
 }
 
 /* ---------- Telegram ---------- */

@@ -176,9 +176,9 @@ const st = env({ notifyAll: true, tgError: 'Bad Request: chat not found' });
 st.post({ id: 's1', code: '9002', scope: 'Напитки', score: 9, total: 10 });
 const s1 = JSON.parse(st.api.doGet({ parameter: { action: 'status' } }).text);
 console.log('--- status ---\n' + JSON.stringify(s1));
-assert.strictEqual(s1.version, 'v5.14'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
+assert.strictEqual(s1.version, 'v5.15'); assert.strictEqual(s1.telegramToken, true); assert.strictEqual(s1.telegramChat, true);
 assert.ok(s1.lastNotifyError.includes('chat not found')); assert.ok(!JSON.stringify(s1).includes('mock-token') && !JSON.stringify(s1).includes('"42"'));
-assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.14');
+assert.strictEqual(JSON.parse(st.api.doGet({}).text).version, 'v5.15');
 assert.strictEqual(s1.kpiWebhook, false, 'status says whether a KPI webhook is set');
 const thr = env({ notifyAll: true, tgThrow: true });
 thr.post({ id: 's2', code: '9002', scope: 'Напитки', score: 9, total: 10 });
@@ -717,7 +717,7 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   console.log('--- KPI webhook payload ---\n' + JSON.stringify(Object.assign({}, b, { text: '…', employees: b.employees.slice(0, 1) }), null, 1));
   assert.strictEqual(h.url, HOOK);
   assert.deepStrictEqual([b.event, b.version, b.id, b.source, b.scriptVersion, b.week, b.trial],
-    ['training.week', 1, 'sensum-learn:week:2026-11-16', 'sensum-learn', 'v5.14', { from: '2026-11-16', to: '2026-11-22', month: '2026-11' }, true]);
+    ['training.week', 1, 'sensum-learn:week:2026-11-16', 'sensum-learn', 'v5.15', { from: '2026-11-16', to: '2026-11-22', month: '2026-11' }, true]);
   assert.strictEqual(b.text, k.sent[0], 'the same text as in Telegram');
   assert.strictEqual(h.headers.Authorization, 'Bearer ' + KEY);
   assert.strictEqual(h.headers['X-Sensum-Signature'], 'sha256=' + crypto.createHmac('sha256', KEY).update(h.raw).digest('hex'), 'the signature is the HMAC of the exact body');
@@ -818,7 +818,7 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   const b = dp.hooks[0].body;
   console.log('--- KPI day plan payload ---\n' + JSON.stringify(b, null, 1));
   assert.deepStrictEqual([b.event, b.version, b.id, b.day, b.week, b.month, b.trial, b.scriptVersion],
-    ['training.day', 1, 'sensum-learn:day:2026-11-27:9001', DAY, '2026-11-23', '2026-11', true, 'v5.14']);
+    ['training.day', 1, 'sensum-learn:day:2026-11-27:9001', DAY, '2026-11-23', '2026-11', true, 'v5.15']);
   assert.deepStrictEqual(b.employee, { code: '9001', kpiId: null, name: 'Тест-1', branch: 'Central Park', role: 'Бариста', level: 'barista' });
   assert.deepStrictEqual([b.plan.complete, b.plan.steps, b.plan.done], [true, ['daily', 'study', 'test'], ['daily', 'study', 'test']]);
   assert.deepStrictEqual(b.facts.tests, [{ kind: 'mixed', score: 9, total: 10, percent: 90, counted: true, aborted: false }], 'only that day');
@@ -842,6 +842,9 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   assert.strictEqual(dp.post(plan({ code: '9003', lessons: ['=HYPERLINK("x")', 'sv-2'] })).ok, true);
   assert.deepStrictEqual(dp.hooks[dp.hooks.length - 1].body.facts.lessons, ['sv-2'], 'odd lesson ids are dropped');
   assert.strictEqual(dp.results.getLastRow(), 3, 'a day plan never becomes a test result');
+  const ex = env({ now: NOWD, props }); krow(ex, '9002', DAY, 'exam', 18, 20);
+  ex.post(plan({ code: '9002', steps: ['daily', 'study'], done: ['daily', 'study'], lessons: [] }));
+  assert.deepStrictEqual(ex.hooks[0].body.facts.tests.map(x => [x.kind, x.counted]), [['exam', false]], 'the exam does not count for the week');
   // the weekly report counts the completed day plans of the week
   const wk = env({ now: Date.parse('2026-11-30T06:00:00Z'), props });
   wk.post(plan({ day: '2026-11-26' })); wk.post(plan({ day: '2026-11-27' })); wk.post(plan({ code: '9002', day: '2026-11-29' }));
@@ -871,6 +874,74 @@ assert.ok(/const KPI_THRESHOLD = 80;/.test(SRC) && /const KPI_CAP = 30;/.test(SR
   o.api.dailyDigest({ triggerUid: 1 });
   assert.strictEqual(o.hooks.filter(h => h.body.event === 'training.day').length, 1); assert.strictEqual(o.sheets['План дня'].data[1][8], 'доставлено');
   assert.ok(dp.isLocked() === false && f.isLocked() === false);
+}
+
+// 8k. every test → the KPI system (v5.15): right after it is saved, once; a failure is retried in the evening; never without a webhook
+{
+  const HOOK = 'https://kpi.example.test/api/public/sensum', KEY = 'kpi-' + 'k'.repeat(20);
+  const NOWT = Date.parse('2026-11-27T13:00:00Z');  // Friday 27.11.2026, 17:00 in Baku
+  const props = { TELEGRAM_TOKEN: 'mock-token', TELEGRAM_CHAT_ID: '42', KPI_WEBHOOK_URL: HOOK, KPI_WEBHOOK_SECRET: KEY };
+  const test = o => Object.assign({ id: 'tt1', code: '9001', scope: 'Общий тест', kind: 'mixed', score: 9, total: 10, mistakes: M, lang: 'ru', ver: '1.129',
+    ts: NOWT - 60000, secs: 70, timeouts: 1, away: 0, aborted: false }, o);
+  const t = env({ now: NOWT, props, notifyAll: false });
+  const ans = t.post(test());
+  assert.deepStrictEqual([ans.ok, ans.xp], [true, 90], 'the phone gets its usual answer');
+  const tests = () => t.hooks.filter(h => h.body.event === 'training.test');
+  assert.strictEqual(tests().length, 1, 'sent right away');
+  const b = tests()[0].body;
+  console.log('--- KPI test payload ---\n' + JSON.stringify(b, null, 1));
+  assert.deepStrictEqual([b.version, b.id, b.day, b.week, b.month, b.trial, b.scriptVersion], [1, 'sensum-learn:test:tt1', '2026-11-27', '2026-11-23', '2026-11', true, 'v5.15']);
+  assert.deepStrictEqual(b.employee, { code: '9001', kpiId: null, name: 'Тест-1', branch: 'Central Park', role: 'Бариста', level: 'barista' });
+  assert.deepStrictEqual(b.test, { attemptId: 'tt1', kind: 'mixed', scope: 'Общий тест', score: 9, total: 10, percent: 90, passed: true, counted: true,
+    overLimit: false, aborted: false, time: '1:10', timeouts: 1, away: 0, lang: 'ru', appVersion: '1.129', takenAt: new Date(NOWT - 60000).toISOString(), xp: 90,
+    mistakes: ['Café Latte: сколько «Молоко»? → 180 мл (верно: 220 мл)'] });
+  assert.strictEqual(tests()[0].headers['X-Sensum-Signature'], 'sha256=' + crypto.createHmac('sha256', KEY).update(tests()[0].raw).digest('hex'));
+  const log = t.sheets['Отправки в KPI'].data;
+  assert.deepStrictEqual(log[1].slice(1), ['2026-11-23', 'training.test', 1, 200, 'доставлено', 'сразу', 'sensum-learn:test:tt1']);
+  const st = JSON.parse(t.api.doGet({ parameter: { action: 'status' } }).text);
+  assert.ok(st.lastKpiOk.endsWith('тест 2026-11-27') && !JSON.stringify(st).includes('9001'), 'the public status shows no code');
+  // a repeat of the same attempt (a lost answer on the phone) is not sent again; a result without an id is never sent
+  t.post(test()); assert.strictEqual(tests().length, 1);
+  t.post(test({ id: '', score: 5 })); assert.strictEqual(tests().length, 1);
+  // a test below the line, one over the limit of the day, the exam, a retry of mistakes: each goes, with what the sheet makes of it
+  t.post(test({ id: 'tt2', score: 6, ts: NOWT - 30000 }));
+  t.post(test({ id: 'tt3', kind: 'exam', scope: 'Экзамен месяца', score: 18, total: 20, mistakes: [] }));
+  t.post(test({ id: 'tt4', kind: 'mix', scope: 'Повтор ошибок', score: 1, total: 1, mistakes: [] }));
+  t.post(test({ id: 'tt5', code: '9002', score: 3, total: 10, aborted: true, away: 2 }));
+  const by = id => tests().find(h => h.body.test.attemptId === id).body.test;
+  assert.deepStrictEqual([by('tt2').percent, by('tt2').passed, by('tt2').counted, by('tt2').overLimit], [60, false, false, true], 'the second test of a day is over the limit');
+  assert.deepStrictEqual([by('tt3').kind, by('tt3').percent, by('tt3').counted, by('tt3').xp], ['exam', 90, false, 270]);
+  assert.deepStrictEqual([by('tt4').kind, by('tt4').counted], ['mix', false]);
+  assert.deepStrictEqual([by('tt5').aborted, by('tt5').percent, by('tt5').passed, by('tt5').away, by('tt5').xp], [true, 0, false, 2, 0]);
+  // «Вопрос дня» is not a test of «Результаты»: it is not sent this way
+  t.post({ id: 'dq1', code: '9001', kind: 'daily', score: 3, total: 3, ts: NOWT });
+  assert.ok(!tests().some(h => h.body.test.attemptId === 'dq1'));
+
+  // the KPI system is down: the phone still gets ok, nothing in Telegram at once, the evening retries and says it once
+  const f = env({ now: NOWT, props, notifyAll: false, hook: { status: 503 } });
+  assert.strictEqual(f.post(test()).ok, true);
+  assert.ok(!f.sent.some(x => x.includes('KPI')), 'no message per test');
+  assert.strictEqual(f.sheets['Отправки в KPI'].data[1][5], 'ошибка');
+  f.api.dailyDigest({ triggerUid: 1 });
+  const fTests = () => f.hooks.filter(h => h.body.event === 'training.test').length;
+  assert.strictEqual(fTests(), 2, 'the evening tries again');
+  assert.ok(f.sent.some(x => x.startsWith('⚠️ Результаты тестов не дошли до KPI-системы: 1 из 1')));
+  f.opts.hook = { status: 200 };
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(fTests(), 3);
+  f.api.dailyDigest({ triggerUid: 1 });
+  assert.strictEqual(fTests(), 3, 'delivered: not sent again');
+  assert.deepStrictEqual(f.sheets['Отправки в KPI'].data.slice(1).filter(r => r[2] === 'training.test').map(r => [r[4], r[5], r[6]]),
+    [[503, 'ошибка', 'сразу: HTTP 503'], [503, 'ошибка', 'повтор: HTTP 503'], [200, 'доставлено', 'повтор']]);
+  // a network error never shows the address or the key
+  const n = env({ now: NOWT, props, notifyAll: false, hook: { throw: true } });
+  n.post(test());
+  const nlog = JSON.stringify(n.sheets['Отправки в KPI'].data) + JSON.parse(n.api.doGet({ parameter: { action: 'status' } }).text).lastKpiError;
+  assert.ok(nlog.includes('***') && !nlog.includes('kpi.example.test') && !nlog.includes(KEY));
+  // no webhook: nothing is sent and no sheet is made
+  const o = env({ now: NOWT, notifyAll: false });
+  assert.strictEqual(o.post(test()).ok, true); assert.strictEqual(o.hooks.length, 0); assert.ok(!o.sheets['Отправки в KPI']);
+  assert.ok(t.isLocked() === false && f.isLocked() === false);
 }
 
 // 9. menu flows
